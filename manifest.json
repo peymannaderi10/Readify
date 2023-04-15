@@ -1,0 +1,26 @@
+{
+  "manifest_version": 2,
+  "name": "Bionic Reader",
+  "version": "1.0",
+  "description": "Bold the first 30-50% of every word on a web page.",
+  "icons": {
+    "128": "icon.png"
+  },
+  "browser_action": {
+    "default_icon": "icon.png",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": ["content_script.js"]
+    }
+  ]
+}
