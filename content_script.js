@@ -1,9 +1,19 @@
+let originalPageContent;
+let bionicReaderEnabled;
+
 function bionicReader(text) {
   return text.replace(/\b\w+\b/g, function (word) {
-    const boldLength = Math.round(word.length * 0.5);
+    const boldLength = Math.round(word.length * 0.4);
     const boldPart = word.slice(0, boldLength);
     const remainingPart = word.slice(boldLength);
     return `<strong>${boldPart}</strong>${remainingPart}`;
+  });
+}
+
+function removeStrongInParagraphs() {
+  const paragraphs = document.querySelectorAll('p');
+  paragraphs.forEach((paragraph) => {
+    paragraph.innerHTML = paragraph.innerHTML.replace(/<strong>|<\/strong>/g, '');
   });
 }
 
@@ -23,34 +33,39 @@ function applyBionicReader(node) {
   }
 }
 
-function removeBoldFormatting() {
-  const boldElements = document.querySelectorAll('b, strong');
-  for (const boldElement of boldElements) {
-    boldElement.outerHTML = boldElement.innerHTML;
-  }
-}
-
 function processPage() {
-  removeBoldFormatting();
+  if (!originalPageContent) {
+    originalPageContent = document.body.innerHTML;
+  }
+  removeStrongInParagraphs();
   applyBionicReader(document.body);
 }
 
 function resetPage() {
-  location.reload();
+  if (originalPageContent) {
+    document.body.innerHTML = originalPageContent;
+  }
 }
 
 chrome.storage.sync.get('bionicReaderEnabled', function (data) {
-  if (data.bionicReaderEnabled) {
+  bionicReaderEnabled = data.bionicReaderEnabled;
+  if (bionicReaderEnabled) {
     processPage();
   }
 });
 
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  if (request.bionicReaderEnabled) {
+  bionicReaderEnabled = request.bionicReaderEnabled;
+  if (bionicReaderEnabled) {
     processPage();
-    sendResponse({ result: "success" });
   } else {
     resetPage();
-    sendResponse({ result: "success" });
+  }
+  sendResponse({ result: "success" });
+});
+
+chrome.runtime.onMessageExternal.addListener(function (request, sender, sendResponse) {
+  if (request.command === "checkBionicReaderState") {
+    sendResponse({ bionicReaderEnabled });
   }
 });
