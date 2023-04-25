@@ -19,6 +19,7 @@ chrome.browserAction.onClicked.addListener(function () {
 
 chrome.tabs.onRemoved.addListener(function (tabId) {
   delete tabStates[tabId];
+  chrome.storage.sync.remove(`bionicReaderEnabled_${tabId}`);
 });
 
 chrome.tabs.onActivated.addListener(function (activeInfo) {
@@ -26,10 +27,10 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
   if (tabStates.hasOwnProperty(tabId)) {
     const isEnabled = tabStates[tabId];
     chrome.tabs.sendMessage(tabId, { bionicReaderEnabled: isEnabled });
-    chrome.storage.sync.set({ bionicReaderEnabled: isEnabled });
+    chrome.storage.sync.set({ [`bionicReaderEnabled_${tabId}`]: isEnabled });
   } else {
-    chrome.storage.sync.get('bionicReaderEnabled', function (data) {
-      if (data.bionicReaderEnabled) {
+    chrome.storage.sync.get(`bionicReaderEnabled_${tabId}`, function (data) {
+      if (data[`bionicReaderEnabled_${tabId}`]) {
         chrome.tabs.sendMessage(tabId, { bionicReaderEnabled: true });
       } else {
         chrome.tabs.sendMessage(tabId, { bionicReaderEnabled: false });
@@ -42,7 +43,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.updateTabState !== undefined) {
     const { tabId, isEnabled } = request.updateTabState;
     tabStates[tabId] = isEnabled;
-    chrome.storage.sync.set({ bionicReaderEnabled: isEnabled });
+    chrome.storage.sync.set({ [`bionicReaderEnabled_${tabId}`]: isEnabled });
     sendResponse({ result: "Tab state updated" });
   } else if (request.getTabState !== undefined) {
     const { tabId } = request.getTabState;
