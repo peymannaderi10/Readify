@@ -1,26 +1,32 @@
-document.addEventListener('DOMContentLoaded', function () {
-  const bionicReaderSwitch = document.getElementById('bionicReaderSwitch');
+const bionicReaderSwitch = document.getElementById("bionicReaderSwitch");
 
-  // Get Bionic Reader state for the current tab
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    const tabId = tabs[0].id;
-    chrome.runtime.sendMessage({ getTabState: { tabId } }, function (response) {
-      bionicReaderSwitch.checked = response.isEnabled;
-    });
+chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  const tabId = tabs[0].id;
+  chrome.storage.sync.get(["tabStates"], ({ tabStates }) => {
+    const isEnabled = tabStates?.[tabId] ?? false;
+    bionicReaderSwitch.checked = isEnabled;
   });
+});
 
-  bionicReaderSwitch.addEventListener('change', function () {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      const tabId = tabs[0].id;
-      const isEnabled = bionicReaderSwitch.checked;
-      chrome.runtime.sendMessage({ updateTabState: { tabId, isEnabled } });
-      chrome.tabs.sendMessage(tabId, { bionicReaderEnabled: isEnabled }, function (response) {
-        if (response.result === "success") {
-          console.log("Bionic Reader applied/removed successfully.");
-        } else {
-          console.error("Error applying/removing Bionic Reader.");
+bionicReaderSwitch.addEventListener("change", () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabId = tabs[0].id;
+    const isEnabled = bionicReaderSwitch.checked;
+    chrome.storage.sync.get(["tabStates"], ({ tabStates }) => {
+      tabStates = tabStates ?? {};
+      tabStates[tabId] = isEnabled;
+      chrome.storage.sync.set({ tabStates });
+      chrome.tabs.sendMessage(
+        tabId,
+        { bionicReaderEnabled: isEnabled },
+        (response) => {
+          if (response?.result === "success") {
+            console.log("Bionic Reader applied/removed successfully.");
+          } else {
+            console.error("Error applying/removing Bionic Reader.");
+          }
         }
-      });
+      );
     });
   });
 });

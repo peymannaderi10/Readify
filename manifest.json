@@ -1,28 +1,33 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Bionic Reader",
   "version": "1.0",
   "description": "A Chrome extension to bold the first 30-50% of each word on a webpage",
-  "permissions": ["storage", "tabs", "<all_urls>"],
-  "browser_action": {
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
     "default_icon": "icon.png",
-    "default_popup": "popup.html",
-    "default_title": "Bionic Reader"
+    "default_title": "Bionic Reader",
+    "default_popup": "popup.html"
   },
   "background": {
-    "scripts": ["background.js"],
-    "persistent": false
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content_script.js"]
+      "all_frames": true,
+      "js": ["content_script.js"],
+      "run_at": "document_idle"
     }
   ],
   "icons": {
     "48": "icon.png"
   },
   "web_accessible_resources": [
-    "popup.html"
+    {
+      "resources": ["popup.html"],
+      "matches": ["<all_urls>"]
+    }
   ]
 }

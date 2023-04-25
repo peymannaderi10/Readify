@@ -1,8 +1,7 @@
 let originalPageContent;
 let bionicReaderEnabled;
-
 function bionicReader(text) {
-  return text.replace(/\b\w+\b/g, function (word) {
+  return text.replace(/\b\w+\b/g, (word) => {
     const boldLength = Math.round(word.length * 0.4);
     const boldPart = word.slice(0, boldLength);
     const remainingPart = word.slice(boldLength);
@@ -11,17 +10,24 @@ function bionicReader(text) {
 }
 
 function removeStrongInParagraphs() {
-  const paragraphs = document.querySelectorAll('p');
+  const paragraphs = document.querySelectorAll("p");
   paragraphs.forEach((paragraph) => {
-    paragraph.innerHTML = paragraph.innerHTML.replace(/<strong>|<\/strong>/g, '');
+    paragraph.innerHTML = paragraph.innerHTML.replace(
+      /<strong>|<\/strong>/g,
+      ""
+    );
   });
 }
 
 function applyBionicReader(node) {
   if (node.nodeType === Node.TEXT_NODE) {
     const parent = node.parentNode;
-    if (parent && parent.tagName.toLowerCase() !== 'script' && parent.tagName.toLowerCase() !== 'style') {
-      const newNode = document.createElement('span');
+    if (
+      parent &&
+      parent.tagName.toLowerCase() !== "script" &&
+      parent.tagName.toLowerCase() !== "style"
+    ) {
+      const newNode = document.createElement("span");
       newNode.innerHTML = bionicReader(node.textContent);
       parent.replaceChild(newNode, node);
     }
@@ -47,25 +53,22 @@ function resetPage() {
   }
 }
 
-chrome.storage.sync.get('bionicReaderEnabled', function (data) {
-  bionicReaderEnabled = data.bionicReaderEnabled;
+chrome.storage.sync.get(["tabStates"], ({ tabStates }) => {
+  const tabId = chrome?.tabs?.getCurrent?.()?.id;
+  bionicReaderEnabled = tabStates?.[tabId] ?? false;
   if (bionicReaderEnabled) {
     processPage();
   }
 });
 
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  bionicReaderEnabled = request.bionicReaderEnabled;
-  if (bionicReaderEnabled) {
-    processPage();
-  } else {
-    resetPage();
+chrome.runtime.onMessage.addListener(
+  (request, sender, sendResponse) => {
+    bionicReaderEnabled = request?.bionicReaderEnabled ?? bionicReaderEnabled;
+    if (bionicReaderEnabled) {
+      processPage();
+    } else {
+      resetPage();
+    }
+    sendResponse({ result: "success" });
   }
-  sendResponse({ result: "success" });
-});
-
-chrome.runtime.onMessageExternal.addListener(function (request, sender, sendResponse) {
-  if (request.command === "checkBionicReaderState") {
-    sendResponse({ bionicReaderEnabled });
-  }
-});
+);
