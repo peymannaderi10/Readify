@@ -53,3 +53,11 @@
   -ms-transform: translateX(22px);
   transform: translateX(22px);
 }
+
+.container {
+  flex-wrap: wrap;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}

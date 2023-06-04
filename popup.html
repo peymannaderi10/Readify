@@ -11,6 +11,7 @@
       crossorigin="anonymous"
     />
     <link rel="stylesheet" href="styles.css" />
+
   </head>
   <body>
     <div class="container">
@@ -22,8 +23,32 @@
           </label>
         </div>
       </div>
+      <div class="row">
+        <div class="col-12">
+          <div class="slidecontainer">
+            <label for="saccadesSlider">Saccades:</label>
+            <input type="range" min="0" max="3" id="saccadesSlider" />
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-12">
+          <div class="slidecontainer">
+            <label for="boldAmount">Bold Amount:</label>
+            <input type="range" min="0" max="3" id="boldAmount" />
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-12">
+          <div class="slidecontainer">
+            <label for="unboldOpacity">Unbold Opacity:</label>
+            <input type="range" min="0" max="3" id="unboldOpacity" />
+          </div>
+        </div>
+      </div>
     </div>
+
     <script src="popup.js"></script>
   </body>
 </html>
-
