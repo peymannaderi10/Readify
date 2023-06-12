@@ -1,6 +1,6 @@
 let originalPageContent;
 let bionicReaderEnabled;
-let lineHeight = 0;
+let lineHeight = 1.5;
 
 function bionicReader(text) {
   return text.replace(/\b\w+\b/g, (word) => {
@@ -66,7 +66,7 @@ function resetPage() {
 chrome.storage.sync.get(["tabStates", "lineHeights"], ({ tabStates, lineHeights }) => {
   const tabId = chrome?.tabs?.getCurrent?.()?.id;
   bionicReaderEnabled = tabStates?.[tabId] ?? false;
-  lineHeight = lineHeights?.[tabId] ?? 0;
+  lineHeight = lineHeights?.[tabId] ?? 1.5;
   if (bionicReaderEnabled) {
     processPage();
   }
