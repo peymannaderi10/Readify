@@ -3,6 +3,7 @@ const increaseLineHeightBtn = document.getElementById("increaseLineHeightBtn");
 const decreaseLineHeightBtn = document.getElementById("decreaseLineHeightBtn");
 
 let lineHeight;
+let test;
 
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tabId = tabs[0].id;
