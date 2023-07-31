@@ -1,6 +1,5 @@
 let originalPageContent;
 let bionicReaderEnabled;
-let lineHeight = 1.5;
 
 function bionicReader(text) {
   return text.replace(/\b\w+\b/g, (word) => {
@@ -38,12 +37,6 @@ function applyBionicReader(node) {
   }
 }
 
-function adjustLineHeight() {
-  const paragraphs = document.querySelectorAll("p");
-  paragraphs.forEach((paragraph) => {
-    paragraph.style.lineHeight = lineHeight > 0 ? lineHeight : ""; // Apply line height if it's greater than 0
-  });
-}
 
 function processPage() {
   if (!originalPageContent) {
@@ -51,10 +44,8 @@ function processPage() {
   }
   removeStrongInParagraphs();
   applyBionicReader(document.body);
-  adjustLineHeight(); // Adjust line height after applying Bionic Reader
 }
 
-// Rest of the code remains the same
 
 
 function resetPage() {
@@ -63,22 +54,60 @@ function resetPage() {
   }
 }
 
-chrome.storage.sync.get(["tabStates", "lineHeights"], ({ tabStates, lineHeights }) => {
+chrome.storage.sync.get(["tabStates"], ({ tabStates }) => {
   const tabId = chrome?.tabs?.getCurrent?.()?.id;
   bionicReaderEnabled = tabStates?.[tabId] ?? false;
-  lineHeight = lineHeights?.[tabId] ?? 1.5;
   if (bionicReaderEnabled) {
     processPage();
   }
 });
 
+chrome.runtime.onMessage.addListener(
+  (request, sender, sendResponse) => {
+    bionicReaderEnabled = request?.bionicReaderEnabled ?? bionicReaderEnabled;
+    if (bionicReaderEnabled) {
+      processPage();
+    } else {
+      resetPage();
+    }
+    sendResponse({ result: "success" });
+});
+
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  bionicReaderEnabled = request?.bionicReaderEnabled ?? bionicReaderEnabled;
-  lineHeight = request?.lineHeight ?? lineHeight;
-  if (bionicReaderEnabled) {
-    processPage();
-  } else {
-    resetPage();
+  if (request.action === "increase") {
+    increaseLineHeight();
+  } else if (request.action === "decrease") {
+    decreaseLineHeight();
+  } else if (request?.bionicReaderEnabled !== undefined) {
+    bionicReaderEnabled = request.bionicReaderEnabled;
+    if (bionicReaderEnabled) {
+      processPage();
+    } else {
+      resetPage();
+    }
   }
   sendResponse({ result: "success" });
 });
+
+function increaseLineHeight() {
+  var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,span,a,div');
+  elements.forEach(function(elem) {
+    var style = window.getComputedStyle(elem, null).getPropertyValue('line-height');
+    var fontSize = window.getComputedStyle(elem, null).getPropertyValue('font-size');
+    var lineHeight = (style == 'normal') ? parseFloat(fontSize) * 1.2 : parseFloat(style);
+    lineHeight *= 1.2;
+    elem.style.lineHeight = lineHeight + 'px';
+  });
+}
+
+function decreaseLineHeight() {
+  var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,span,a,div');
+  elements.forEach(function(elem) {
+    var style = window.getComputedStyle(elem, null).getPropertyValue('line-height');
+    var fontSize = window.getComputedStyle(elem, null).getPropertyValue('font-size');
+    var lineHeight = (style == 'normal') ? parseFloat(fontSize) * 1.2 : parseFloat(style);
+    lineHeight /= 1.2;
+    elem.style.lineHeight = lineHeight + 'px';
+  });
+}
