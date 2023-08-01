@@ -1,10 +1,13 @@
 {
   "manifest_version": 2,
-  "name": "Line Height Changer",
+  "name": "Text Modifier",
   "version": "1.0",
-  "description": "Change the line height of text on any webpage",
+  "description": "Modify line height and word styles",
   "browser_action": {
-    "default_popup": "popup.html"
+      "default_popup": "popup.html"
   },
-  "permissions": ["activeTab"]
+  "permissions": [
+      "activeTab",
+      "storage"
+  ]
 }
