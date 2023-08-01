@@ -114,3 +114,13 @@ document.getElementById('toggleBold').addEventListener('change', function() {
         });
     }
 });
+
+document.getElementById('readPage').addEventListener('click', function() {
+    chrome.tabs.executeScript({
+        code: `
+        var utterance = new SpeechSynthesisUtterance();
+        utterance.text = document.body.innerText;
+        window.speechSynthesis.speak(utterance);
+        `
+    });
+});
