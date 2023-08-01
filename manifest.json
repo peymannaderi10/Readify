@@ -1,33 +1,10 @@
 {
-  "manifest_version": 3,
-  "name": "Bionic Reader",
+  "manifest_version": 2,
+  "name": "Line Height Changer",
   "version": "1.0",
-  "description": "A Chrome extension to bold the first 30-50% of each word on a webpage",
-  "permissions": ["storage", "activeTab", "scripting"],
-  "host_permissions": ["<all_urls>"],
-  "action": {
-    "default_icon": "icon.png",
-    "default_title": "Bionic Reader",
+  "description": "Change the line height of text on any webpage",
+  "browser_action": {
     "default_popup": "popup.html"
   },
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "all_frames": true,
-      "js": ["content_script.js"],
-      "run_at": "document_idle"
-    }
-  ],
-  "icons": {
-    "48": "icon.png"
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["popup.html"],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  "permissions": ["activeTab"]
 }

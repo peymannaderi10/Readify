@@ -1,61 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bionic Reader</title>
-    <link
-      rel="stylesheet"
-      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
-      integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
-      crossorigin="anonymous"
-    />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" type="text/css" href="styles.css">
   </head>
   <body>
-    <div class="container">
-      <div class="row">
-        <div class="col-12 d-flex align-items-center my-3">
-          <label class="switch">
-            <input type="checkbox" id="bionicReaderSwitch" />
-            <span class="slider smaller"></span>
-          </label>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-12">
-          <div class="slidecontainer">
-            <label for="saccadesSlider">Saccades:</label>
-            <input type="range" min="0" max="3" id="saccadesSlider" value="0" />
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-12">
-          <div class="slidecontainer">
-            <label for="boldAmount">Bold Amount:</label>
-            <input type="range" min="0" max="3" id="boldAmount" value="0" />
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-12">
-          <div class="slidecontainer">
-            <label for="unboldOpacity">Unbold Opacity:</label>
-            <input type="range" min="0" max="3" id="unboldOpacity" value="0" />
-          </div>
-        </div>
-      </div> 
-      <div class="row">
-        <div class="col-12">
-          <div class="buttoncontainer">
-            <button id="increaseLineHeight">Increase Line Height</button>
-            <button id="decreaseLineHeight">Decrease Line Height</button>
-          </div>
-        </div>
-      </div>
-      
+    <button id="increase">Increase Line Height</button>
+    <button id="decrease">Decrease Line Height</button>
+    <label><input type="checkbox" id="toggleBold" /> Bold Words</label>
+    <div>
+      <input type="range" min="0" max="4" value="1" id="boldRange" />
+      <span id="boldPercent">40%</span>
     </div>
+
     <script src="popup.js"></script>
   </body>
 </html>
