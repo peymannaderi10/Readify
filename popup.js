@@ -1,5 +1,5 @@
 function modifyDOM(action, boldPercent, skipWords, opacityLevel, color) {
-    var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li');
+    var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6');
     elements.forEach(function(elem) {
         if (action === 'increase') {
             elem.style.lineHeight = (parseFloat(getComputedStyle(elem).lineHeight) + 3) + 'px';
@@ -26,7 +26,7 @@ function modifyDOM(action, boldPercent, skipWords, opacityLevel, color) {
     });
 }
 
-
+var timeout;
 
 var colorSelect = document.getElementById('colorSelect');
 
@@ -54,51 +54,67 @@ colorSelect.addEventListener('change', function() {
 });
 
 
+
 var boldRange = document.getElementById('boldRange');
 var boldPercent = document.getElementById('boldPercent');
 boldRange.addEventListener('input', function() {
-    var percent = (parseInt(this.value) + 1) * 10 + 20;
+    var value = this.value;
+    var percent = (parseInt(value) + 1) * 10 + 20; 
     boldPercent.textContent = percent + '%';
 
-    if (document.getElementById('toggleBold').checked) {
-        var percent = (parseInt(this.value) + 1) / 10 + 0.2;
-        var wordsToSkip = parseInt(skipRange.value);
-        var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
-        chrome.tabs.executeScript({
-            code: '(' + modifyDOM + ')("toggleBold", ' + percent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
-        });
-    }
+    clearTimeout(timeout);
+    timeout = setTimeout(function() {
+        if (document.getElementById('toggleBold').checked) {
+            var boldPercent = (parseInt(value) + 1) / 10 + 0.2;
+            var wordsToSkip = parseInt(skipRange.value);
+            var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
+            chrome.tabs.executeScript({
+                code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
+            });
+        }
+    }, 500);
 });
+
 
 var skipRange = document.getElementById('skipRange');
 var skipWords = document.getElementById('skipWords');
 skipRange.addEventListener('input', function() {
-    var wordsToSkip = parseInt(this.value);
+    var value = this.value; // Capture the value here
+    var wordsToSkip = parseInt(value);
     skipWords.textContent = 'Skip ' + wordsToSkip + ' words';
 
-    if (document.getElementById('toggleBold').checked) {
-        var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
-        var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
-        chrome.tabs.executeScript({
-            code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
-        });
-    }
+    clearTimeout(timeout);
+    timeout = setTimeout(function() { // Apply the delay
+        if (document.getElementById('toggleBold').checked) {
+            var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
+            var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
+            chrome.tabs.executeScript({
+                code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
+            });
+        }
+    }, 500);
 });
+
 
 var opacityRange = document.getElementById('opacityRange');
 var opacityLevel = document.getElementById('opacityLevel');
 opacityRange.addEventListener('input', function() {
-    var opacity = parseInt(this.value) * 0.225 + 0.1;
+    var value = this.value; // Capture the value here
+    var opacity = parseInt(value) * 0.225 + 0.1;
     opacityLevel.textContent = 'Opacity ' + (opacity * 100).toFixed(0) + '%';
 
-    if (document.getElementById('toggleBold').checked) {
-        var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
-        var wordsToSkip = parseInt(skipRange.value);
-        chrome.tabs.executeScript({
-            code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
-        });
-    }
+    clearTimeout(timeout);
+    timeout = setTimeout(function() { // Apply the delay
+        if (document.getElementById('toggleBold').checked) {
+            var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
+            var wordsToSkip = parseInt(skipRange.value);
+            chrome.tabs.executeScript({
+                code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
+            });
+        }
+    }, 500);
 });
+
 
 document.getElementById('toggleBold').addEventListener('change', function() {
     if (this.checked) {
@@ -119,8 +135,19 @@ document.getElementById('readPage').addEventListener('click', function() {
     chrome.tabs.executeScript({
         code: `
         var utterance = new SpeechSynthesisUtterance();
-        utterance.text = document.body.innerText;
-        window.speechSynthesis.speak(utterance);
+        var paragraphs = Array.from(document.getElementsByTagName('p'));
+        utterance.text = paragraphs.map(p => p.innerText).join(' ');
+
+        window.speechSynthesis.onvoiceschanged = function() {
+            var voices = window.speechSynthesis.getVoices();
+            var selectedVoice = voices.find(function(voice) {
+                return voice.name === 'Google US English'; // This is an example, you can replace 'Google US English' with the name of any other voice you prefer
+            });
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+            }
+            window.speechSynthesis.speak(utterance);
+        };
         `
     });
 });
