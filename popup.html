@@ -12,7 +12,7 @@
     <button id="decrease">Decrease Line Height</button>
     <label><input type="checkbox" id="toggleBold" /> Bold Words</label>
     <div>
-      <input type="range" min="0" max="5" value="1" id="boldRange" />
+      <input type="range" min="0" max="5" value="0" id="boldRange" />
       <span id="boldPercent">40%</span>
     </div>
     <div>
@@ -36,6 +36,15 @@
     <div>
       <button id="readPage">Read Page</button>
     </div>
+    
+   <div>
+      <button id="aiSummarizerBtn">Summarize Website</button>
+      <div>
+        <label for="summaryBox">Summarized Text:</label>
+        <textarea id="summaryBox" cols="30" rows="10"></textarea>
+      </div>
+    </div>
+
     <script src="popup.js"></script>
   </body>
 </html>
