@@ -14,5 +14,9 @@
       "js": ["content.js"]
     }
   ],
-  "permissions": ["activeTab", "storage"]
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "permissions": ["activeTab", "storage", "tabs"]
 }

@@ -1,3 +1,48 @@
+function getCurrentTabSettingsKey(callback) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        var currentTabId = tabs[0].id;
+        var settingsKey = 'settings_' + currentTabId;
+        callback(settingsKey);
+    });
+}
+
+function updateStorageSettings(){
+    getCurrentTabSettingsKey(function(settingsKey) {
+        var saveObj = {};
+        saveObj[settingsKey] = {
+            toggleBoldState: document.getElementById('toggleBold').checked,
+            boldRangeValue: boldRange.value,
+            opacityRangeValue: opacityRange.value,
+            skipRangeValue: skipRange.value,
+            boldedColor: colorSelect.value
+        };
+        chrome.storage.local.set(saveObj);
+    });
+}
+
+// On popup load
+document.addEventListener('DOMContentLoaded', function() {
+    getCurrentTabSettingsKey(function(settingsKey) {
+        chrome.storage.local.get(settingsKey, function(data) {
+            var settings = data[settingsKey];
+            if (settings) {
+                document.getElementById('toggleBold').checked = settings.toggleBoldState || false;
+                document.getElementById('boldRange').value = settings.boldRangeValue || "1";
+                document.getElementById('opacityRange').value = settings.opacityRangeValue || "4";
+                document.getElementById('skipRange').value = settings.skipRangeValue || "0";
+                document.getElementById('colorSelect').value = settings.boldedColor || "black";
+                // Add update code for labels if necessary
+                document.getElementById('boldPercent').textContent = percent + '%';
+                document.getElementById('opacityLevel').textContent = 'Opacity ' + (opacity * 100).toFixed(0) + '%';
+                document.getElementById('skipWords').textContent = 'Skip ' + parseInt(skipValue) + ' words';
+            } 
+        });
+    });
+});
+
+
+
+
 function modifyDOM(action, boldPercent, skipWords, opacityLevel, color) {
     var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6');
     elements.forEach(function(elem) {
@@ -51,6 +96,7 @@ colorSelect.addEventListener('change', function() {
     chrome.tabs.executeScript({
         code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
     });
+    updateStorageSettings();
 });
 
 
@@ -73,6 +119,7 @@ boldRange.addEventListener('input', function() {
             });
         }
     }, 500);
+    updateStorageSettings();
 });
 
 
@@ -93,6 +140,7 @@ skipRange.addEventListener('input', function() {
             });
         }
     }, 500);
+    updateStorageSettings();
 });
 
 
@@ -113,6 +161,7 @@ opacityRange.addEventListener('input', function() {
             });
         }
     }, 500);
+    updateStorageSettings();
 });
 
 
@@ -129,25 +178,6 @@ document.getElementById('toggleBold').addEventListener('change', function() {
             code: '(' + modifyDOM + ')("untoggleBold", 0, 0, 1, "' + colorSelect.value + '");'
         });
     }
+    updateStorageSettings();  // Call this outside of the if-else to ensure settings are always updated.
 });
 
-document.getElementById('readPage').addEventListener('click', function() {
-    chrome.tabs.executeScript({
-        code: `
-        var utterance = new SpeechSynthesisUtterance();
-        var paragraphs = Array.from(document.getElementsByTagName('p'));
-        utterance.text = paragraphs.map(p => p.innerText).join(' ');
-
-        window.speechSynthesis.onvoiceschanged = function() {
-            var voices = window.speechSynthesis.getVoices();
-            var selectedVoice = voices.find(function(voice) {
-                return voice.name === 'Google US English'; // This is an example, you can replace 'Google US English' with the name of any other voice you prefer
-            });
-            if (selectedVoice) {
-                utterance.voice = selectedVoice;
-            }
-            window.speechSynthesis.speak(utterance);
-        };
-        `
-    });
-});
