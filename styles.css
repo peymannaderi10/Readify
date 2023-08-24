@@ -1,0 +1,46 @@
+.highlight-btn {
+  width: 25px;
+  height: 25px;
+  border: 0.25px solid black;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  margin: 2px; /* added to ensure there's space between buttons and they don't overlap due to border and shadow */
+}
+
+
+
+  
+  .button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: white;
+    border: 4px solid transparent;
+    transition: background-color 0.3s, transform 0.15s, border-color 0.3s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.button span {
+    position: relative;
+    z-index: 1;
+}
+
+.button input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    z-index: 2;
+    cursor: pointer;
+}
+
+/* Pressed in effect when checked */
+.button input[type="checkbox"]:checked + span {
+    transform: translateY(4px);
+}
+
+.button input[type="checkbox"]:checked {
+    background-color: #0056b3;
+    border-color: #004080;
+}

@@ -2,7 +2,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.active) {
         chrome.storage.local.get('settings_' + tabId, function(data) {
             const settings = data['settings_' + tabId];
-            console.log(settings.toggleBoldState)
             if (settings && settings.toggleBoldState) {  
                 const boldPercent = (parseInt(settings.boldRangeValue) + 1) / 10 + 0.2;
                 const wordsToSkip = parseInt(settings.skipRangeValue);
