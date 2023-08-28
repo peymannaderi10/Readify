@@ -169,36 +169,12 @@ aiSummarizerBtn.addEventListener('click', function () {
 });
 
 async function summarizeURL(targetURL) {
-    // const url = 'https://article-extractor-and-summarizer.p.rapidapi.com/summarize?url=' + targetURL + '&length=3';
-    // const options = {
-    //     method: 'GET',
-    //     headers: {
-    //         'X-RapidAPI-Key': '3cdc0f83bamsh352682d013fb8c3p17e2e4jsn2195a6a640eb',
-    //         'X-RapidAPI-Host': 'article-extractor-and-summarizer.p.rapidapi.com'
-    //     }
-    // };
-
-    // try {
-    //     const response = await fetch(url, options);
-    //     const result = await response.json();
-    //     return result.summary;
-    // } catch (error) {
-    //     console.error(error);
-    // }
-
-    const url = 'https://tldrthis.p.rapidapi.com/v1/model/abstractive/summarize-url/';
+    const url = 'https://article-extractor-and-summarizer.p.rapidapi.com/summarize?url=' + targetURL + '&length=3';
     const options = {
-        method: 'POST',
+        method: 'GET',
         headers: {
-            'content-type': 'application/json',
             'X-RapidAPI-Key': '3cdc0f83bamsh352682d013fb8c3p17e2e4jsn2195a6a640eb',
-            'X-RapidAPI-Host': 'tldrthis.p.rapidapi.com'
-        },
-        body: {
-            url: targetURL,
-            min_length: 100,
-            max_length: 300,
-            is_detailed: false
+            'X-RapidAPI-Host': 'article-extractor-and-summarizer.p.rapidapi.com'
         }
     };
 
@@ -210,3 +186,27 @@ async function summarizeURL(targetURL) {
         console.error(error);
     }
 }
+//     const url = 'https://tldrthis.p.rapidapi.com/v1/model/abstractive/summarize-url/';
+//     const options = {
+//         method: 'POST',
+//         headers: {
+//             'content-type': 'application/json',
+//             'X-RapidAPI-Key': '3cdc0f83bamsh352682d013fb8c3p17e2e4jsn2195a6a640eb',
+//             'X-RapidAPI-Host': 'tldrthis.p.rapidapi.com'
+//         },
+//         body: {
+//             url: targetURL,
+//             min_length: 100,
+//             max_length: 300,
+//             is_detailed: false
+//         }
+//     };
+
+//     try {
+//         const response = await fetch(url, options);
+//         const result = await response.json();
+//         return result.summary;
+//     } catch (error) {
+//         console.error(error);
+//     }
+// }
