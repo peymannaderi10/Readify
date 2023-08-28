@@ -1,0 +1,20 @@
+{
+  "name": "readify",
+  "version": "1.0.0",
+  "description": "Readify is a powerful browser extension that allows users to customize any webpage or online reading content to their own liking and preferences. With its advanced assistive technology features, Readify makes online reading easier and more accessible for everyone. Whether it's changing font size, color contrast, or adjusting the reading speed, Readify gives users complete control over their reading experience. It's the ultimate tool for those who want to read comfortably and efficiently online.",
+  "main": "content.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "autoprefixer": "^10.4.15",
+    "postcss": "^8.4.28",
+    "postcss-cli": "^10.1.0",
+    "tailwindcss": "^3.3.3"
+  },
+  "dependencies": {
+    "nouislider": "^15.7.1"
+  }
+}

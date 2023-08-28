@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+
+/* This class hides the actual checkbox */
+.hidden {
+    display: none;
+}
+
+/* These styles make the label look like a button */
+.btn {
+    display: wrap;
+    padding: 10px 20px;
+    background-color: #B6F0E9;
+    color: black;
+    border: 3px solid black;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+/* Changing appearance when the checkbox is checked */
+#checkboxButton:checked + .btn {
+    background-color: darkblue;
+}
+
+
+.slider::-webkit-slider-thumb {
+    @apply bg-blue-500 rounded-full h-6 w-6 appearance-none cursor-pointer;
+}
+
+.slider::-moz-range-thumb {
+    @apply bg-blue-500 rounded-full h-6 w-6 cursor-pointer;
+}
+
+.slider::-webkit-slider-runnable-track {
+    @apply h-1 bg-gray-300 rounded;
+}
+
+.slider::-moz-range-track {
+    @apply h-1 bg-gray-300 rounded;
+}

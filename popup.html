@@ -1,50 +1,82 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <link rel="stylesheet" type="text/css" href="styles.css">
+    <link rel="stylesheet" href="assets/css/output.css">
+    <link href="https://cdn.jsdelivr.net/npm/nouislider@14.6.4/distribute/nouislider.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/nouislider@14.6.4/distribute/nouislider.min.js"></script>
     <script src="highlight.js"></script>
   </head>
+
+
   <body>
-    <label>
-      <input type="checkbox" id="enableCheckbox"> Enable Selection Box
-    </label>
-    <button id="increase">Increase Line Height</button>
-    <button id="decrease">Decrease Line Height</button>
-    <label><input type="checkbox" id="toggleBold" /> Bold Words</label>
-    <div>
-      <input type="range" min="0" max="5" value="0" id="boldRange" />
-      <span id="boldPercent">40%</span>
+
+    <div class="flex justify-center items-center p-5">
+      <input type="checkbox" id="toggleBold" class="hidden" />
+      <label for="toggleBold" id="toggleBoldLabel" class="btn">Enable Reading Mode</label>
     </div>
+
+
+    <div id="slider">
+      
+    </div>
+
+    
+  
+      <label for="boldRange" >Bold Range</label>
+
+        <input type="range" min="0" max="5" value="0" id="boldRange" />
+        <span id="boldPercent">40%</span>
+  
+
+
     <div>
       <input type="range" min="0" max="3" value="0" id="skipRange" />
       <span id="skipWords">Skip 0 words</span>
     </div>
+
+
     <div>
       <label for="opacityRange" id="opacityLevel">Opacity 1</label>
       <input type="range" min="0" max="4" value="4" id="opacityRange">
     </div>
+
+
     <div id="colorOptions">
       <h3>Bold color</h3>
       <select id="colorSelect">
-          <option value="black">Black</option>
-          <option value="blue">Blue</option>
-          <option value="green">Green</option>
-          <option value="red">Red</option>
-          <option value="gold">Gold</option>
+        <option value="black">Black</option>
+        <option value="blue">Blue</option>
+        <option value="green">Green</option>
+        <option value="red">Red</option>
+        <option value="gold">Gold</option>
       </select>
     </div>
-    <div>
-      <button id="readPage">Read Page</button>
-    </div>
-    
-   <div>
-      <button id="aiSummarizerBtn">Summarize Website</button>
-      <div>
-        <label for="summaryBox">Summarized Text:</label>
-        <textarea id="summaryBox" cols="30" rows="10"></textarea>
-      </div>
-    </div>
 
-    <script src="popup.js"></script>
-  </body>
-</html>
+
+    <button id="increase">Increase Line Height</button>
+    <button id="decrease">Decrease Line Height</button>
+
+
+      <div>
+        <button id="readPage">Read Page</button>
+      </div>
+      
+      <div>
+        <button id="aiSummarizerBtn">Summarize Website</button>
+        <div>
+          <label for="summaryBox">Summarized Text:</label>
+          <textarea id="summaryBox" cols="30" rows="10"></textarea>
+        </div>
+      </div>
+
+
+      <label>
+        <input type="checkbox" id="enableCheckbox"> Enable Selection Box
+      </label>
+
+      
+      <script src="assets/js/popup.js"></script>
+      <script src="assets/js/popupFunction.js"></script>
+    </body>
+    </html>
+    
