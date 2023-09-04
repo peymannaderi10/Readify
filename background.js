@@ -21,27 +21,29 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 function modifyDOM(action, boldPercent, skipWords, opacityLevel, color) {
     var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6');
     elements.forEach(function(elem) {
-        if (action === 'increase') {
-            elem.style.lineHeight = (parseFloat(getComputedStyle(elem).lineHeight) + 3) + 'px';
-        } else if (action === 'decrease') {
-            elem.style.lineHeight = (parseFloat(getComputedStyle(elem).lineHeight) - 3) + 'px';
-        } else if (action === 'toggleBold') {
-            var words = elem.innerText.split(' ');
-            var newContent = '';
-            var skipCounter = 0;
-            words.forEach(function(word, index) {
-                var boldCharCount = Math.floor(word.length * boldPercent);
-                if (skipCounter === 0) {
-                    newContent += '<b style="color:' + color + '">' + word.substr(0, boldCharCount) + '</b><span style="opacity:' + opacityLevel + '">' + word.substr(boldCharCount) + '</span> ';
-                    skipCounter = skipWords;
-                } else {
-                    newContent += '<span style="opacity:' + opacityLevel + '">' + word + '</span> ';
-                    skipCounter--;
-                }
-            });
-            elem.innerHTML = newContent;
-        } else if (action === 'untoggleBold') {
-            elem.innerHTML = elem.innerText;
+        if (!elem.classList.contains('note-anchor')) {
+            if (action === 'increase') {
+                elem.style.lineHeight = (parseFloat(getComputedStyle(elem).lineHeight) + 3) + 'px';
+            } else if (action === 'decrease') {
+                elem.style.lineHeight = (parseFloat(getComputedStyle(elem).lineHeight) - 3) + 'px';
+            } else if (action === 'toggleBold') {
+                var words = elem.innerText.split(' ');
+                var newContent = '';
+                var skipCounter = 0;
+                words.forEach(function(word, index) {
+                    var boldCharCount = Math.floor(word.length * boldPercent);
+                    if (skipCounter === 0) {
+                        newContent += '<b style="color:' + color + '">' + word.substr(0, boldCharCount) + '</b><span style="opacity:' + opacityLevel + '">' + word.substr(boldCharCount) + '</span> ';
+                        skipCounter = skipWords;
+                    } else {
+                        newContent += '<span style="opacity:' + opacityLevel + '">' + word + '</span> ';
+                        skipCounter--;
+                    }
+                });
+                elem.innerHTML = newContent;
+            } else if (action === 'untoggleBold') {
+                elem.innerHTML = elem.innerText;
+            }
         }
     });
 }
