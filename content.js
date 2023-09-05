@@ -47,6 +47,9 @@ function createCloseButton(parent) {
     closeButton.style.position = 'absolute';
     closeButton.style.right = '5px';
     closeButton.style.top = '5px';
+    closeButton.style.background = 'transparent';
+    closeButton.style.border = 'none';
+
     closeButton.addEventListener('click', function() {
         parent.remove();
     });
@@ -200,8 +203,64 @@ function attachNoteEvents() {
         }
     });
 }
+let colorPickerDialog = null; // Declare this at the top of your script to keep a reference to the color picker dialog
+
+
 
 attachNoteEvents();
+function showColorPicker(selection) {
+    removeColorPicker();  // remove existing color picker if there's any
+
+    // Create the color picker
+    const colorPicker = document.createElement('div');
+    colorPicker.setAttribute('id', 'colorPickerDialog');
+    colorPicker.style.border = '1px solid #ccc';
+    colorPicker.style.backgroundColor = '#fff';
+    colorPicker.style.position = 'fixed';
+    colorPicker.style.zIndex = 9999;
+
+    const colorInput = document.createElement('input');
+    colorInput.setAttribute('type', 'color');
+    colorPicker.appendChild(colorInput);
+
+    const applyButton = document.createElement('button');
+    applyButton.innerText = 'Apply';
+    applyButton.onclick = function() {
+        const color = colorInput.value;
+        highlightSelectedText(color);
+        removeColorPicker();
+    };
+    colorPicker.appendChild(applyButton);
+
+    // Create the cancel button
+    const cancelButton = document.createElement('button');
+    cancelButton.innerText = 'Cancel';
+    cancelButton.onclick = function() {
+        removeColorPicker();
+    };
+    colorPicker.appendChild(cancelButton); // Append it next to the apply button
+
+    // Get the bounding rectangle of the selection
+    const rect = selection.getRangeAt(0).getBoundingClientRect();
+
+    // Position the color picker above the selection box
+    colorPicker.style.left = rect.left + window.scrollX + 'px';
+    colorPicker.style.bottom = (window.innerHeight - rect.bottom-4) + 'px'; 
+    colorPickerDialog = colorPicker;
+    document.body.appendChild(colorPicker);
+    document.addEventListener('mousedown', handleDocumentClick);
+
+}
+
+
+
+function removeColorPicker() {
+    if (colorPickerDialog) {
+        document.body.removeChild(colorPickerDialog);
+        colorPickerDialog = null;
+    }
+    document.removeEventListener('mousedown', handleDocumentClick);
+}
 
 
 // Function to show selection box
@@ -217,11 +276,9 @@ function showSelectionBox(evt) {
         let range = selection.getRangeAt(0);
         let rect = range.getBoundingClientRect();
 
-        // Determine the position based on the visibility of the bottom of the selected text
         let boxTop;
-        if (rect.bottom + 60 > window.innerHeight) {  // 60 is an arbitrary number. Adjust if needed.
-            // Bottom is out of view, place box at the top of the highlighted text
-            boxTop = rect.top - 60;  // Adjust this value as per the expected height of your box.
+        if (rect.bottom + 60 > window.innerHeight) {
+            boxTop = rect.top - 60;
         } else {
             boxTop = rect.bottom + 5;
         }
@@ -235,18 +292,16 @@ function showSelectionBox(evt) {
         selectionBox.style.padding = '5px';
         selectionBox.style.display = 'flex';
         selectionBox.style.gap = '5px';
-        
-        const colors = ["yellow", "green", "orange", "blue"];
-        for (const color of colors) {
-            let btn = document.createElement('button');
-            btn.classList.add('highlight-btn');
-            btn.style.backgroundColor = color;
-            btn.addEventListener('click', function() {
-                highlightSelectedText(color);
-            });
-            selectionBox.appendChild(btn);
-        }
 
+        // Color picker button
+        const colorPickerButton = document.createElement('button');
+        colorPickerButton.innerText = "Choose Color";
+        colorPickerButton.addEventListener('click', function() {
+            const selection = window.getSelection();
+            showColorPicker(selection);
+        });
+
+        selectionBox.appendChild(colorPickerButton);
 
         const summaryBtn = document.createElement('button');
         summaryBtn.innerText = "Summarize";
@@ -261,14 +316,15 @@ function showSelectionBox(evt) {
         const noteButton = document.createElement('button');
         noteButton.innerText = "Note";
         noteButton.addEventListener('click', function() {
-        showNoteInput();
-    });
+            showNoteInput();
+        });
 
-    selectionBox.appendChild(noteButton);
+        selectionBox.appendChild(noteButton);
 
         document.body.appendChild(selectionBox);
     }
 }
+
 
 function highlightSelectedText(color) {
     let selection = window.getSelection();
@@ -285,6 +341,7 @@ function highlightSelectedText(color) {
     }
     removeSelectionBox();
 }
+
 
 function removeSelectionBox() {
     if (selectionBox) {
@@ -311,3 +368,13 @@ chrome.storage.local.get('enabled', function(data) {
         document.addEventListener('mouseup', handleMouseUp);
     }
 });
+
+
+function handleDocumentClick(event) {
+    let colorPicker = document.getElementById('colorPickerDialog'); 
+    // Ensuring the selectionBox is accessible in this scope
+    if (!colorPicker.contains(event.target) && !selectionBox.contains(event.target)) {
+        colorPicker.style.display = 'none';
+        selectionBox.style.display = 'none';
+    }
+}
