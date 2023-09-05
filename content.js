@@ -82,11 +82,19 @@ try {
 function showSummary(summary) {
     if (summaryBox) summaryBox.remove();
 
-    // Create a container div instead of directly creating a textarea.
     summaryBox = document.createElement('div');
     summaryBox.style.position = 'fixed';
     summaryBox.style.left = selectionBox.style.left;
-    summaryBox.style.top = (parseFloat(selectionBox.style.top) + 60) + 'px';
+    
+    // Check if adding the summary box below would push it out of the viewport.
+    let potentialBottomPosition = parseFloat(selectionBox.style.top) + 60 + 25 * window.innerHeight / 100;
+    if (potentialBottomPosition > window.innerHeight) {
+        // Position it above the selection box.
+        summaryBox.style.top = (parseFloat(selectionBox.style.top) - 25 * window.innerHeight / 100) + 'px';
+    } else {
+        summaryBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height) + 'px';
+
+    }
     summaryBox.style.width = '500px';
     summaryBox.style.height = '25vh';  // Set the height to 50% of the viewport height.
     summaryBox.style.backgroundColor = 'white';
@@ -115,26 +123,19 @@ function showNoteInput(initialText, anchorElement) {
 
     if (summaryBox) summaryBox.remove();
 
-    
     summaryBox = document.createElement('div');
     summaryBox.style.position = 'fixed';
-    let positionLeft = anchorElement ? anchorElement.getBoundingClientRect().left : parseFloat(selectionBox.style.left);
-    let positionTop = anchorElement ? anchorElement.getBoundingClientRect().bottom + 5 : parseFloat(selectionBox.style.top) + 60;
-    
-    summaryBox.style.left = positionLeft + 'px';
-    summaryBox.style.top = positionTop + 'px';
     summaryBox.style.width = '30vw';
     summaryBox.style.maxWidth = '500px';
-    summaryBox.style.minHeight = '20vh';
     summaryBox.style.backgroundColor = 'white';
     summaryBox.style.border = '1px solid black';
     summaryBox.style.padding = '5px';
 
     let noteTextArea = document.createElement('textarea');
-    noteTextArea.style.width = '30vw';
+    noteTextArea.style.width = '100%'; // 100% to ensure it takes the full width of its parent div
     noteTextArea.style.maxWidth = '500px';
     noteTextArea.style.minHeight = '20vh';
-    noteTextArea.style.resize = 'none'; 
+    noteTextArea.style.resize = 'none';
     noteTextArea.value = initialText || '';
 
     let cancelButton = document.createElement('button');
@@ -161,8 +162,32 @@ function showNoteInput(initialText, anchorElement) {
     summaryBox.appendChild(noteTextArea);
     summaryBox.appendChild(cancelButton);
     summaryBox.appendChild(doneButton);
+
+    // Temporarily append to body to get accurate height
     document.body.appendChild(summaryBox);
+
+    let boxHeight = summaryBox.getBoundingClientRect().height;
+
+    let positionLeft = anchorElement ? anchorElement.getBoundingClientRect().left : parseFloat(selectionBox.style.left);
+    let spaceAbove = anchorElement ? anchorElement.getBoundingClientRect().top : parseFloat(selectionBox.style.top);
+    let spaceBelow = window.innerHeight - (anchorElement ? anchorElement.getBoundingClientRect().bottom : parseFloat(selectionBox.style.top) + 60);
+
+    let positionTop;
+    if (spaceBelow > boxHeight) {
+        positionTop = anchorElement ? anchorElement.getBoundingClientRect().bottom + 5 : parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height;
+    } else if (spaceAbove > boxHeight) {
+        positionTop = spaceAbove - boxHeight;
+    } else {
+        // Default to above if neither space is sufficient
+        positionTop = spaceAbove - boxHeight;
+    }
+
+    summaryBox.style.top = positionTop + 'px';
+    summaryBox.style.left = positionLeft + 'px';
 }
+
+
+
 function createNoteAnchor(noteText) {
     let selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
@@ -240,17 +265,18 @@ function showColorPicker(selection) {
     };
     colorPicker.appendChild(cancelButton); // Append it next to the apply button
 
-    // Get the bounding rectangle of the selection
-    const rect = selection.getRangeAt(0).getBoundingClientRect();
+    // Use the selectionBox to position the color picker
+    const boxRect = selectionBox.getBoundingClientRect();
 
     // Position the color picker above the selection box
-    colorPicker.style.left = rect.left + window.scrollX + 'px';
-    colorPicker.style.bottom = (window.innerHeight - rect.bottom-4) + 'px'; 
+    colorPicker.style.left = boxRect.left + 'px';
+    colorPicker.style.top = (boxRect.top - boxRect.height+4) + 'px';
+
     colorPickerDialog = colorPicker;
     document.body.appendChild(colorPicker);
     document.addEventListener('mousedown', handleDocumentClick);
-
 }
+
 
 
 
