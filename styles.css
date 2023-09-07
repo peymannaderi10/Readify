@@ -21,7 +21,7 @@
     padding: 10px 20px;
     background-color: #B6F0E9;           /* Setting the button's color to B6F0E9 */
     color: black;
-    border: 4px solid black;             /* Thick black outline */
+    border: 3px solid black;             /* Thick black outline */
     border-radius: 10px;                 /* Rounded edges */
     transition: background-color 0.3s, transform 0.15s, border-color 0.3s;
     cursor: pointer;
@@ -79,3 +79,13 @@ div > label {
     text-align: center;
     display: block;  /* Ensure the label takes up the full width of its parent div */
 }
+
+/* Pressed style for the button */
+.button.pressed {
+    background-color: #0097FF; /* Change to the pressed color */
+    border-color: black; /* Change to the pressed border color */
+    transform: translateY(1px); /* Simulate a pressed effect */
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3); /* Add a bit of shadow */
+
+  }
+  

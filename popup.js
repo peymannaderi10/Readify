@@ -31,10 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('opacityRange').value = settings.opacityRangeValue || "4";
                 document.getElementById('skipRange').value = settings.skipRangeValue || "0";
                 document.getElementById('colorSelect').value = settings.boldedColor || "black";
-                // Add update code for labels if necessary
-                document.getElementById('boldPercent').textContent = percent + '%';
-                document.getElementById('opacityLevel').textContent = 'Opacity ' + (opacity * 100).toFixed(0) + '%';
-                document.getElementById('skipWords').textContent = 'Skip ' + parseInt(skipValue) + ' words';
+            
             } 
         });
     });
@@ -104,11 +101,9 @@ colorSelect.addEventListener('change', function() {
 
 
 var boldRange = document.getElementById('boldRange');
-var boldPercent = document.getElementById('boldPercent');
 boldRange.addEventListener('input', function() {
     var value = this.value;
     var percent = (parseInt(value) + 1) * 10 + 20; 
-    boldPercent.textContent = percent + '%';
 
     clearTimeout(timeout);
     timeout = setTimeout(function() {
@@ -126,11 +121,9 @@ boldRange.addEventListener('input', function() {
 
 
 var skipRange = document.getElementById('skipRange');
-var skipWords = document.getElementById('skipWords');
 skipRange.addEventListener('input', function() {
     var value = this.value; // Capture the value here
     var wordsToSkip = parseInt(value);
-    skipWords.textContent = 'Skip ' + wordsToSkip + ' words';
 
     clearTimeout(timeout);
     timeout = setTimeout(function() { // Apply the delay
@@ -147,11 +140,9 @@ skipRange.addEventListener('input', function() {
 
 
 var opacityRange = document.getElementById('opacityRange');
-var opacityLevel = document.getElementById('opacityLevel');
 opacityRange.addEventListener('input', function() {
     var value = this.value; // Capture the value here
     var opacity = parseInt(value) * 0.225 + 0.1;
-    opacityLevel.textContent = 'Opacity ' + (opacity * 100).toFixed(0) + '%';
 
     clearTimeout(timeout);
     timeout = setTimeout(function() { // Apply the delay
@@ -183,3 +174,29 @@ document.getElementById('toggleBold').addEventListener('change', function() {
     updateStorageSettings();  // Call this outside of the if-else to ensure settings are always updated.
 });
 
+document.addEventListener('DOMContentLoaded', function () {
+    // Get the toggleBold checkbox element
+    const toggleBoldCheckbox = document.getElementById('toggleBold');
+  
+    // Get the button element
+    const button = document.querySelector('.button');
+  
+    // Get the span element inside the button
+    const buttonSpan = document.querySelector('.button span');
+  
+    // Add a change event listener to the toggleBold checkbox
+    toggleBoldCheckbox.addEventListener('change', function () {
+      if (toggleBoldCheckbox.checked) {
+        // If checked, set the text to "Disable Reading Mode"
+        buttonSpan.innerText = 'Disable Reading Mode';
+        // Add a class to make the button look pressed in
+        button.classList.add('pressed');
+      } else {
+        // If unchecked, set the text to "Enable Reading Mode"
+        buttonSpan.innerText = 'Enable Reading Mode';
+        // Remove the class to reset the button appearance
+        button.classList.remove('pressed');
+      }
+    });
+  });
+  
