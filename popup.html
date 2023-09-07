@@ -3,19 +3,32 @@
   <head>
     <link rel="stylesheet" type="text/css" href="styles.css">
     <script src="highlight.js"></script>
+    <link href="node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   </head>
-  <body>
-    <label class="button" for="toggleBold"><input type="checkbox" id="toggleBold" /><span> Bold Words </span></label>
+  <body class="mainBody">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <div class="container-fluid justify-content-center align-items-center"> <!-- added classes here -->
+          <a class="navbar-brand" href="#">
+              <img src="logo.png" alt="Logo" width="60" class="logo"> <!-- you might want to adjust this width based on your logo's size -->
+              Readify
+          </a>
+      </div>
+  </nav><br>
+    
+    <label class="button" for="toggleBold"><input type="checkbox" id="toggleBold" /><span> Enable Reading Mode </span></label><br>
     <div>
+      <label for="boldRange">Bold Range</label>
       <input type="range" min="0" max="5" value="1" id="boldRange" />
-      <span id="boldPercent">40%</span>
     </div>
     <div>
+      <label for="skipRange" >Saccades Interval</label>
       <input type="range" min="0" max="3" value="0" id="skipRange" />
-      <span id="skipWords">Skip 0 words</span>
     </div>
     <div>
-      <label for="opacityRange" id="opacityLevel">Opacity 1</label>
+      <label for="opacityRange" >Unbolded Opacity</label>
       <input type="range" min="0" max="4" value="4" id="opacityRange">
     </div>
     <div id="colorOptions">
