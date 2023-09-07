@@ -53,7 +53,7 @@
   }
   
   .mainBody{
-    width: 250px;
+    width: 261px;
     font-family: 'Space Grotesk', sans-serif;
     display: flex;
     flex-direction: column;
@@ -108,3 +108,54 @@ div > label {
     margin-top: 20px;
   }
   
+  /* Style for the thumb handle */
+/* Style for the slider track (thin black line) */
+.form-range::-webkit-slider-runnable-track {
+    height: 2px; /* Adjust the height to make it thinner or thicker */
+    background-color: black; /* Black color for the track */
+    border: none;
+  }
+  
+/* Style for the slider thumb (horizontal oval shape) */
+.form-range::-webkit-slider-thumb {
+    width: 30px; /* Width of the oval thumb */
+    height: 18px; /* Height of the oval thumb */
+    background-color: #B6F0E9; /* Background color of the thumb */
+    border: 2px solid black; /* Black border around the thumb */
+    border-radius: 50px; /* Makes the thumb oval-shaped */
+    transform: translateY(-3px); /* Adjust the translateY value to move the thumb up */
+
+  }
+
+  .slider-container {
+    width: 90%;
+    text-align: center;
+    margin-bottom: 20px; /* Add some vertical spacing between sliders */
+  }
+  
+  .slider-container input[type="range"] {
+    width: 90%;
+    /* Add your custom styles for the slider thumb here */
+  }
+  
+  /* Custom styling for the slider thumb */
+  .slider-container input[type="range"]::-webkit-slider-thumb {
+    width: 30px; /* Adjust the width as needed */
+    height: 18px; /* Adjust the height as needed */
+    border: 2px solid black;
+    border-radius: 50px;
+    background-color: #B6F0E9;
+    cursor: pointer;
+    transform: translateY(-3px); /* Adjust the translateY value to move the thumb up */
+  }
+
+/* Add this CSS to your existing style.css file */
+
+  .slider-container .d-flex span {
+    font-size: 10px; /* Adjust the font size as needed */
+    width: 90%; /* Set the width to 90% */
+  }
+  
+  .footer {
+    background-color: #0097FF !important;
+  }
