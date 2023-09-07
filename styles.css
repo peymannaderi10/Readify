@@ -89,3 +89,12 @@ div > label {
 
   }
   
+  .btn-lightblue {
+    background-color: lightblue;
+    color: #000;
+}
+
+.line-height-button {
+    height: 60px; 
+    /* add other styles if needed */
+}
