@@ -31,9 +31,10 @@
       <label for="opacityRange" >Unbolded Opacity</label>
       <input type="range" min="0" max="4" value="4" id="opacityRange">
     </div>
+    <h4 class="mt-4">Bold Coloring</h4>
     <div id="colorOptions">
-      <h3>Bold color</h3>
-      <select id="colorSelect">
+      <select id="colorSelect" class="form-select">
+        <option hidden selected>Select a Colour</option>
           <option value="black">Black</option>
           <option value="blue">Blue</option>
           <option value="green">Green</option>
@@ -42,8 +43,8 @@
       </select>
     </div>
 
-<h2 class="mt-4">Line Height</h2>
-<div class="row justify-content-between mb-4">
+<h3 class="mt-4">Line Height</h3>
+<div class="row justify-content-between mb-2"> 
   <div class="col-6">
     <button id="decrease" class="btn btn-block btn-lightblue line-height-button">
         Aa-<br>Decrease
@@ -56,10 +57,14 @@
   </div>
 </div>
 
-    
-    <label>
-      <input type="checkbox" id="enableCheckbox"> Enable Selection Box
-    </label>
+
+<div class="mt-4 text-center">
+  <label for="enableCheckbox">Enable Study Mode</label>
+  <div class="form-check form-switch d-flex justify-content-center align-items-center">
+    <input class="form-check-input switch-input" type="checkbox" id="enableCheckbox">
+  </div>
+</div>
+<br>
 
     <script src="popup.js"></script>
   </body>

@@ -19,13 +19,29 @@ function updateStorageSettings(){
         chrome.storage.local.set(saveObj);
     });
 }
+function updateUI(isEnabled) {
+    // Get references to the slider elements and select element
+    var boldRange = document.getElementById('boldRange');
+    var skipRange = document.getElementById('skipRange');
+    var opacityRange = document.getElementById('opacityRange');
+    var colorSelect = document.getElementById('colorSelect');
 
+    // Disable or enable the UI elements based on the checkbox state
+    boldRange.disabled = !isEnabled;
+    skipRange.disabled = !isEnabled;
+    opacityRange.disabled = !isEnabled;
+    colorSelect.disabled = !isEnabled;
+}
 // On popup load
 document.addEventListener('DOMContentLoaded', function() {
     getCurrentTabSettingsKey(function(settingsKey) {
         chrome.storage.local.get(settingsKey, function(data) {
             var settings = data[settingsKey];
             if (settings) {
+                document.getElementById('toggleBold').checked = settings.toggleBoldState || false;
+                // Update the button label based on the checkbox state
+                updateButtonLabel(settings.toggleBoldState);
+                updateUI(settings.toggleBoldState);
                 document.getElementById('toggleBold').checked = settings.toggleBoldState || false;
                 document.getElementById('boldRange').value = settings.boldRangeValue || "1";
                 document.getElementById('opacityRange').value = settings.opacityRangeValue || "4";
@@ -158,6 +174,23 @@ opacityRange.addEventListener('input', function() {
 });
 
 
+// Function to update the button label based on the checkbox state
+function updateButtonLabel(isEnabled) {
+    var buttonSpan = document.querySelector('.button span');
+    var toggleBoldCheckbox = document.getElementById('toggleBold');
+    
+    if (isEnabled) {
+        buttonSpan.innerText = 'Disable Reading Mode';
+        toggleBoldCheckbox.checked = true;
+        document.querySelector('.button').classList.add('pressed');
+    } else {
+        buttonSpan.innerText = 'Enable Reading Mode';
+        toggleBoldCheckbox.checked = false;
+        document.querySelector('.button').classList.remove('pressed');
+    }
+}
+
+// Add a change event listener to the toggleBold checkbox
 document.getElementById('toggleBold').addEventListener('change', function() {
     if (this.checked) {
         var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
@@ -166,10 +199,18 @@ document.getElementById('toggleBold').addEventListener('change', function() {
         chrome.tabs.executeScript({
             code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
         });
+        // Update the button label when the checkbox is checked
+        updateButtonLabel(true);
+        // Enable the UI elements
+        updateUI(true);
     } else {
         chrome.tabs.executeScript({
             code: '(' + modifyDOM + ')("untoggleBold", 0, 0, 1, "' + colorSelect.value + '");'
         });
+        // Update the button label when the checkbox is unchecked
+        updateButtonLabel(false);
+        // Disable the UI elements
+        updateUI(false);
     }
     updateStorageSettings();  // Call this outside of the if-else to ensure settings are always updated.
 });
