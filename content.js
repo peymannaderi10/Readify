@@ -56,18 +56,17 @@ function createCloseButton(parent) {
     parent.appendChild(closeButton);
 }
 async function summarizeText(text) {
-    const url = 'https://text-summarize-pro.p.rapidapi.com/summarizeFromText';
+    const url = 'https://open-ai21.p.rapidapi.com/summary';
 const options = {
 	method: 'POST',
 	headers: {
-		'content-type': 'application/x-www-form-urlencoded',
-		'X-RapidAPI-Key': '3cdc0f83bamsh352682d013fb8c3p17e2e4jsn2195a6a640eb',
-		'X-RapidAPI-Host': 'text-summarize-pro.p.rapidapi.com'
+		'content-type': 'application/json',
+		'X-RapidAPI-Key': '8ccd3fae7emshc43c6ba75dd5fd2p1764aajsn3d60722cf4c1',
+		'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
 	},
-	body: new URLSearchParams({
-		text: text,
-        percentage: '40'
-	})
+	body: {
+		text: text
+    }
 };
 
 try {
