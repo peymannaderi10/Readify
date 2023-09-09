@@ -3,6 +3,8 @@ let summaryBox = null;
 let isDragging = false;
 let offsetX, offsetY;
 let savedRange = null;
+let extensionEnabled = false;  // Set to false as a default state
+
 
 function saveSelection() {
     if (window.getSelection().rangeCount > 0) {
@@ -399,21 +401,28 @@ function removeSelectionBox() {
 }
 
 function handleMouseUp(evt) {
-    showSelectionBox(evt);
+    if (extensionEnabled) {  // Check the global variable
+        showSelectionBox(evt);
+    }
 }
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.enabled) {
         document.addEventListener('mouseup', handleMouseUp);
+        extensionEnabled = true;  // Set the global variable
     } else {
         document.removeEventListener('mouseup', handleMouseUp);
         removeSelectionBox();
+        extensionEnabled = false;  // Set the global variable
     }
 });
 
 chrome.storage.local.get('enabled', function(data) {
     if (data.enabled) {
         document.addEventListener('mouseup', handleMouseUp);
+        extensionEnabled = true;  // Set the global variable
+    } else {
+        extensionEnabled = false;  // Set the global variable
     }
 });
 
