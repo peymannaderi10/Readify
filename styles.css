@@ -88,7 +88,12 @@ div > label {
     box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3); /* Add a bit of shadow */
 
   }
-  
+  .thicker-underline {
+    text-decoration: none;
+    border-bottom: 2px solid black;  /* Adjust the pixel value to make it thicker or thinner */
+    display: inline;  /* Ensures the style doesn't break inline texts */
+}
+
   .btn-lightblue {
     background-color: lightblue;
     color: #000;

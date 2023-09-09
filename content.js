@@ -115,6 +115,21 @@ function showSummary(summary) {
     makeDraggable(summaryBox);
 }
 
+function underlineSelectedText() {
+    let selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+        let range = selection.getRangeAt(0);
+        if (range && !range.collapsed) {
+            let contents = range.extractContents();
+            let underlineElem = document.createElement('span');  // Use a span element now
+            underlineElem.className = 'thicker-underline';       // Apply the custom class
+            underlineElem.appendChild(contents);
+            range.insertNode(underlineElem);
+            window.getSelection().removeAllRanges();
+        }
+    }
+    removeSelectionBox();
+}
 
 
 function showNoteInput(initialText, anchorElement) {
@@ -327,6 +342,14 @@ function showSelectionBox(evt) {
         });
 
         selectionBox.appendChild(colorPickerButton);
+
+        const underlineButton = document.createElement('button');
+        underlineButton.innerText = "Underline";
+        underlineButton.addEventListener('click', function() {
+            underlineSelectedText();
+        });
+        selectionBox.appendChild(underlineButton);
+
 
         const summaryBtn = document.createElement('button');
         summaryBtn.innerText = "Summarize";
