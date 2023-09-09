@@ -21,21 +21,21 @@ function restoreSelection() {
 
 
 function makeDraggable(elem) {
-    elem.onmousedown = function(event) {
+    elem.onmousedown = function (event) {
         isDragging = true;
-        
+
         // Calculating the offset position
         offsetX = event.clientX - elem.getBoundingClientRect().left;
         offsetY = event.clientY - elem.getBoundingClientRect().top;
 
-        document.onmousemove = function(event) {
+        document.onmousemove = function (event) {
             if (isDragging) {
                 elem.style.left = (event.clientX - offsetX) + 'px';
                 elem.style.top = (event.clientY - offsetY) + 'px';
             }
         };
 
-        document.onmouseup = function() {
+        document.onmouseup = function () {
             isDragging = false;
             document.onmousemove = null;
             document.onmouseup = null;
@@ -52,32 +52,32 @@ function createCloseButton(parent) {
     closeButton.style.background = 'transparent';
     closeButton.style.border = 'none';
 
-    closeButton.addEventListener('click', function() {
+    closeButton.addEventListener('click', function () {
         parent.remove();
     });
     parent.appendChild(closeButton);
 }
 async function summarizeText(text) {
     const url = 'https://open-ai21.p.rapidapi.com/summary';
-const options = {
-	method: 'POST',
-	headers: {
-		'content-type': 'application/json',
-		'X-RapidAPI-Key': '8ccd3fae7emshc43c6ba75dd5fd2p1764aajsn3d60722cf4c1',
-		'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
-	},
-	body: {
-		text: text
-    }
-};
+    const options = {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+            'X-RapidAPI-Key': '8ccd3fae7emshc43c6ba75dd5fd2p1764aajsn3d60722cf4c1',
+            'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
+        },
+        body: {
+            text: text
+        }
+    };
 
-try {
-	const response = await fetch(url, options);
-	const result = await response.json();
-	return result.summary;
-} catch (error) {
-	console.error(error);
-}
+    try {
+        const response = await fetch(url, options);
+        const result = await response.json();
+        return result.summary;
+    } catch (error) {
+        console.error(error);
+    }
 }
 
 function showSummary(summary) {
@@ -86,7 +86,7 @@ function showSummary(summary) {
     summaryBox = document.createElement('div');
     summaryBox.style.position = 'fixed';
     summaryBox.style.left = selectionBox.style.left;
-    
+
     // Check if adding the summary box below would push it out of the viewport.
     let potentialBottomPosition = parseFloat(selectionBox.style.top) + 60 + 25 * window.innerHeight / 100;
     if (potentialBottomPosition > window.innerHeight) {
@@ -112,7 +112,7 @@ function showSummary(summary) {
     textArea.value = summary;
 
     summaryBox.appendChild(textArea);
-    
+
     createCloseButton(summaryBox);
     makeDraggable(summaryBox);
 }
@@ -130,6 +130,7 @@ function underlineSelectedText() {
             window.getSelection().removeAllRanges();
         }
     }
+    removeColorPicker();
     removeSelectionBox();
 }
 
@@ -143,26 +144,44 @@ function showNoteInput(initialText, anchorElement) {
     summaryBox.style.position = 'fixed';
     summaryBox.style.width = '30vw';
     summaryBox.style.maxWidth = '500px';
-    summaryBox.style.backgroundColor = 'white';
-    summaryBox.style.border = '1px solid black';
-    summaryBox.style.padding = '5px';
+    summaryBox.style.backgroundColor = '#fff';
+    summaryBox.style.borderRadius = '10px'; // Rounded edges
+    summaryBox.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)'; // Strong shadow
+    summaryBox.style.padding = '10px'; // Increased padding for spacious feel
+    summaryBox.style.display = 'flex';
+    summaryBox.style.flexDirection = 'column'; // Vertical layout
+    summaryBox.style.alignItems = 'center'; // Center elements horizontally
+    summaryBox.style.gap = '10px'; // Space between elements
 
     let noteTextArea = document.createElement('textarea');
-    noteTextArea.style.width = '100%'; // 100% to ensure it takes the full width of its parent div
+    noteTextArea.style.width = '100%';
     noteTextArea.style.maxWidth = '500px';
     noteTextArea.style.minHeight = '20vh';
     noteTextArea.style.resize = 'none';
     noteTextArea.value = initialText || '';
+    noteTextArea.style.borderRadius = '5px'; // Rounded edges
+    noteTextArea.style.fontFamily = 'Baskerville, serif'; // Modern font
+    noteTextArea.style.padding = '10px'; // Padding for inside the textarea
+
+    let commonButtonStyle = `
+        padding: 5px 15px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        background: transparent;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    `;
 
     let cancelButton = document.createElement('button');
     cancelButton.innerText = 'Cancel';
-    cancelButton.onclick = function() {
+    cancelButton.onclick = function () {
         summaryBox.remove();
     };
+    cancelButton.style = commonButtonStyle;
 
     let doneButton = document.createElement('button');
     doneButton.innerText = 'Done';
-    doneButton.onclick = function() {
+    doneButton.onclick = function () {
         restoreSelection();
         let noteText = noteTextArea.value.trim();
         if (noteText) {
@@ -174,10 +193,18 @@ function showNoteInput(initialText, anchorElement) {
         }
         summaryBox.remove();
     };
+    doneButton.style = commonButtonStyle;
 
     summaryBox.appendChild(noteTextArea);
-    summaryBox.appendChild(cancelButton);
-    summaryBox.appendChild(doneButton);
+
+    // Create a button container to keep them side by side
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.justifyContent = 'space-between';
+    buttonContainer.style.width = '100%'; // Take full width of parent
+    buttonContainer.appendChild(doneButton);
+    buttonContainer.appendChild(cancelButton);
+    summaryBox.appendChild(buttonContainer);
 
     // Temporarily append to body to get accurate height
     document.body.appendChild(summaryBox);
@@ -213,18 +240,18 @@ function createNoteAnchor(noteText) {
             let anchor = document.createElement('a');
             anchor.className = 'note-anchor'; // Add this line
             anchor.href = '#';
-            anchor.onclick = function(e) {
+            anchor.onclick = function (e) {
                 e.preventDefault();
                 let savedNote = localStorage.getItem(anchor.textContent);
                 showNoteInput(savedNote, anchor);
             };
-            
+
             // Highlight the anchor text if there's content in the textarea
             let span = document.createElement('span');
             span.style.backgroundColor = "yellow"; // Choose the desired highlight color here
             span.appendChild(contents);
             anchor.appendChild(span);
-            
+
             range.insertNode(anchor);
             localStorage.setItem(anchor.textContent, noteText);
             window.getSelection().removeAllRanges();
@@ -236,7 +263,7 @@ function createNoteAnchor(noteText) {
 function attachNoteEvents() {
     document.querySelectorAll('a').forEach(anchor => {
         if (localStorage.getItem(anchor.textContent)) {
-            anchor.onclick = function(e) {
+            anchor.onclick = function (e) {
                 e.preventDefault();
                 let savedNote = localStorage.getItem(anchor.textContent);
                 showNoteInput(savedNote, anchor);
@@ -249,49 +276,89 @@ let colorPickerDialog = null; // Declare this at the top of your script to keep 
 
 
 attachNoteEvents();
+
+
+
+
 function showColorPicker(selection) {
     removeColorPicker();  // remove existing color picker if there's any
 
     // Create the color picker
     const colorPicker = document.createElement('div');
     colorPicker.setAttribute('id', 'colorPickerDialog');
-    colorPicker.style.border = '1px solid #ccc';
     colorPicker.style.backgroundColor = '#fff';
     colorPicker.style.position = 'fixed';
     colorPicker.style.zIndex = 9999;
+    colorPicker.style.borderRadius = '10px'; // Rounded edges
+    colorPicker.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)'; // Strong shadow
+    colorPicker.style.padding = '10px'; // Added padding
+    colorPicker.style.display = 'flex'
+    colorPicker.style.flexDirection = 'column'
+    colorPicker.style.alignItems = 'center'
+    colorPicker.style.justifyContent = 'center'
+
+
+    const pickColorText = document.createElement('p');
+    pickColorText.innerText = "PICK A COLOR";
+    pickColorText.style.marginBottom = '10px'; // Space between text and the input
+    colorPicker.appendChild(pickColorText);
 
     const colorInput = document.createElement('input');
     colorInput.setAttribute('type', 'color');
     colorPicker.appendChild(colorInput);
 
+    // Create a container div for the buttons to set them side by side
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.style.display = 'flex';
+    buttonsContainer.style.justifyContent = 'space-between';
+    buttonsContainer.style.width = '100%';
+    buttonsContainer.style.marginTop = '10px'; // Space between input and the buttons
+
     const applyButton = document.createElement('button');
     applyButton.innerText = 'Apply';
-    applyButton.onclick = function() {
+    applyButton.style.padding = '5px 15px';
+    applyButton.style.borderRadius = '5px';
+    applyButton.style.border = '1px solid #ccc'; // Subtle border
+    applyButton.style.background = 'transparent'; // Transparent background
+    applyButton.style.cursor = 'pointer'; // Hand cursor on hover
+    applyButton.style.transition = 'background-color 0.2s ease';
+    applyButton.style.marginRight = '10px';
+
+    applyButton.onclick = function () {
         const color = colorInput.value;
         highlightSelectedText(color);
         removeColorPicker();
     };
-    colorPicker.appendChild(applyButton);
+    buttonsContainer.appendChild(applyButton);  // Add it to the buttons container
 
     // Create the cancel button
     const cancelButton = document.createElement('button');
     cancelButton.innerText = 'Cancel';
-    cancelButton.onclick = function() {
+    cancelButton.style.padding = '5px 15px';
+    cancelButton.style.borderRadius = '5px';
+    cancelButton.style.border = '1px solid #ccc'; // Subtle border
+    cancelButton.style.background = 'transparent'; // Transparent background
+    cancelButton.style.cursor = 'pointer'; // Hand cursor on hover
+    cancelButton.style.transition = 'background-color 0.2s ease';
+    cancelButton.onclick = function () {
         removeColorPicker();
     };
-    colorPicker.appendChild(cancelButton); // Append it next to the apply button
+    buttonsContainer.appendChild(cancelButton);  // Add it next to the apply button
+
+    colorPicker.appendChild(buttonsContainer); // Append the buttons container to the color picker
 
     // Use the selectionBox to position the color picker
     const boxRect = selectionBox.getBoundingClientRect();
 
     // Position the color picker above the selection box
     colorPicker.style.left = boxRect.left + 'px';
-    colorPicker.style.top = (boxRect.top - boxRect.height+4) + 'px';
+    colorPicker.style.top = (boxRect.top - boxRect.height - 10) + 'px'; // Added -10 for a slight offset
 
     colorPickerDialog = colorPicker;
     document.body.appendChild(colorPicker);
     document.addEventListener('mousedown', handleDocumentClick);
 }
+
 
 
 
@@ -330,15 +397,35 @@ function showSelectionBox(evt) {
         selectionBox.style.left = rect.left + 'px';
         selectionBox.style.top = boxTop + 'px';
         selectionBox.style.backgroundColor = 'white';
-        selectionBox.style.border = '1px solid black';
-        selectionBox.style.padding = '5px';
+
+        // Increased the shadow intensity and spread
+        selectionBox.style.boxShadow = '2px 2px 5px rgba(1, 1, 1, 1)';
+
+        // Increased border radius for more rounded appearance
+        selectionBox.style.borderRadius = '12px';
+
+        // Increased padding for a thicker appearance
+        selectionBox.style.padding = '10px';
         selectionBox.style.display = 'flex';
         selectionBox.style.gap = '5px';
 
+        // Optional: Add a gentle transition for the appearance
+        selectionBox.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+        selectionBox.style.opacity = '0';
+        selectionBox.style.transform = 'translateY(-5px)';  // Start a bit above the intended position
+        setTimeout(() => {
+            selectionBox.style.opacity = '1';
+            selectionBox.style.transform = 'translateY(0)';
+        }, 0);
+
+
+
         // Color picker button
         const colorPickerButton = document.createElement('button');
-        colorPickerButton.innerText = "Choose Color";
-        colorPickerButton.addEventListener('click', function() {
+        colorPickerButton.style.backgroundColor = 'transparent';
+        colorPickerButton.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149874072822485134/image.png' alt='highlight' style= 'height: 24px; width: 24px' />";
+        colorPickerButton.style.border = 'transparent';
+        colorPickerButton.addEventListener('click', function () {
             const selection = window.getSelection();
             showColorPicker(selection);
         });
@@ -346,26 +433,38 @@ function showSelectionBox(evt) {
         selectionBox.appendChild(colorPickerButton);
 
         const underlineButton = document.createElement('button');
-        underlineButton.innerText = "Underline";
-        underlineButton.addEventListener('click', function() {
+        underlineButton.style.backgroundColor = 'transparent';
+
+        underlineButton.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149878612674216007/image.png' alt='underline' style= 'height: 24px; width: 24px' />";
+        underlineButton.style.border = 'transparent';
+
+        underlineButton.addEventListener('click', function () {
             underlineSelectedText();
         });
         selectionBox.appendChild(underlineButton);
 
 
         const summaryBtn = document.createElement('button');
-        summaryBtn.innerText = "Summarize";
-        summaryBtn.addEventListener('click', async function() {
+        summaryBtn.style.backgroundColor = 'transparent';
+
+        summaryBtn.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149879335898058762/image.png' alt='summarize' style= 'height: 24px; width: 24px' />";
+        summaryBtn.style.border = 'transparent';
+
+        summaryBtn.addEventListener('click', async function () {
             const text = window.getSelection().toString();
             const summarizedText = await summarizeText(text);
             showSummary(summarizedText);
         });
 
         selectionBox.appendChild(summaryBtn);
-        
+
         const noteButton = document.createElement('button');
-        noteButton.innerText = "Note";
-        noteButton.addEventListener('click', function() {
+        noteButton.style.backgroundColor = 'transparent';
+
+        noteButton.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149879518304145509/image.png' alt='summarize' style= 'height: 24px; width: 24px' />";
+        noteButton.style.border = 'transparent';
+
+        noteButton.addEventListener('click', function () {
             showNoteInput();
         });
 
@@ -374,7 +473,6 @@ function showSelectionBox(evt) {
         document.body.appendChild(selectionBox);
     }
 }
-
 
 function highlightSelectedText(color) {
     let selection = window.getSelection();
@@ -406,7 +504,7 @@ function handleMouseUp(evt) {
     }
 }
 
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     if (request.enabled) {
         document.addEventListener('mouseup', handleMouseUp);
         extensionEnabled = true;  // Set the global variable
@@ -417,7 +515,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     }
 });
 
-chrome.storage.local.get('enabled', function(data) {
+chrome.storage.local.get('enabled', function (data) {
     if (data.enabled) {
         document.addEventListener('mouseup', handleMouseUp);
         extensionEnabled = true;  // Set the global variable
@@ -428,7 +526,7 @@ chrome.storage.local.get('enabled', function(data) {
 
 
 function handleDocumentClick(event) {
-    let colorPicker = document.getElementById('colorPickerDialog'); 
+    let colorPicker = document.getElementById('colorPickerDialog');
     // Ensuring the selectionBox is accessible in this scope
     if (!colorPicker.contains(event.target) && !selectionBox.contains(event.target)) {
         colorPicker.style.display = 'none';
