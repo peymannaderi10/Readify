@@ -164,3 +164,25 @@ div > label {
   .footer {
     background-color: #0097FF !important;
   }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loader {
+    border: 2px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 2px solid #555;
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+    position: absolute;
+}
+
+button.loading img {
+    opacity: 0.5;
+}
+
+
+

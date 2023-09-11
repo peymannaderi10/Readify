@@ -22,6 +22,11 @@ function restoreSelection() {
 
 function makeDraggable(elem) {
     elem.onmousedown = function (event) {
+        // If the mousedown event's target is the textarea, return and don't drag
+        if (event.target.tagName.toLowerCase() === 'textarea') {
+            return;
+        }
+
         isDragging = true;
 
         // Calculating the offset position
@@ -43,14 +48,20 @@ function makeDraggable(elem) {
     };
 }
 
+
 function createCloseButton(parent) {
     const closeButton = document.createElement('button');
     closeButton.innerText = 'x';
     closeButton.style.position = 'absolute';
-    closeButton.style.right = '5px';
-    closeButton.style.top = '5px';
+    closeButton.style.right = '10px';
+    closeButton.style.top = '10px';
     closeButton.style.background = 'transparent';
     closeButton.style.border = 'none';
+    closeButton.style.fontSize = '20px';  // Bigger close button
+    closeButton.style.cursor = 'pointer';  // Hand cursor for better UX
+    closeButton.style.color = '#888';  // Darker gray color
+    closeButton.onmouseover = function() { this.style.color = '#333'; };  // Darken color on hover
+    closeButton.onmouseout = function() { this.style.color = '#888'; };
 
     closeButton.addEventListener('click', function () {
         parent.remove();
@@ -66,19 +77,20 @@ async function summarizeText(text) {
             'X-RapidAPI-Key': '8ccd3fae7emshc43c6ba75dd5fd2p1764aajsn3d60722cf4c1',
             'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
         },
-        body: {
+        body: JSON.stringify({  // <--- Use JSON.stringify here
             text: text
-        }
+        })
     };
 
     try {
         const response = await fetch(url, options);
         const result = await response.json();
-        return result.summary;
+        return result.result;
     } catch (error) {
         console.error(error);
     }
 }
+
 
 function showSummary(summary) {
     if (summaryBox) summaryBox.remove();
@@ -87,29 +99,34 @@ function showSummary(summary) {
     summaryBox.style.position = 'fixed';
     summaryBox.style.left = selectionBox.style.left;
 
-    // Check if adding the summary box below would push it out of the viewport.
     let potentialBottomPosition = parseFloat(selectionBox.style.top) + 60 + 25 * window.innerHeight / 100;
     if (potentialBottomPosition > window.innerHeight) {
-        // Position it above the selection box.
         summaryBox.style.top = (parseFloat(selectionBox.style.top) - 25 * window.innerHeight / 100) + 'px';
     } else {
         summaryBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height) + 'px';
-
     }
     summaryBox.style.width = '500px';
-    summaryBox.style.height = '25vh';  // Set the height to 50% of the viewport height.
+    summaryBox.style.height = '25vh';
     summaryBox.style.backgroundColor = 'white';
-    summaryBox.style.border = '1px solid black';
-    summaryBox.style.overflow = 'auto';  // This allows for scrolling if the content exceeds the div size.
+    summaryBox.style.border = '1px solid #ddd';  // Lighter border color
+    summaryBox.style.borderRadius = '8px';  // Rounded corners
+    summaryBox.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';  // Add a subtle shadow
+    summaryBox.style.overflow = 'auto';
+    summaryBox.style.padding = '20px';  // Increase padding
     document.body.appendChild(summaryBox);
 
     const textArea = document.createElement('textarea');
     textArea.style.width = '100%';
-    textArea.style.height = '100%';  // Adjust this value based on the height of the close button and desired padding.
-    textArea.style.resize = 'none';  // Prevent users from resizing the textarea.
-    textArea.style.boxSizing = 'border-box';  // Ensure padding and border are included in height & width.
-    textArea.style.padding = '10px';  // Added padding for better appearance.
-    textArea.value = summary;
+    textArea.style.height = 'calc(100% - 20px)';  // Deduct 20px for the close button space
+    textArea.style.resize = 'none';
+    textArea.style.boxSizing = 'border-box';
+    textArea.style.padding = '10px';
+    textArea.style.fontFamily = 'Arial, sans-serif';  // More modern sans-serif font
+    textArea.style.fontSize = '16px';  // Larger font size
+    textArea.style.border = 'none';  // Remove border
+    textArea.style.borderRadius = '6px';  // Add rounded corners
+    textArea.style.outline = 'none';  // Remove the focus outline
+    textArea.value = summary.trim();
 
     summaryBox.appendChild(textArea);
 
@@ -445,19 +462,40 @@ function showSelectionBox(evt) {
 
 
         const summaryBtn = document.createElement('button');
+        summaryBtn.style.position = 'relative';
         summaryBtn.style.backgroundColor = 'transparent';
-
-        summaryBtn.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149879335898058762/image.png' alt='summarize' style= 'height: 24px; width: 24px' />";
+        summaryBtn.innerHTML = "<img src='https://cdn.discordapp.com/attachments/786832803282812958/1149879335898058762/image.png' alt='summarize' style='height: 24px; width: 24px' />";
         summaryBtn.style.border = 'transparent';
 
         summaryBtn.addEventListener('click', async function () {
+            // Add loading class to button to reduce image opacity
+            summaryBtn.classList.add('loading');
+
+            // Create and append loader to the button
+            const loader = document.createElement('div');
+            loader.className = 'loader';
+            
+            // Explicitly set top and left properties for the spinner's position
+            const btnWidth = summaryBtn.offsetWidth;
+            const btnHeight = summaryBtn.offsetHeight;
+            loader.style.left = (btnWidth / 2 - 8) + 'px';  // 8 is half the width of the spinner
+            loader.style.top = (btnHeight / 2 - 8) + 'px';  // 8 is half the height of the spinner
+            
+            summaryBtn.appendChild(loader);
+
             const text = window.getSelection().toString();
             const summarizedText = await summarizeText(text);
+
+            // Restore image opacity and remove loader
+            summaryBtn.classList.remove('loading');
+            loader.remove();
+
             showSummary(summarizedText);
         });
 
         selectionBox.appendChild(summaryBtn);
 
+    
         const noteButton = document.createElement('button');
         noteButton.style.backgroundColor = 'transparent';
 
