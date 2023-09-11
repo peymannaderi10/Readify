@@ -333,7 +333,7 @@ function showColorPicker(selection) {
     colorPicker.appendChild(pickColorText);
 
     // Create highlight buttons
-    const colors = ["yellow", "green", "orange", "blue"];
+    const colors = ["yellow", "pink", "lightgreen", "lightblue"];
     const buttonWrapper = document.createElement('div');
     buttonWrapper.style.display = 'flex';
     buttonWrapper.style.gap = '10px'; // Spacing between buttons
