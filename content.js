@@ -116,8 +116,8 @@ function showSummary(summary) {
     document.body.appendChild(summaryBox);
 
     const textArea = document.createElement('textarea');
-    textArea.style.width = '100%';
-    textArea.style.height = 'calc(100% - 20px)';  // Deduct 20px for the close button space
+    textArea.style.width = 'calc(100% - 16px)';
+    textArea.style.height = '100%';  // Deduct 20px for the close button space
     textArea.style.resize = 'none';
     textArea.style.boxSizing = 'border-box';
     textArea.style.padding = '10px';
@@ -306,75 +306,63 @@ function showColorPicker(selection) {
     colorPicker.style.backgroundColor = '#fff';
     colorPicker.style.position = 'fixed';
     colorPicker.style.zIndex = 9999;
-    colorPicker.style.borderRadius = '10px'; // Rounded edges
-    colorPicker.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)'; // Strong shadow
-    colorPicker.style.padding = '10px'; // Added padding
-    colorPicker.style.display = 'flex'
-    colorPicker.style.flexDirection = 'column'
-    colorPicker.style.alignItems = 'center'
-    colorPicker.style.justifyContent = 'center'
-
+    colorPicker.style.borderRadius = '10px';
+    colorPicker.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+    colorPicker.style.padding = '10px';
+    colorPicker.style.display = 'flex';
+    colorPicker.style.flexDirection = 'column';
+    colorPicker.style.alignItems = 'center';
+    colorPicker.style.justifyContent = 'center';
+    colorPicker.style.transition = 'top 0.3s ease-out';
+    // Add close button
+    const closeButton = document.createElement('button');
+    closeButton.innerText = 'X';
+    closeButton.style.position = 'absolute';
+    closeButton.style.top = '5px';
+    closeButton.style.right = '5px';
+    closeButton.style.background = 'transparent';
+    closeButton.style.border = 'none';
+    closeButton.style.fontSize = '0.755em';
+    closeButton.style.cursor = 'pointer';
+    closeButton.addEventListener('click', removeColorPicker);
+    colorPicker.appendChild(closeButton);
 
     const pickColorText = document.createElement('p');
     pickColorText.innerText = "PICK A COLOR";
-    pickColorText.style.marginBottom = '10px'; // Space between text and the input
+    pickColorText.style.marginBottom = '10px';
     colorPicker.appendChild(pickColorText);
 
-    const colorInput = document.createElement('input');
-    colorInput.setAttribute('type', 'color');
-    colorPicker.appendChild(colorInput);
-
-    // Create a container div for the buttons to set them side by side
-    const buttonsContainer = document.createElement('div');
-    buttonsContainer.style.display = 'flex';
-    buttonsContainer.style.justifyContent = 'space-between';
-    buttonsContainer.style.width = '100%';
-    buttonsContainer.style.marginTop = '10px'; // Space between input and the buttons
-
-    const applyButton = document.createElement('button');
-    applyButton.innerText = 'Apply';
-    applyButton.style.padding = '5px 15px';
-    applyButton.style.borderRadius = '5px';
-    applyButton.style.border = '1px solid #ccc'; // Subtle border
-    applyButton.style.background = 'transparent'; // Transparent background
-    applyButton.style.cursor = 'pointer'; // Hand cursor on hover
-    applyButton.style.transition = 'background-color 0.2s ease';
-    applyButton.style.marginRight = '10px';
-
-    applyButton.onclick = function () {
-        const color = colorInput.value;
-        highlightSelectedText(color);
-        removeColorPicker();
-    };
-    buttonsContainer.appendChild(applyButton);  // Add it to the buttons container
-
-    // Create the cancel button
-    const cancelButton = document.createElement('button');
-    cancelButton.innerText = 'Cancel';
-    cancelButton.style.padding = '5px 15px';
-    cancelButton.style.borderRadius = '5px';
-    cancelButton.style.border = '1px solid #ccc'; // Subtle border
-    cancelButton.style.background = 'transparent'; // Transparent background
-    cancelButton.style.cursor = 'pointer'; // Hand cursor on hover
-    cancelButton.style.transition = 'background-color 0.2s ease';
-    cancelButton.onclick = function () {
-        removeColorPicker();
-    };
-    buttonsContainer.appendChild(cancelButton);  // Add it next to the apply button
-
-    colorPicker.appendChild(buttonsContainer); // Append the buttons container to the color picker
+    // Create highlight buttons
+    const colors = ["yellow", "green", "orange", "blue"];
+    const buttonWrapper = document.createElement('div');
+    buttonWrapper.style.display = 'flex';
+    buttonWrapper.style.gap = '10px'; // Spacing between buttons
+    for (const color of colors) {
+        let btn = document.createElement('button');
+        btn.classList.add('highlight-btn');
+        btn.style.backgroundColor = color;
+        btn.addEventListener('click', function() {
+            highlightSelectedText(color);
+            removeColorPicker();
+            // Assuming you have a function to remove the selection box
+            removeSelectionBox();
+        });
+        buttonWrapper.appendChild(btn);
+    }
+    colorPicker.appendChild(buttonWrapper);
 
     // Use the selectionBox to position the color picker
     const boxRect = selectionBox.getBoundingClientRect();
 
     // Position the color picker above the selection box
     colorPicker.style.left = boxRect.left + 'px';
-    colorPicker.style.top = (boxRect.top - boxRect.height - 10) + 'px'; // Added -10 for a slight offset
+    colorPicker.style.top = (boxRect.top - boxRect.height-38) + 'px';
 
     colorPickerDialog = colorPicker;
     document.body.appendChild(colorPicker);
     document.addEventListener('mousedown', handleDocumentClick);
 }
+
 
 
 
