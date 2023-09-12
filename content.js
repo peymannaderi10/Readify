@@ -139,9 +139,27 @@ function playSpeech() {
             speechSynthesis.cancel(); // Cancel any ongoing speech
             createUtterance();
         }
-        speechSynthesis.speak(currentUtterance);
+
+        // Split the text into sentences using ".", "!", "?", ",", and ";"
+        const sentences = textToSpeak.match(/[^.!,?;]+[.!?,;]+/g);
+
+        // Play each sentence sequentially
+        function playSentence(index) {
+            if (index < sentences.length) {
+                currentUtterance.text = sentences[index];
+                currentUtterance.onend = function () {
+                    playSentence(index + 1);
+                };
+                speechSynthesis.speak(currentUtterance);
+            }
+        }
+
+        playSentence(0);
     }
 }
+
+
+
 
 function pauseSpeech() {
     if (speechSynthesis.speaking) {
