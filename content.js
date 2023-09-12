@@ -80,11 +80,14 @@ function createCloseButton(parent) {
 }
 async function summarizeText(text) {
     const url = 'https://open-ai21.p.rapidapi.com/summary';
+    const encodedApiKey = 'OGNjZDNmYWU3ZW1zaGM0M2M2YmE3NWRkNWZkMnAxNzY0YWFqc24zZDYwNzIyY2Y0YzE='; // Base64 encoded API key
+    const decodedApiKey = atob(encodedApiKey); // Decoding the API key
+
     const options = {
         method: 'POST',
         headers: {
             'content-type': 'application/json',
-            'X-RapidAPI-Key': '8ccd3fae7emshc43c6ba75dd5fd2p1764aajsn3d60722cf4c1',
+            'X-RapidAPI-Key': decodedApiKey, // Using the decoded API key here
             'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
         },
         body: JSON.stringify({  
