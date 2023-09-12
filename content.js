@@ -1,9 +1,19 @@
 let selectionBox = null;
 let summaryBox = null;
+let ttsBox = null;
 let isDragging = false;
 let offsetX, offsetY;
 let savedRange = null;
 let extensionEnabled = false;  // Set to false as a default state
+
+let commonButtonStyle = `
+padding: 5px 15px;
+border-radius: 5px;
+border: 1px solid #ccc;
+background: transparent;
+cursor: pointer;
+transition: background-color 0.2s ease;
+`;
 
 
 function saveSelection() {
@@ -77,7 +87,7 @@ async function summarizeText(text) {
             'X-RapidAPI-Key': '8ccd3fae7emshc43c6ba75dd5fd2p1764aajsn3d60722cf4c1',
             'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
         },
-        body: JSON.stringify({  // <--- Use JSON.stringify here
+        body: JSON.stringify({  
             text: text
         })
     };
@@ -90,6 +100,149 @@ async function summarizeText(text) {
         console.error(error);
     }
 }
+
+
+let currentUtterance = null;
+let textToSpeak = "";
+let pausedPosition = 0;
+
+function createUtterance() {
+    currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
+    updateUtteranceSettings();
+}
+
+function updateUtteranceSettings() {
+    if (currentUtterance) {
+        const volumeControl = document.getElementById('volumeControl');
+        const rateControl = document.getElementById('rateControl');
+
+        currentUtterance.volume = parseFloat(volumeControl.value);
+        currentUtterance.rate = parseFloat(rateControl.value);
+
+        // Set the voice to Google UK English male
+        currentUtterance.voice = speechSynthesis.getVoices().find(voice => voice.name === 'Google UK English Male');
+    }
+}
+
+function playSpeech() {
+    if (currentUtterance) {
+        if (pausedPosition > 0) {
+            // If pausedPosition is set, resume from that position
+            currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
+            updateUtteranceSettings();
+            currentUtterance.text = currentUtterance.text.substring(pausedPosition);
+            pausedPosition = 0;
+        } else {
+            speechSynthesis.cancel(); // Cancel any ongoing speech
+            createUtterance();
+        }
+        speechSynthesis.speak(currentUtterance);
+    }
+}
+
+function pauseSpeech() {
+    if (speechSynthesis.speaking) {
+        // Pause and record the current position
+        speechSynthesis.pause();
+        pausedPosition = currentUtterance.text.length - currentUtterance.textUtterance.length;
+    }
+}
+
+function showTextToSpeech(text) {
+
+    ttsBox = document.createElement('div');
+    ttsBox.style.position = 'fixed';
+    ttsBox.style.left = selectionBox.style.left;
+
+    let potentialBottomPosition = parseFloat(selectionBox.style.top) + 60 + 25 * window.innerHeight / 100;
+    if (potentialBottomPosition > window.innerHeight) {
+        ttsBox.style.top = (parseFloat(selectionBox.style.top) - 25 * window.innerHeight / 100) + 'px';
+    } else {
+        ttsBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height) + 'px';
+    }
+    textToSpeak = text;
+
+    ttsBox.style.position = 'fixed';
+    ttsBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height + 10) + 'px';
+
+    ttsBox.style.border = '1px';
+    ttsBox.style.background = 'white';
+    ttsBox.style.padding = '16px';
+    ttsBox.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+    ttsBox.style.zIndex = '1000';
+    ttsBox.style.display = 'flex';
+    ttsBox.style.flexDirection = 'column';
+    ttsBox.style.alignItems = 'center';
+    createCloseButton(ttsBox);
+
+    
+
+    // Container for Play and Pause buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.justifyContent = 'space-between';
+    buttonContainer.style.width = '100%';
+
+    const playButton = document.createElement('button');
+    playButton.style = commonButtonStyle;
+    playButton.innerText = 'Play';
+    playButton.classList.add('control-button');
+    playButton.onclick = function () {
+        createUtterance();
+        playSpeech();
+    };
+
+    const pauseButton = document.createElement('button');
+    pauseButton.style = commonButtonStyle;
+    pauseButton.style.marginRight = '20px';
+    pauseButton.style.marginLeft = '10px';
+    pauseButton.innerText = 'Pause';
+    pauseButton.classList.add('control-button');
+    pauseButton.onclick = pauseSpeech;
+
+    buttonContainer.appendChild(playButton);
+    buttonContainer.appendChild(pauseButton);
+
+    const volumeControl = document.createElement('input');
+    volumeControl.type = 'range';
+    volumeControl.min = '0';
+    volumeControl.max = '1';
+    volumeControl.step = '0.01';
+    volumeControl.value = '1';
+    volumeControl.id = 'volumeControl';
+    volumeControl.classList.add('slider');
+    volumeControl.oninput = updateUtteranceSettings;
+
+    const rateControl = document.createElement('input');
+    rateControl.type = 'range';
+    rateControl.min = '0.5';
+    rateControl.max = '1.5';
+    rateControl.step = '0.25';
+    rateControl.value = '1';
+    rateControl.id = 'rateControl';
+    rateControl.classList.add('slider');
+    rateControl.oninput = updateUtteranceSettings;
+
+    ttsBox.appendChild(buttonContainer); // Add the button container
+    ttsBox.appendChild(document.createElement('br'));
+    ttsBox.appendChild(document.createTextNode('Volume: '));
+    ttsBox.appendChild(volumeControl);
+    ttsBox.appendChild(document.createElement('br'));
+    ttsBox.appendChild(document.createTextNode('Speed: '));
+    ttsBox.appendChild(rateControl);
+    document.body.appendChild(ttsBox);
+
+}
+
+
+
+// Ensure voices are loaded before setting the voice
+speechSynthesis.onvoiceschanged = () => {
+    updateUtteranceSettings();
+};
+
+
+
 
 
 function showSummary(summary) {
@@ -180,15 +333,6 @@ function showNoteInput(initialText, anchorElement) {
     noteTextArea.style.fontSize = '16px';
     noteTextArea.style.fontFamily = 'Baskerville, serif'; // Modern font
     noteTextArea.style.padding = '10px'; // Padding for inside the textarea
-
-    let commonButtonStyle = `
-        padding: 5px 15px;
-        border-radius: 5px;
-        border: 1px solid #ccc;
-        background: transparent;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    `;
 
     let cancelButton = document.createElement('button');
     cancelButton.innerText = 'Cancel';
@@ -294,8 +438,6 @@ let colorPickerDialog = null; // Declare this at the top of your script to keep 
 
 
 attachNoteEvents();
-
-
 
 
 function showColorPicker(selection) {
@@ -455,7 +597,6 @@ function showSelectionBox(evt) {
         }, 0);
 
 
-
         // Color picker button
         const colorPickerButton = document.createElement('button');
         colorPickerButton.style.backgroundColor = 'transparent';
@@ -518,6 +659,20 @@ function showSelectionBox(evt) {
         selectionBox.appendChild(summaryBtn);
         createTooltip(summaryBtn, 'Summarize');
 
+
+        const ttsButton = document.createElement('button');
+        ttsButton.style.backgroundColor = 'transparent';
+
+        ttsButton.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1150948713682964540/image.png' alt='summarize' style= 'height: 24px; width: 24px' />";
+        ttsButton.style.border = 'transparent';
+
+        ttsButton.addEventListener('click', async function () {
+            const text = window.getSelection().toString();
+            showTextToSpeech(text);
+        });
+
+        selectionBox.appendChild(ttsButton);
+        createTooltip(ttsButton, 'Text to Speech');
 
     
         const noteButton = document.createElement('button');
