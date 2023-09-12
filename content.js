@@ -177,6 +177,7 @@ function showNoteInput(initialText, anchorElement) {
     noteTextArea.style.resize = 'none';
     noteTextArea.value = initialText || '';
     noteTextArea.style.borderRadius = '5px'; // Rounded edges
+    noteTextArea.style.fontSize = '16px';
     noteTextArea.style.fontFamily = 'Baskerville, serif'; // Modern font
     noteTextArea.style.padding = '10px'; // Padding for inside the textarea
 
