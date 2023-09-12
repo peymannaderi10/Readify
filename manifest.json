@@ -1,9 +1,9 @@
 {
-  "manifest_version": 3,
-  "name": "Readify BETA",
+  "manifest_version": 2,
+  "name": "Readify BETA v1.0",
   "description": "Readify is a powerful browser extension that allows users to customize any webpage or online reading content to their own liking and preferences.",
   "version": "1.0",
-  "action": {
+  "browser_action": {
     "default_popup": "popup.html",
     "default_icon": {
       "128": "logo.png"
@@ -16,11 +16,10 @@
       "css": ["styles.css"]
     }
   ],
-  "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self';"
-  },
+  "content_security_policy": "script-src 'self'; object-src 'self';",
   "background": {
-    "service_worker": "background.js"
+    "scripts": ["background.js"],
+    "persistent": false
   },
   "permissions": ["activeTab", "storage", "tabs", "webNavigation", "<all_urls>"],
   "icons": {

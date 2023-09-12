@@ -365,6 +365,36 @@ function showColorPicker(selection) {
 
 
 
+function createTooltip(button, tooltipText) {
+    const tooltip = document.createElement('span');
+    tooltip.innerText = tooltipText;
+    tooltip.style.visibility = "hidden";
+    tooltip.style.width = "120px";
+    tooltip.style.backgroundColor = "#555";
+    tooltip.style.color = "#fff";
+    tooltip.style.textAlign = "center";
+    tooltip.style.borderRadius = "6px";
+    tooltip.style.padding = "5px";
+    tooltip.style.position = "absolute";
+    tooltip.style.zIndex = "1";
+    tooltip.style.bottom = "100%";
+    tooltip.style.left = "50%";
+    tooltip.style.marginLeft = "-60px";
+    tooltip.style.opacity = "0";
+    tooltip.style.transition = "opacity 0.3s";
+
+    button.appendChild(tooltip);
+
+    button.addEventListener('mouseover', function() {
+        tooltip.style.visibility = "visible";
+        tooltip.style.opacity = "1";
+    });
+
+    button.addEventListener('mouseout', function() {
+        tooltip.style.visibility = "hidden";
+        tooltip.style.opacity = "0";
+    });
+}
 
 
 
@@ -434,8 +464,9 @@ function showSelectionBox(evt) {
             const selection = window.getSelection();
             showColorPicker(selection);
         });
-
         selectionBox.appendChild(colorPickerButton);
+        createTooltip(colorPickerButton, 'Highliter');
+
 
         const underlineButton = document.createElement('button');
         underlineButton.style.backgroundColor = 'transparent';
@@ -447,6 +478,8 @@ function showSelectionBox(evt) {
             underlineSelectedText();
         });
         selectionBox.appendChild(underlineButton);
+        createTooltip(underlineButton, 'Underline');
+
 
 
         const summaryBtn = document.createElement('button');
@@ -482,6 +515,8 @@ function showSelectionBox(evt) {
         });
 
         selectionBox.appendChild(summaryBtn);
+        createTooltip(summaryBtn, 'Summarize');
+
 
     
         const noteButton = document.createElement('button');
@@ -495,6 +530,8 @@ function showSelectionBox(evt) {
         });
 
         selectionBox.appendChild(noteButton);
+        createTooltip(noteButton, 'Note');
+
 
         document.body.appendChild(selectionBox);
     }
