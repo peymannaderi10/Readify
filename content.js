@@ -168,9 +168,18 @@ function pauseSpeech() {
         pausedPosition = currentUtterance.text.length - currentUtterance.textUtterance.length;
     }
 }
+function removeTextToSpeechBox() {
+    if (ttsBox) {
+        document.body.removeChild(ttsBox);
+        ttsBox = null;
+    }
+}
 
 function showTextToSpeech(text) {
-
+    if(ttsBox){
+        removeTextToSpeechBox();
+    }
+    
     ttsBox = document.createElement('div');
     ttsBox.style.position = 'fixed';
     ttsBox.style.left = selectionBox.style.left;
