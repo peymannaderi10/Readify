@@ -101,6 +101,7 @@ function createCloseButton(parent) {
     closeButton.onmouseout = function() { this.style.color = '#888'; };
 
     closeButton.addEventListener('click', function () {
+        pauseSpeech();
         parent.remove();
     });
     parent.appendChild(closeButton);
@@ -665,7 +666,7 @@ function showSelectionBox(evt) {
             showColorPicker(selection);
         });
         selectionBox.appendChild(colorPickerButton);
-        createTooltip(colorPickerButton, 'Highliter');
+        createTooltip(colorPickerButton, 'Highlighter');
 
 
         const underlineButton = document.createElement('button');
