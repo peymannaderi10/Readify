@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 function modifyDOM(action, boldPercent, skipWords, opacityLevel, color) {
-    var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6');
+    var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6,span.wrapped-text');
     elements.forEach(function(elem) {
         if (!elem.classList.contains('note-anchor')) {
             if (action === 'increase') {

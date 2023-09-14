@@ -1,25 +1,33 @@
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.active) {
-        chrome.storage.local.get('settings_' + tabId, function(data) {
-            const settings = data['settings_' + tabId];
-            if (settings && settings.toggleBoldState) {  
-                const boldPercent = (parseInt(settings.boldRangeValue) + 1) / 10 + 0.2;
-                const wordsToSkip = parseInt(settings.skipRangeValue);
-                const opacity = parseInt(settings.opacityRangeValue) * 0.225 + 0.1;
-                const color = settings.boldedColor;
 
-                const code = `(${modifyDOM.toString()})("toggleBold", ${boldPercent}, ${wordsToSkip}, ${opacity}, "${color}");`;
-                chrome.tabs.executeScript(tabId, {
-                    code: code
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab.active) {
+        setTimeout(() => {
+            if (changeInfo.status === 'complete' && tab.active) {
+                chrome.storage.local.get('settings_' + tabId, function(data) {
+                    const settings = data['settings_' + tabId];
+                    if (settings && settings.toggleBoldState) {  
+                        const boldPercent = (parseInt(settings.boldRangeValue) + 1) / 10 + 0.2;
+                        const wordsToSkip = parseInt(settings.skipRangeValue);
+                        const opacity = parseInt(settings.opacityRangeValue) * 0.225 + 0.1;
+                        const color = settings.boldedColor;
+        
+                        const code = `(${modifyDOM.toString()})("toggleBold", ${boldPercent}, ${wordsToSkip}, ${opacity}, "${color}");`;
+                        chrome.tabs.executeScript(tabId, {
+                            code: code
+                        });
+                    }
+                    // No need for an else block to handle the "untoggleBold" action as the default state of the page will not have the bold effects.
                 });
             }
-            // No need for an else block to handle the "untoggleBold" action as the default state of the page will not have the bold effects.
-        });
+        }, 300); // delay of 500ms
     }
 });
 
 function modifyDOM(action, boldPercent, skipWords, opacityLevel, color) {
-    var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6');
+    var elements = document.querySelectorAll('p,h1,h2,h3,h4,h5,h6,span.wrapped-text');
     elements.forEach(function(elem) {
         if (!elem.classList.contains('note-anchor')) {
             if (action === 'increase') {

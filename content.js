@@ -15,6 +15,33 @@ cursor: pointer;
 transition: background-color 0.2s ease;
 `;
 
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', afterDOMLoaded);
+} else {
+    afterDOMLoaded();
+}
+
+function afterDOMLoaded() {
+    console.log("DOM fully loaded and parsed");
+    wrapDivTextNodesInP();
+}
+
+function wrapDivTextNodesInP() {
+    let divs = document.querySelectorAll('div:not(:empty):not(script):not(style):not(link):not(meta)');
+    divs.forEach(div => {
+        let children = Array.from(div.childNodes);
+        children.forEach(child => {
+            if (child.nodeType === 3 && child.nodeValue.trim() !== '') { // Text node
+                let wrapper = document.createElement('span');
+                wrapper.className = 'wrapped-text';  // Add this line
+                div.insertBefore(wrapper, child);
+                wrapper.appendChild(child);
+                
+            }
+        });
+    });
+}
+
 
 function saveSelection() {
     if (window.getSelection().rangeCount > 0) {
@@ -605,6 +632,7 @@ function showSelectionBox(evt) {
         selectionBox.style.left = rect.left + 'px';
         selectionBox.style.top = boxTop + 'px';
         selectionBox.style.backgroundColor = 'white';
+        selectionBox.style.zIndex = '9999999'; 
 
         // Increased the shadow intensity and spread
         selectionBox.style.boxShadow = '2px 2px 5px rgba(1, 1, 1, 1)';
