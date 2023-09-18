@@ -101,7 +101,6 @@ function createCloseButton(parent) {
     closeButton.onmouseout = function() { this.style.color = '#888'; };
 
     closeButton.addEventListener('click', function () {
-        pauseSpeech();
         parent.remove();
     });
     parent.appendChild(closeButton);
@@ -139,8 +138,14 @@ let pausedPosition = 0;
 
 function createUtterance() {
     currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
+    currentUtterance.onboundary = function(event) {
+        if (event.name == 'word') {
+            pausedPosition = event.charIndex;
+        }
+    };
     updateUtteranceSettings();
 }
+
 
 function updateUtteranceSettings() {
     if (currentUtterance) {
@@ -193,19 +198,20 @@ function pauseSpeech() {
     if (speechSynthesis.speaking) {
         // Pause and record the current position
         speechSynthesis.pause();
-        pausedPosition = currentUtterance.text.length - currentUtterance.textUtterance.length;
     }
 }
-function removeTextToSpeechBox() {
+function removeTTS() {
     if (ttsBox) {
+        pauseSpeech();
         document.body.removeChild(ttsBox);
         ttsBox = null;
     }
+    document.removeEventListener('mousedown', handleDocumentClick);
 }
 
 function showTextToSpeech(text) {
     if(ttsBox){
-        removeTextToSpeechBox();
+        removeTTS();
     }
     
     ttsBox = document.createElement('div');
@@ -231,8 +237,17 @@ function showTextToSpeech(text) {
     ttsBox.style.display = 'flex';
     ttsBox.style.flexDirection = 'column';
     ttsBox.style.alignItems = 'center';
-    createCloseButton(ttsBox);
-
+    const closeButton = document.createElement('button');
+    closeButton.innerText = 'X';
+    closeButton.style.position = 'absolute';
+    closeButton.style.top = '5px';
+    closeButton.style.right = '5px';
+    closeButton.style.background = 'transparent';
+    closeButton.style.border = 'none';
+    closeButton.style.fontSize = '0.755em';
+    closeButton.style.cursor = 'pointer';
+    closeButton.addEventListener('click', removeTTS);
+    ttsBox.appendChild(closeButton);
     
 
     // Container for Play and Pause buttons
@@ -606,6 +621,7 @@ function removeColorPicker() {
     }
     document.removeEventListener('mousedown', handleDocumentClick);
 }
+
 
 
 // Function to show selection box
