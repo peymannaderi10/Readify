@@ -32,13 +32,13 @@ function updateUI(isEnabled) {
     opacityRange.disabled = !isEnabled;
     colorSelect.disabled = !isEnabled;
 }
+
 // On popup load
 document.addEventListener('DOMContentLoaded', function() {
     getCurrentTabSettingsKey(function(settingsKey) {
         chrome.storage.local.get(settingsKey, function(data) {
             var settings = data[settingsKey];
             if (settings) {
-                document.getElementById('toggleBold').checked = settings.toggleBoldState || false;
                 // Update the button label based on the checkbox state
                 updateButtonLabel(settings.toggleBoldState);
                 updateUI(settings.toggleBoldState);
@@ -92,43 +92,65 @@ var colorSelect = document.getElementById('colorSelect');
 
 
 document.getElementById('increase').addEventListener('click', function() {
-    chrome.tabs.executeScript({
-        code: '(' + modifyDOM + ')("increase", 0, 0, 1, "' + colorSelect.value + '");'
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        var currentTab = tabs[0];
+        chrome.scripting.executeScript({
+            target: {tabId: currentTab.id},
+            func: modifyDOM,
+            args: ["increase", 0, 0, 1, colorSelect.value]
+        });
     });
 });
 
+
 document.getElementById('decrease').addEventListener('click', function() {
-    chrome.tabs.executeScript({
-        code: '(' + modifyDOM + ')("decrease", 0, 0, 1, "' + colorSelect.value + '");'
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        var currentTab = tabs[0];
+        chrome.scripting.executeScript({
+            target: {tabId: currentTab.id},
+            func: modifyDOM,
+            args: ["decrease", 0, 0, 1, colorSelect.value]
+        });
     });
 });
+
 
 
 colorSelect.addEventListener('change', function() {
     var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
     var wordsToSkip = parseInt(skipRange.value);
     var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
-    chrome.tabs.executeScript({
-        code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        var currentTab = tabs[0];
+        chrome.scripting.executeScript({
+            target: {tabId: currentTab.id},
+            func: modifyDOM,
+            args: ["toggleBold", boldPercent, wordsToSkip, opacity, colorSelect.value]
+        });
     });
     updateStorageSettings();
 });
 
 
 
+
 var boldRange = document.getElementById('boldRange');
 boldRange.addEventListener('input', function() {
     var value = this.value;
-    var percent = (parseInt(value) + 1) * 10 + 20; 
+    var boldPercent = (parseInt(value) + 1) / 10 + 0.2;
+    var wordsToSkip = parseInt(skipRange.value);
+    var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
 
     clearTimeout(timeout);
     timeout = setTimeout(function() {
         if (document.getElementById('toggleBold').checked) {
-            var boldPercent = (parseInt(value) + 1) / 10 + 0.2;
-            var wordsToSkip = parseInt(skipRange.value);
-            var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
-            chrome.tabs.executeScript({
-                code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
+            chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+                var currentTab = tabs[0];
+                chrome.scripting.executeScript({
+                    target: {tabId: currentTab.id},
+                    func: modifyDOM,
+                    args: ["toggleBold", boldPercent, wordsToSkip, opacity, colorSelect.value]
+                });
             });
         }
     }, 500);
@@ -138,16 +160,21 @@ boldRange.addEventListener('input', function() {
 
 var skipRange = document.getElementById('skipRange');
 skipRange.addEventListener('input', function() {
-    var value = this.value; // Capture the value here
+    var value = this.value;
     var wordsToSkip = parseInt(value);
+    var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
+    var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
 
     clearTimeout(timeout);
-    timeout = setTimeout(function() { // Apply the delay
+    timeout = setTimeout(function() {
         if (document.getElementById('toggleBold').checked) {
-            var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
-            var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
-            chrome.tabs.executeScript({
-                code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
+            chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+                var currentTab = tabs[0];
+                chrome.scripting.executeScript({
+                    target: {tabId: currentTab.id},
+                    func: modifyDOM,
+                    args: ["toggleBold", boldPercent, wordsToSkip, opacity, colorSelect.value]
+                });
             });
         }
     }, 500);
@@ -157,21 +184,27 @@ skipRange.addEventListener('input', function() {
 
 var opacityRange = document.getElementById('opacityRange');
 opacityRange.addEventListener('input', function() {
-    var value = this.value; // Capture the value here
+    var value = this.value;
     var opacity = parseInt(value) * 0.225 + 0.1;
+    var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
+    var wordsToSkip = parseInt(skipRange.value);
 
     clearTimeout(timeout);
-    timeout = setTimeout(function() { // Apply the delay
+    timeout = setTimeout(function() {
         if (document.getElementById('toggleBold').checked) {
-            var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
-            var wordsToSkip = parseInt(skipRange.value);
-            chrome.tabs.executeScript({
-                code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
+            chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+                var currentTab = tabs[0];
+                chrome.scripting.executeScript({
+                    target: {tabId: currentTab.id},
+                    func: modifyDOM,
+                    args: ["toggleBold", boldPercent, wordsToSkip, opacity, colorSelect.value]
+                });
             });
         }
     }, 500);
     updateStorageSettings();
 });
+
 
 
 // Function to update the button label based on the checkbox state
@@ -191,29 +224,33 @@ function updateButtonLabel(isEnabled) {
 }
 
 // Add a change event listener to the toggleBold checkbox
-document.getElementById('toggleBold').addEventListener('change', function() {
-    if (this.checked) {
-        var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
-        var wordsToSkip = parseInt(skipRange.value);
-        var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
-        chrome.tabs.executeScript({
-            code: '(' + modifyDOM + ')("toggleBold", ' + boldPercent + ', ' + wordsToSkip + ', ' + opacity + ', "' + colorSelect.value + '");'
-        });
-        // Update the button label when the checkbox is checked
-        updateButtonLabel(true);
-        // Enable the UI elements
-        updateUI(true);
-    } else {
-        chrome.tabs.executeScript({
-            code: '(' + modifyDOM + ')("untoggleBold", 0, 0, 1, "' + colorSelect.value + '");'
-        });
-        // Update the button label when the checkbox is unchecked
-        updateButtonLabel(false);
-        // Disable the UI elements
-        updateUI(false);
-    }
-    updateStorageSettings();  // Call this outside of the if-else to ensure settings are always updated.
+document.getElementById('toggleBold').addEventListener('change', function(event) {
+    var boldPercent = (parseInt(boldRange.value) + 1) / 10 + 0.2;
+    var wordsToSkip = parseInt(skipRange.value);
+    var opacity = parseInt(opacityRange.value) * 0.225 + 0.1;
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        var currentTab = tabs[0];
+        if (event.target.checked) {  // Use event.target.checked here
+            console.log("checked");
+            chrome.scripting.executeScript({
+                target: {tabId: currentTab.id},
+                func: modifyDOM,
+                args: ["toggleBold", boldPercent, wordsToSkip, opacity, colorSelect.value]
+            });
+        } else {
+            console.log("unchecked");
+            chrome.scripting.executeScript({
+                target: {tabId: currentTab.id},
+                func: modifyDOM,
+                args: ["untoggleBold", 0, 0, 1, colorSelect.value]
+            });
+        }
+    });
+    updateStorageSettings();
+    updateUI(event.target.checked);
 });
+
+
 
 document.addEventListener('DOMContentLoaded', function () {
     // Get the toggleBold checkbox element

@@ -1,8 +1,4 @@
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.active) {
         setTimeout(() => {
             if (changeInfo.status === 'complete' && tab.active) {
@@ -15,14 +11,17 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
                         const color = settings.boldedColor;
         
                         const code = `(${modifyDOM.toString()})("toggleBold", ${boldPercent}, ${wordsToSkip}, ${opacity}, "${color}");`;
-                        chrome.tabs.executeScript(tabId, {
-                            code: code
+
+                        chrome.scripting.executeScript({
+                            target: {tabId: tabId},
+                            func: modifyDOM,
+                            args: ["toggleBold", boldPercent, wordsToSkip, opacity, color]
                         });
                     }
                     // No need for an else block to handle the "untoggleBold" action as the default state of the page will not have the bold effects.
                 });
             }
-        }, 300); // delay of 500ms
+        }, 300); // delay of 300ms
     }
 });
 
