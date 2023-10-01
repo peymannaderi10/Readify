@@ -105,27 +105,63 @@ function createCloseButton(parent) {
     });
     parent.appendChild(closeButton);
 }
-async function summarizeText(text) {
-    const url = 'https://open-ai21.p.rapidapi.com/summary';
-    const encodedApiKey = 'OGNjZDNmYWU3ZW1zaGM0M2M2YmE3NWRkNWZkMnAxNzY0YWFqc24zZDYwNzIyY2Y0YzE='; // Base64 encoded API key
-    const decodedApiKey = atob(encodedApiKey); // Decoding the API key
 
+async function summarizeText(text,option) {
+
+    var requestText = '';
+
+    switch(option){
+        case 'summary':
+            requestText = "please summarize in a concise overfiew of the following text: " + text;
+            break;
+        case 'keyTakeAways':
+            requestText = "Provide major key takeaways of the following text in jot format: " + text;
+            break;
+        case 'shortSummary':
+            requestText = "give me a short summary of the following text: " + text;
+            break
+        case 'formalTone':
+            requestText = "please summarize in a concise overfiew of the following text in a formal tone: " + text;
+            break
+        case 'casualTone':
+            requestText = "please summarize in a concise overfiew of the following text in a casual tone: " + text;
+            break
+        case 'neutralTone':
+            requestText = "please summarize in a concise overfiew of the following text in a neutral tone: " + text;
+            break
+    }
+
+    const url = 'https://open-ai21.p.rapidapi.com/conversationgpt';
     const options = {
         method: 'POST',
         headers: {
             'content-type': 'application/json',
-            'X-RapidAPI-Key': decodedApiKey, // Using the decoded API key here
+            'X-RapidAPI-Key': '8ccd3fae7emshc43c6ba75dd5fd2p1764aajsn3d60722cf4c1',
             'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
         },
-        body: JSON.stringify({  
-            text: text
+        body: JSON.stringify({  // Stringify the body content here
+            messages: [
+                {
+                    role: 'user',
+                    content: requestText
+                }
+            ]
         })
     };
+    
+    
 
     try {
         const response = await fetch(url, options);
-        const result = await response.json();
-        return result.result;
+        const resultJson = await response.json(); // Parse the response to a JSON object
+        let parsedResult = JSON.parse(resultJson.GPT); // Parse the value of the GPT key to get the string
+        
+        // Remove the enclosing quotes
+        if (parsedResult.startsWith("\"") && parsedResult.endsWith("\"")) {
+            parsedResult = parsedResult.substring(1, parsedResult.length - 1);
+        }
+    
+        return parsedResult;
     } catch (error) {
         console.error(error);
     }
@@ -315,10 +351,31 @@ speechSynthesis.onvoiceschanged = () => {
 };
 
 
+function showLoadingOverlay(textArea) {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'absolute';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(200, 200, 200, 0.5)';  // semi-transparent gray
+    overlay.style.display = 'flex';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    overlay.style.zIndex = '10';  // make sure the overlay is on top
+
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    overlay.appendChild(spinner);
+
+    textArea.parentNode.appendChild(overlay); // Attach the overlay to the parent of the textArea
+
+    return overlay; // return the overlay for removal later
+}
 
 
 
-function showSummary(summary) {
+function showSummary(summary, text) {
     if (summaryBox) summaryBox.remove();
 
     summaryBox = document.createElement('div');
@@ -339,6 +396,10 @@ function showSummary(summary) {
     summaryBox.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';  // Add a subtle shadow
     summaryBox.style.overflow = 'auto';
     summaryBox.style.padding = '20px';  // Increase padding
+    summaryBox.style.display = 'flex';
+    summaryBox.style.flexDirection = 'column';
+    summaryBox.style.justifyContent = 'center';
+    summaryBox.style.alignItems = 'center';
     document.body.appendChild(summaryBox);
 
     const textArea = document.createElement('textarea');
@@ -354,11 +415,57 @@ function showSummary(summary) {
     textArea.style.outline = 'none';  // Remove the focus outline
     textArea.value = summary.trim();
 
+
+    const optionsDropdown = document.createElement('select');
+    optionsDropdown.style.width = '80%'; // adjust as needed
+    optionsDropdown.style.margin = '10px 0'; // adds a top and bottom margin
+    optionsDropdown.style.padding = '10px';
+    optionsDropdown.style.borderRadius = '4px';
+    optionsDropdown.style.border = '1px solid #ddd';
+    optionsDropdown.style.fontFamily = 'Arial, sans-serif'; // modern sans-serif font
+    optionsDropdown.style.fontSize = '16px';
+    optionsDropdown.style.outline = 'none'; // remove the focus outline
+    optionsDropdown.style.cursor = 'pointer'; // indicate it's clickable
+    optionsDropdown.style.backgroundColor = '#f8f8f8';
+
+    const optionsList = [
+        {value: 'summary', label: 'Summarize'},
+        {value: 'keyTakeAways', label: 'Key Takeaways'},
+        {value: 'shortSummary', label: 'Shorter Summary'},
+        {value: 'formalTone', label: 'Formal Tone'},
+        {value: 'casualTone', label: 'Casual Tone'},
+        {value: 'neutralTone', label: 'Neutral Tone'},
+    ];
+
+    optionsList.forEach(opt => {
+        const optionElement = document.createElement('option');
+        optionElement.value = opt.value;
+        optionElement.innerText = opt.label;
+        optionsDropdown.appendChild(optionElement);
+    });
+
+    optionsDropdown.addEventListener('change', async function() {
+        const overlay = showLoadingOverlay(textArea);  // Add the overlay to the text area
+        textArea.disabled = true;  // Disable the textarea during loading
+        
+        const newSummary = await summarizeText(text, optionsDropdown.value);
+        
+        const formattedSummary = newSummary.replace(/\\n/g, '\n\n');
+        textArea.value = formattedSummary;
+    
+        overlay.remove();  // Remove the overlay after getting the new summary
+        textArea.disabled = false;  // Enable the textarea after loading
+    });
+    
+
+    summaryBox.appendChild(optionsDropdown);
     summaryBox.appendChild(textArea);
+  
 
     createCloseButton(summaryBox);
     makeDraggable(summaryBox);
 }
+
 
 function underlineSelectedText() {
     let selection = window.getSelection();
@@ -722,13 +829,13 @@ function showSelectionBox(evt) {
             summaryBtn.appendChild(loader);
 
             const text = window.getSelection().toString();
-            const summarizedText = await summarizeText(text);
+            const summarizedText = await summarizeText(text,'summary');
 
             // Restore image opacity and remove loader
             summaryBtn.classList.remove('loading');
             loader.remove();
 
-            showSummary(summarizedText);
+            showSummary(summarizedText, text);
         });
 
         selectionBox.appendChild(summaryBtn);
