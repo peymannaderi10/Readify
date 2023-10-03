@@ -197,53 +197,53 @@ async function summarizeText(text,option) {
             break;
         case 'casualTone':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in a casual tone :" + text;
-            break;entire 
-        case 'neutralTone':entire 
+            break;
+        case 'neutralTone':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in a neutral tone: " + text;
-            break;entire 
-        case 'spanish':entire 
+            break;
+        case 'spanish':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Spanish Language: " + text;
-            break;entire 
-         case 'french':entire 
+            break;
+         case 'french':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the French Language: " + text;
-            break;entire 
-         case 'mandarin':entire 
+            break;
+         case 'mandarin':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Mandarin Language: " + text;
-            break;entire 
-         case 'cantonese':entire 
+            break;
+         case 'cantonese':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Cantonese Language: " + text;
-            break;entire 
-         case 'korean':entire 
+            break;
+         case 'korean':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Korean Language: " + text;
-            break;entire 
-         case 'japanese':entire 
+            break;
+         case 'japanese':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Japanese Language: " + text;
-            break;entire 
-         case 'vietnamese':entire 
+            break;
+         case 'vietnamese':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Vietnamese Language: " + text;
-            break;entire 
-         case 'punjabi':entire 
+            break;
+         case 'punjabi':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Punjabi Language: " + text;
-            break;entire 
-         case 'arabic':entire 
+            break;
+         case 'arabic':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Arabic Language: " + text;
-            break;entire 
-        case 'indonesian':entire 
+            break;
+        case 'indonesian':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Indonesian Language: " + text;
-            break;entire 
-        case 'turkish':entire 
+            break;
+        case 'turkish':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Turkish Language: " + text;
-            break;entire 
-         case 'russian':entire 
+            break;
+         case 'russian':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Russian Language: " + text;
-            break;entire 
-        case 'german':entire 
+            break;
+        case 'german':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the German Language:: " + text;
-            break;entire 
-         case 'tagalog':entire 
+            break;
+         case 'tagalog':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Tagalog Language: " + text;
-            break;entire 
-         case 'italian':entire 
+            break;
+         case 'italian':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Italian Language: " + text;
             break;
     }
