@@ -6,6 +6,68 @@ let offsetX, offsetY;
 let savedRange = null;
 let extensionEnabled = false;  // Set to false as a default state
 
+const styles = `
+.dropdown-container {
+    position: relative;
+    font-family: 'Arial', sans-serif;
+}
+.dropdown-menu, .submenu {
+    display: none;
+    position: absolute;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border: 1px solid #ddd;
+    background-color: #ffffff;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+    border-radius: 4px;
+}
+.dropdown-menu li, .submenu li {
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.dropdown-menu li:hover, .submenu li:hover {
+    background-color: #f7f7f7;
+}
+.has-submenu {
+    position: relative;
+}
+.has-submenu:hover .submenu {
+    display: block;
+    left: 100%;
+    top: 0;
+    border-left: none;
+}
+.dropdown-toggle {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    outline: none;
+    border: 2px solid #000;
+    background-color: #B0DCFF;
+
+}
+.dropdown-toggle:hover {
+    background-color: #0097FF;
+}
+
+.submenu {
+    max-height: 200px; /* Adjust this value if necessary */
+    overflow-y: auto; /* This will show a scrollbar if content exceeds max-height */
+    width: 200px; /* This gives a fixed width to the submenu */
+}
+`;
+const styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerText = styles;
+document.head.appendChild(styleSheet);
+
+
 let commonButtonStyle = `
 padding: 5px 15px;
 border-radius: 5px;
@@ -92,13 +154,19 @@ function createCloseButton(parent) {
     closeButton.style.position = 'absolute';
     closeButton.style.right = '10px';
     closeButton.style.top = '10px';
-    closeButton.style.background = 'transparent';
+    closeButton.style.background = '#0097FF'; // Set background to the desired color
     closeButton.style.border = 'none';
     closeButton.style.fontSize = '20px';  // Bigger close button
     closeButton.style.cursor = 'pointer';  // Hand cursor for better UX
-    closeButton.style.color = '#888';  // Darker gray color
-    closeButton.onmouseover = function() { this.style.color = '#333'; };  // Darken color on hover
-    closeButton.onmouseout = function() { this.style.color = '#888'; };
+    closeButton.style.color = 'white';  // Set the "x" color to white
+    closeButton.style.width = '30px';  // Set a fixed width for the square
+    closeButton.style.height = '27px';  // Set a fixed height for the square
+    closeButton.style.display = 'flex';
+    closeButton.style.justifyContent = 'center';  // Horizontally center the "x"
+    closeButton.style.borderRadius = '3px';  // Slightly rounded corners
+
+    closeButton.onmouseover = function() { this.style.opacity = '0.7'; };  // Reduce opacity on hover for interaction feedback
+    closeButton.onmouseout = function() { this.style.opacity = '1'; };
 
     closeButton.addEventListener('click', function () {
         parent.remove();
@@ -106,31 +174,76 @@ function createCloseButton(parent) {
     parent.appendChild(closeButton);
 }
 
+
 async function summarizeText(text,option) {
 
     var requestText = '';
 
     switch(option){
         case 'summary':
-            requestText = "please summarize in a concise overfiew of the following text: " + text;
-            break;
-        case 'keyTakeAways':
-            requestText = "Provide major key takeaways of the following text in jot format: " + text;
+            requestText = "Please summarize the following text and sum up the paragraph without losing any of its meaning. The result should be a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key take aways in clear and concise bullet points.: " + text;
             break;
         case 'shortSummary':
-            requestText = "give me a short summary of the following text: " + text;
-            break
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be a short summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly the initial summary should be written in 1-3 sentences.: " + text;
+            break;
+        case 'longSummary':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be a long summary of the paragraph that is very detailed while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly the initial summary should be written in 3-5 sentences.: " + text;
+            break;
         case 'formalTone':
-            requestText = "please summarize in a concise overfiew of the following text in a formal tone: " + text;
-            break
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in a formal tone: " + text;
+            break;
         case 'casualTone':
-            requestText = "please summarize in a concise overfiew of the following text in a casual tone: " + text;
-            break
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in a casual tone :" + text;
+            break;
         case 'neutralTone':
-            requestText = "please summarize in a concise overfiew of the following text in a neutral tone: " + text;
-            break
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in a neutral tone: " + text;
+            break;
+        case 'spanish':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Spanish Language: " + text;
+            break;
+         case 'french':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the French Language: " + text;
+            break;
+         case 'mandarin':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Mandarin Language: " + text;
+            break;
+         case 'cantonese':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Cantonese Language: " + text;
+            break;
+         case 'korean':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Korean Language: " + text;
+            break;
+         case 'Japanese':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Japanese Language: " + text;
+            break;
+         case 'Vietnamese':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Vietnamese Language: " + text;
+            break;
+         case 'Punjabi':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Punjabi Language: " + text;
+            break;
+         case 'Arabic':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Arabic Language: " + text;
+            break;
+        case 'Indonesian':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Indonesian Language: " + text;
+            break;
+        case 'Turkish':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Turkish Language: " + text;
+            break;
+         case 'Russian':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Turkish Language: " + text;
+            break;
+        case 'German':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the German Language:: " + text;
+            break;
+         case 'Tagalog':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Tagalog Language: " + text;
+            break;
+         case 'Italian':
+            requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the output should be in the Italian Language: " + text;
+            break;
     }
-
     const url = 'https://open-ai21.p.rapidapi.com/conversationgpt';
     const options = {
         method: 'POST',
@@ -373,6 +486,14 @@ function showLoadingOverlay(textArea) {
     return overlay; // return the overlay for removal later
 }
 
+function copyToClipboard(text) {
+    const tempTextArea = document.createElement('textarea');
+    tempTextArea.value = text;
+    document.body.appendChild(tempTextArea);
+    tempTextArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempTextArea);
+}
 
 
 function showSummary(summary, text) {
@@ -388,8 +509,9 @@ function showSummary(summary, text) {
     } else {
         summaryBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height) + 'px';
     }
+
     summaryBox.style.width = '500px';
-    summaryBox.style.height = '25vh';
+    summaryBox.style.height = '35vh';
     summaryBox.style.backgroundColor = 'white';
     summaryBox.style.border = '1px solid #ddd';  // Lighter border color
     summaryBox.style.borderRadius = '8px';  // Rounded corners
@@ -400,6 +522,10 @@ function showSummary(summary, text) {
     summaryBox.style.flexDirection = 'column';
     summaryBox.style.justifyContent = 'center';
     summaryBox.style.alignItems = 'center';
+    summaryBox.style.overflow = 'visible'; // This allows the dropdown to be seen outside of the box
+    // Previous summaryBox styles...
+    summaryBox.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1), 5px 0px 0px #0097FF, 0px 5px 0px #0097FF';
+
     document.body.appendChild(summaryBox);
 
     const textArea = document.createElement('textarea');
@@ -413,58 +539,128 @@ function showSummary(summary, text) {
     textArea.style.border = 'none';  // Remove border
     textArea.style.borderRadius = '6px';  // Add rounded corners
     textArea.style.outline = 'none';  // Remove the focus outline
-    textArea.value = summary.trim();
+
+    textArea.value = summary.trim().replace(/\\n/g, '\n\n');
 
 
-    const optionsDropdown = document.createElement('select');
-    optionsDropdown.style.width = '80%'; // adjust as needed
-    optionsDropdown.style.margin = '10px 0'; // adds a top and bottom margin
-    optionsDropdown.style.padding = '10px';
-    optionsDropdown.style.borderRadius = '4px';
-    optionsDropdown.style.border = '1px solid #ddd';
-    optionsDropdown.style.fontFamily = 'Arial, sans-serif'; // modern sans-serif font
-    optionsDropdown.style.fontSize = '16px';
-    optionsDropdown.style.outline = 'none'; // remove the focus outline
-    optionsDropdown.style.cursor = 'pointer'; // indicate it's clickable
-    optionsDropdown.style.backgroundColor = '#f8f8f8';
+    const dropdownContainer = document.createElement('div');
+    dropdownContainer.className = 'dropdown-container';
+
+    const dropdownButton = document.createElement('button');
+    dropdownButton.className = 'dropdown-toggle'; // This is the unique class name for our dropdown button
+    dropdownButton.innerText = 'Select A Quick Prompt...';
+    dropdownContainer.appendChild(dropdownButton);
+
+    const dropdownMenu = document.createElement('ul');
+    dropdownMenu.className = 'dropdown-menu';
+    dropdownContainer.appendChild(dropdownMenu);
 
     const optionsList = [
         {value: 'summary', label: 'Summarize'},
-        {value: 'keyTakeAways', label: 'Key Takeaways'},
+        {value: 'longSummary', label: 'Long Summary'},
         {value: 'shortSummary', label: 'Shorter Summary'},
-        {value: 'formalTone', label: 'Formal Tone'},
-        {value: 'casualTone', label: 'Casual Tone'},
-        {value: 'neutralTone', label: 'Neutral Tone'},
+        {
+            label: 'Tone',
+            options: [
+                {value: 'formalTone', label: 'Formal Tone'},
+                {value: 'casualTone', label: 'Casual Tone'},
+                {value: 'neutralTone', label: 'Neutral Tone'},
+            ]
+        },
+        {
+            label: 'Translate',
+            options: [
+                {value: 'spanish', label: 'Spanish'},
+                {value: 'french', label: 'French'},
+                {value: 'mandarin', label: 'Chinese (Simplified)'},
+                {value: 'cantonese', label: 'Chinese (Traditional)'},
+                {value: 'korean', label: 'Korean'},
+                {value: 'japenese', label: 'Japenese'},
+                {value: 'vietnamese', label: 'Vietnamese'},
+                {value: 'punjabi', label: 'Punjabi'},
+                {value: 'arabic', label: 'Arabic'},
+                {value: 'indonesian', label: 'Indonesian'},
+                {value: 'turkish', label: 'Turkish'},
+                {value: 'russian', label: 'Russian'},
+                {value: 'german', label: 'German'},
+                {value: 'tagalog', label: 'Tagalog'},
+                {value: 'italian', label: 'Italian'},
+            ]
+        }
     ];
 
     optionsList.forEach(opt => {
-        const optionElement = document.createElement('option');
-        optionElement.value = opt.value;
-        optionElement.innerText = opt.label;
-        optionsDropdown.appendChild(optionElement);
+        const li = document.createElement('li');
+        if (opt.options) {
+            li.innerText = opt.label;
+            li.className = 'has-submenu';
+        
+            const submenu = document.createElement('ul');
+            submenu.className = 'submenu';
+            opt.options.forEach(subOpt => {
+                const subLi = document.createElement('li');
+                subLi.innerText = subOpt.label;
+                subLi.dataset.value = subOpt.value;
+                submenu.appendChild(subLi);
+            });
+        
+            li.appendChild(submenu);
+        } else {
+            li.innerText = opt.label;
+            li.dataset.value = opt.value;
+        }
+        dropdownMenu.appendChild(li);
     });
 
-    optionsDropdown.addEventListener('change', async function() {
-        const overlay = showLoadingOverlay(textArea);  // Add the overlay to the text area
-        textArea.disabled = true;  // Disable the textarea during loading
-        
-        const newSummary = await summarizeText(text, optionsDropdown.value);
-        
-        const formattedSummary = newSummary.replace(/\\n/g, '\n\n');
-        textArea.value = formattedSummary;
-    
-        overlay.remove();  // Remove the overlay after getting the new summary
-        textArea.disabled = false;  // Enable the textarea after loading
+    dropdownButton.addEventListener('click', () => {
+        const isShown = dropdownMenu.style.display === 'block';
+        dropdownMenu.style.display = isShown ? 'none' : 'block';
     });
-    
 
-    summaryBox.appendChild(optionsDropdown);
+    dropdownMenu.addEventListener('click', async e => {
+        if (e.target.tagName === 'LI' && e.target.dataset.value) {
+            const value = e.target.dataset.value;
+            dropdownMenu.style.display = 'none';
+
+            const overlay = showLoadingOverlay(textArea);  // Add the overlay to the text area
+            textArea.disabled = true;  // Disable the textarea during loading
+
+            const newSummary = await summarizeText(text, value);
+
+            textArea.value = newSummary.trim().replace(/\\n/g, '\n\n');;
+
+            overlay.remove();  // Remove the overlay after getting the new summary
+            textArea.disabled = false;  // Enable the textarea after loading
+        }
+    });
+
+    const copyButton = document.createElement('button');
+    copyButton.innerText = '✍';
+    copyButton.style.position = 'absolute';
+    copyButton.style.right = '10px';
+    copyButton.style.marginRight = '35px';
+    copyButton.style.top = '10px';
+    copyButton.style.background = 'transparent';
+    copyButton.style.border = 'none';
+    copyButton.style.fontSize = '20px';  // Bigger close button
+    copyButton.style.cursor = 'pointer';  // Hand cursor for better UX  
+    copyButton.title = 'Copy to Clipboard'; // This line adds the tooltip
+
+    copyButton.onclick = () => {
+        copyToClipboard(textArea.value);
+        alert('Copied to clipboard!');
+    };
+    
+    // Append the copy button and close button to the summary box
+    summaryBox.appendChild(copyButton);
+    // Appending the custom dropdown to the summary box
+    summaryBox.appendChild(dropdownContainer);
     summaryBox.appendChild(textArea);
-  
 
     createCloseButton(summaryBox);
     makeDraggable(summaryBox);
 }
+
 
 
 function underlineSelectedText() {
