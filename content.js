@@ -177,9 +177,6 @@ function createCloseButton(parent) {
 
 async function summarizeText(text,option) {
 
-    console.log(text)
-    console.log(option)
-
     var requestText = '';
 
     switch(option){
@@ -247,21 +244,21 @@ async function summarizeText(text,option) {
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Italian Language: " + text;
             break;
     }
-    const url = 'https://open-ai21.p.rapidapi.com/conversationgpt';
+    const url = 'https://chatgpt-api8.p.rapidapi.com/';
+    const encodedApiKey = 'OGNjZDNmYWU3ZW1zaGM0M2M2YmE3NWRkNWZkMnAxNzY0YWFqc24zZDYwNzIyY2Y0YzE='; // Base64 encoded API key
+    const decodedApiKey = atob(encodedApiKey); // Decoding the API key
     const options = {
         method: 'POST',
         headers: {
             'content-type': 'application/json',
-            'X-RapidAPI-Key': '8ccd3fae7emshc43c6ba75dd5fd2p1764aajsn3d60722cf4c1',
-            'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
+            'X-RapidAPI-Key': decodedApiKey,
+            'X-RapidAPI-Host': 'chatgpt-api8.p.rapidapi.com'
         },
-        body: JSON.stringify({  // Stringify the body content here
-            messages: [
-                {
-                    role: 'user',
-                    content: requestText
-                }
-            ]
+        body: JSON.stringify({  
+
+            content: requestText,
+            role: 'user'
+
         })
     };
     
@@ -270,14 +267,7 @@ async function summarizeText(text,option) {
     try {
         const response = await fetch(url, options);
         const resultJson = await response.json(); // Parse the response to a JSON object
-        let parsedResult = JSON.parse(resultJson.GPT); // Parse the value of the GPT key to get the string
-        
-        // Remove the enclosing quotes
-        if (parsedResult.startsWith("\"") && parsedResult.endsWith("\"")) {
-            parsedResult = parsedResult.substring(1, parsedResult.length - 1);
-        }
-    
-        return parsedResult;
+        return resultJson.message;
     } catch (error) {
         console.error(error);
     }
@@ -542,8 +532,7 @@ function showSummary(summary, text) {
     textArea.style.border = 'none';  // Remove border
     textArea.style.borderRadius = '6px';  // Add rounded corners
     textArea.style.outline = 'none';  // Remove the focus outline
-
-    textArea.value = summary.trim().replace(/\\n/g, '\n\n');
+    textArea.value = summary.trim().replace(/\\n/g, '\n\n');;
 
 
     const dropdownContainer = document.createElement('div');
