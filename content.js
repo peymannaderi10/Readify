@@ -244,33 +244,37 @@ async function summarizeText(text,option) {
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Italian Language: " + text;
             break;
     }
-    const url = 'https://chatgpt-api8.p.rapidapi.com/';
-    const encodedApiKey = 'OGNjZDNmYWU3ZW1zaGM0M2M2YmE3NWRkNWZkMnAxNzY0YWFqc24zZDYwNzIyY2Y0YzE='; // Base64 encoded API key
-    const decodedApiKey = atob(encodedApiKey); // Decoding the API key
-    const options = {
-        method: 'POST',
-        headers: {
-            'content-type': 'application/json',
-            'X-RapidAPI-Key': decodedApiKey,
-            'X-RapidAPI-Host': 'chatgpt-api8.p.rapidapi.com'
-        },
-        body: JSON.stringify({  
-
+    const data = JSON.stringify([
+        {
             content: requestText,
             role: 'user'
+        }
+    ]);
+    const encodedApiKey = 'MjE3ZGU3MTk1M21zaDJkNDI0OWQ0OTZiZjRjYnAxN2ZiZDhqc240ZmU5NGJmNGExZGQ=';
+    const decodedApiKey = atob(encodedApiKey);
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
 
-        })
-    };
-    
-    
+        xhr.addEventListener('readystatechange', function() {
+            if (this.readyState === this.DONE) {
+                try {
+                    const response = JSON.parse(this.responseText);
+                    const text = response.text;
+                    resolve(text);
+                } catch (error) {
+                    reject(error);
+                }
+            }
+        });
 
-    try {
-        const response = await fetch(url, options);
-        const resultJson = await response.json(); // Parse the response to a JSON object
-        return resultJson.message;
-    } catch (error) {
-        console.error(error);
-    }
+        xhr.open('POST', 'https://chatgpt-api8.p.rapidapi.com/');
+        xhr.setRequestHeader('content-type', 'application/json');
+        xhr.setRequestHeader('X-RapidAPI-Key', decodedApiKey);
+        xhr.setRequestHeader('X-RapidAPI-Host', 'chatgpt-api8.p.rapidapi.com');
+
+        xhr.send(data);
+    });
 }
 
 
@@ -532,7 +536,7 @@ function showSummary(summary, text) {
     textArea.style.border = 'none';  // Remove border
     textArea.style.borderRadius = '6px';  // Add rounded corners
     textArea.style.outline = 'none';  // Remove the focus outline
-    textArea.value = summary.trim().replace(/\\n/g, '\n\n');;
+    textArea.value = summary;
 
 
     const dropdownContainer = document.createElement('div');
@@ -619,7 +623,7 @@ function showSummary(summary, text) {
 
             const newSummary = await summarizeText(text, value);
 
-            textArea.value = newSummary.trim().replace(/\\n/g, '\n\n');;
+            textArea.value = newSummary;
 
             overlay.remove();  // Remove the overlay after getting the new summary
             textArea.disabled = false;  // Enable the textarea after loading
@@ -1018,6 +1022,7 @@ function showSelectionBox(evt) {
 
             const text = window.getSelection().toString();
             const summarizedText = await summarizeText(text,'summary');
+            console.log(summarizedText);
 
             // Restore image opacity and remove loader
             summaryBtn.classList.remove('loading');
