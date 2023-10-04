@@ -69,12 +69,12 @@ document.head.appendChild(styleSheet);
 
 
 let commonButtonStyle = `
-padding: 5px 15px;
-border-radius: 5px;
-border: 1px solid #ccc;
-background: transparent;
-cursor: pointer;
-transition: background-color 0.2s ease;
+padding: 5px 15px; !important
+border-radius: 5px; !important
+border: 1px solid #ccc; !important
+background: transparent; !important
+cursor: pointer; !important
+transition: background-color 0.2s ease; !important
 `;
 
 if (document.readyState === 'loading') {
@@ -151,26 +151,37 @@ function makeDraggable(elem) {
 function createCloseButton(parent) {
     const closeButton = document.createElement('button');
     closeButton.innerText = 'x';
+
+    // Positioning
     closeButton.style.position = 'absolute';
     closeButton.style.right = '10px';
     closeButton.style.top = '10px';
-    closeButton.style.background = '#0097FF'; // Set background to the desired color
-    closeButton.style.border = 'none';
-    closeButton.style.fontSize = '20px';  // Bigger close button
-    closeButton.style.cursor = 'pointer';  // Hand cursor for better UX
-    closeButton.style.color = 'white';  // Set the "x" color to white
-    closeButton.style.width = '30px';  // Set a fixed width for the square
-    closeButton.style.height = '27px';  // Set a fixed height for the square
-    closeButton.style.display = 'flex';
-    closeButton.style.justifyContent = 'center';  // Horizontally center the "x"
-    closeButton.style.borderRadius = '3px';  // Slightly rounded corners
 
-    closeButton.onmouseover = function() { this.style.opacity = '0.7'; };  // Reduce opacity on hover for interaction feedback
+    // Styling
+    closeButton.style.background = '#0097FF'; 
+    closeButton.style.border = 'none';
+    closeButton.style.fontSize = '20px'; 
+    closeButton.style.cursor = 'pointer'; 
+    closeButton.style.color = 'white';
+    closeButton.style.width = '30px !important';
+    closeButton.style.height = '27px !important';
+    closeButton.style.display = 'flex';
+    closeButton.style.justifyContent = 'center';
+    closeButton.style.alignItems = 'center';  // Vertically center the "x"
+    closeButton.style.borderRadius = '3px';
+
+    closeButton.onmouseover = function() { this.style.opacity = '0.7'; };  
     closeButton.onmouseout = function() { this.style.opacity = '1'; };
 
     closeButton.addEventListener('click', function () {
         parent.remove();
     });
+
+    // Ensure parent has a relative position
+    if (window.getComputedStyle(parent).position === 'static') {
+        parent.style.position = 'relative';
+    }
+
     parent.appendChild(closeButton);
 }
 
@@ -634,6 +645,8 @@ function showSummary(summary, text) {
     copyButton.innerText = '✍';
     copyButton.style.position = 'absolute';
     copyButton.style.right = '10px';
+    copyButton.style.width = '25px !important';
+    copyButton.style.height = '25px !important';
     copyButton.style.marginRight = '35px';
     copyButton.style.top = '10px';
     copyButton.style.background = 'transparent';
@@ -945,6 +958,8 @@ function showSelectionBox(evt) {
 
         selectionBox = document.createElement('div');
         selectionBox.style.position = 'fixed';
+        selectionBox.style.width = '200px !important'
+        selectionBox.style.height = '30px !important'
         selectionBox.style.left = rect.left + 'px';
         selectionBox.style.top = boxTop + 'px';
         selectionBox.style.backgroundColor = 'white';
@@ -973,6 +988,8 @@ function showSelectionBox(evt) {
 
         // Color picker button
         const colorPickerButton = document.createElement('button');
+        colorPickerButton.style.width = '25px !important';
+        colorPickerButton.style.height = '25px !important';
         colorPickerButton.style.backgroundColor = 'transparent';
         colorPickerButton.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149874072822485134/image.png' alt='highlight' style= 'height: 24px; width: 24px' />";
         colorPickerButton.style.border = 'transparent';
@@ -986,6 +1003,8 @@ function showSelectionBox(evt) {
 
         const underlineButton = document.createElement('button');
         underlineButton.style.backgroundColor = 'transparent';
+        underlineButton.style.width = '25px !important';
+        underlineButton.style.height = '25px !important';
 
         underlineButton.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149878612674216007/image.png' alt='underline' style= 'height: 24px; width: 24px' />";
         underlineButton.style.border = 'transparent';
@@ -1000,6 +1019,8 @@ function showSelectionBox(evt) {
 
         const summaryBtn = document.createElement('button');
         summaryBtn.style.position = 'relative';
+        summaryBtn.style.width = '25px !important';
+        summaryBtn.style.height = '25px !important';
         summaryBtn.style.backgroundColor = 'transparent';
         summaryBtn.innerHTML = "<img src='https://cdn.discordapp.com/attachments/786832803282812958/1149879335898058762/image.png' alt='summarize' style='height: 24px; width: 24px' />";
         summaryBtn.style.border = 'transparent';
@@ -1037,6 +1058,8 @@ function showSelectionBox(evt) {
 
         const ttsButton = document.createElement('button');
         ttsButton.style.backgroundColor = 'transparent';
+        ttsButton.style.width = '25px !important';
+        ttsButton.style.height = '25px !important';
 
         ttsButton.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1150948713682964540/image.png' alt='summarize' style= 'height: 24px; width: 24px' />";
         ttsButton.style.border = 'transparent';
@@ -1052,6 +1075,8 @@ function showSelectionBox(evt) {
     
         const noteButton = document.createElement('button');
         noteButton.style.backgroundColor = 'transparent';
+        noteButton.style.width = '25px !important';
+        noteButton.style.height = '25px !important';
 
         noteButton.innerHTML = "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149879518304145509/image.png' alt='summarize' style= 'height: 24px; width: 24px' />";
         noteButton.style.border = 'transparent';
