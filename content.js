@@ -774,6 +774,8 @@ function showNoteInput(initialText, anchorElement) {
 
     summaryBox.style.top = positionTop + 'px';
     summaryBox.style.left = positionLeft + 'px';
+    makeDraggable(summaryBox);
+
 }
 
 
