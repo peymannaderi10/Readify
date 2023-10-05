@@ -41,25 +41,25 @@ const styles = `
     border-left: none;
 }
 .dropdown-toggle {
-    padding: 10px 20px;
-    font-size: 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    outline: none;
-    border: 2px solid #000;
-    background-color: #B0DCFF;
+    padding: 10px 20px; !important
+    font-size: 16px; !important
+    border: none; !important
+    border-radius: 4px; !important
+    cursor: pointer; !important
+    transition: background-color 0.3s; !important
+    outline: none; !important
+    border: 2px solid #000; !important
+    background-color: #B0DCFF; !important
 
 }
 .dropdown-toggle:hover {
-    background-color: #0097FF;
+    background-color: #0097FF; !important
 }
 
 .submenu {
-    max-height: 200px; /* Adjust this value if necessary */
-    overflow-y: auto; /* This will show a scrollbar if content exceeds max-height */
-    width: 200px; /* This gives a fixed width to the submenu */
+    max-height: 200px; 
+    overflow-y: auto; 
+    width: 200px; 
 }
 `;
 const styleSheet = document.createElement("style");
@@ -716,10 +716,12 @@ function showNoteInput(initialText, anchorElement) {
     noteTextArea.value = initialText || '';
     noteTextArea.style.borderRadius = '5px'; // Rounded edges
     noteTextArea.style.fontSize = '16px';
-    noteTextArea.style.fontFamily = 'Baskerville, serif'; // Modern font
+    noteTextArea.style.fontFamily = 'Arial, sans-serif'; // Modern font
     noteTextArea.style.padding = '10px'; // Padding for inside the textarea
 
     let cancelButton = document.createElement('button');
+    cancelButton.style.color = '#0097FF !important'; 
+
     cancelButton.innerText = 'Cancel';
     cancelButton.onclick = function () {
         summaryBox.remove();
@@ -727,6 +729,7 @@ function showNoteInput(initialText, anchorElement) {
     cancelButton.style = commonButtonStyle;
 
     let doneButton = document.createElement('button');
+    doneButton.style.color = '#0097FF !important'; 
     doneButton.innerText = 'Done';
     doneButton.onclick = function () {
         restoreSelection();
