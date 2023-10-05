@@ -153,6 +153,13 @@ div > label {
     cursor: pointer;
     transform: translateY(-3px); /* Adjust the translateY value to move the thumb up */
   }
+  #colorPickerDialog .highlight-btn {
+    background-image: none !important;
+    border: none !important;
+    width: 20px;   
+    height: 20px;
+    display: block;
+}
 
 /* Add this CSS to your existing style.css file */
 
