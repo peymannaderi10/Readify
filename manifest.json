@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Readify BETA v1.0",
+  "name": "Readify",
   "description": "Readify is a powerful browser extension that allows users to customize any webpage or online reading content to their own liking and preferences.",
   "version": "1.0",
   "action": {
