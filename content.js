@@ -158,7 +158,6 @@ function createCloseButton(parent) {
     closeButton.style.top = '10px';
 
     // Styling
-    closeButton.style.background = '#0097FF'; 
     closeButton.style.border = 'none';
     closeButton.style.fontSize = '20px'; 
     closeButton.style.cursor = 'pointer'; 
@@ -192,7 +191,7 @@ async function summarizeText(text,option) {
 
     switch(option){
         case 'summary':
-            requestText = "Please summarize the following text and sum up the paragraph without losing any of its meaning. The result should be a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key take aways in clear and concise bullet points.: " + text;
+            requestText = "Answer the following Multiple choice question and provide just the answer with no explanation: "+text;
             break;
         case 'shortSummary':
             requestText = "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be a short summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly the initial summary should be written in 1-3 sentences.: " + text;
@@ -518,8 +517,8 @@ function showSummary(summary, text) {
         summaryBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height) + 'px';
     }
 
-    summaryBox.style.width = '500px';
-    summaryBox.style.height = '35vh';
+    summaryBox.style.width = '250px';
+    summaryBox.style.height = '15vh';
     summaryBox.style.backgroundColor = 'white';
     summaryBox.style.border = '1px solid #ddd';  // Lighter border color
     summaryBox.style.borderRadius = '8px';  // Rounded corners
@@ -532,7 +531,6 @@ function showSummary(summary, text) {
     summaryBox.style.alignItems = 'center';
     summaryBox.style.overflow = 'visible'; // This allows the dropdown to be seen outside of the box
     // Previous summaryBox styles...
-    summaryBox.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1), 5px 0px 0px #0097FF, 0px 5px 0px #0097FF';
 
     document.body.appendChild(summaryBox);
 
@@ -619,7 +617,7 @@ function showSummary(summary, text) {
         dropdownMenu.appendChild(li);
     });
 
-    dropdownButton.addEventListener('click', () => {
+   /* dropdownButton.addEventListener('click', () => {
         const isShown = dropdownMenu.style.display === 'block';
         dropdownMenu.style.display = isShown ? 'none' : 'block';
     });
@@ -639,7 +637,7 @@ function showSummary(summary, text) {
             overlay.remove();  // Remove the overlay after getting the new summary
             textArea.disabled = false;  // Enable the textarea after loading
         }
-    });
+    });*/
 
     const copyButton = document.createElement('button');
     copyButton.innerText = '✍';
@@ -661,9 +659,9 @@ function showSummary(summary, text) {
     };
     
     // Append the copy button and close button to the summary box
-    summaryBox.appendChild(copyButton);
+    //summaryBox.appendChild(copyButton);
     // Appending the custom dropdown to the summary box
-    summaryBox.appendChild(dropdownContainer);
+   // summaryBox.appendChild(dropdownContainer);
     summaryBox.appendChild(textArea);
 
     createCloseButton(summaryBox);
@@ -1002,7 +1000,7 @@ function showSelectionBox(evt) {
             const selection = window.getSelection();
             showColorPicker(selection);
         });
-        selectionBox.appendChild(colorPickerButton);
+        //selectionBox.appendChild(colorPickerButton);
         createTooltip(colorPickerButton, 'Highlighter');
 
 
@@ -1017,7 +1015,7 @@ function showSelectionBox(evt) {
         underlineButton.addEventListener('click', function () {
             underlineSelectedText();
         });
-        selectionBox.appendChild(underlineButton);
+        //selectionBox.appendChild(underlineButton);
         createTooltip(underlineButton, 'Underline');
 
 
@@ -1058,7 +1056,7 @@ function showSelectionBox(evt) {
         });
 
         selectionBox.appendChild(summaryBtn);
-        createTooltip(summaryBtn, 'Summarize');
+        //createTooltip(summaryBtn, 'Summarize');
 
 
         const ttsButton = document.createElement('button');
@@ -1074,7 +1072,7 @@ function showSelectionBox(evt) {
             showTextToSpeech(text);
         });
 
-        selectionBox.appendChild(ttsButton);
+        //selectionBox.appendChild(ttsButton);
         createTooltip(ttsButton, 'Text to Speech');
 
     
@@ -1090,7 +1088,7 @@ function showSelectionBox(evt) {
             showNoteInput();
         });
 
-        selectionBox.appendChild(noteButton);
+        //selectionBox.appendChild(noteButton);
         createTooltip(noteButton, 'Note');
 
 
