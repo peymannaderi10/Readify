@@ -6,204 +6,203 @@
     cursor: pointer;
     box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
     margin: 2px; /* added to ensure there's space between buttons and they don't overlap due to border and shadow */
-  }
-  #summarizeBtn {
-      margin-left: 5px;
-  }
-  
-  #summaryOutput {
-      width: 100%;
-      margin-top: 5px;
-  }
-  
-  .button {
+}
+#summarizeBtn {
+    margin-left: 5px;
+}
+
+#summaryOutput {
+    width: 100%;
+    margin-top: 5px;
+}
+
+.button {
     display: inline-block;
     padding: 10px 20px;
-    background-color: #B6F0E9;           /* Setting the button's color to B6F0E9 */
+    background-color: #b6f0e9; /* Setting the button's color to B6F0E9 */
     color: black;
-    border: 3px solid black;             /* Thick black outline */
-    border-radius: 10px;                 /* Rounded edges */
+    border: 3px solid black; /* Thick black outline */
+    border-radius: 10px; /* Rounded edges */
     transition: background-color 0.3s, transform 0.15s, border-color 0.3s;
     cursor: pointer;
     position: relative;
     overflow: hidden;
 }
 
-  
-  .button span {
-      position: relative;
-      z-index: 1;
-  }
-  
-  .button input[type="checkbox"] {
-      position: absolute;
-      opacity: 0;
-      z-index: 2;
-      cursor: pointer;
-  }
-  
-  /* Pressed in effect when checked */
-  .button input[type="checkbox"]:checked + span {
-      transform: translateY(4px);
-  }
-  
-  .button input[type="checkbox"]:checked {
-      background-color: #0056b3;
-      border-color: #004080;
-  }
-  
-  .mainBody{
+.button span {
+    position: relative;
+    z-index: 1;
+}
+
+.button input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    z-index: 2;
+    cursor: pointer;
+}
+
+/* Pressed in effect when checked */
+.button input[type="checkbox"]:checked + span {
+    transform: translateY(4px);
+}
+
+.button input[type="checkbox"]:checked {
+    background-color: #0056b3;
+    border-color: #004080;
+}
+
+.mainBody {
     width: 261px;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     display: flex;
     flex-direction: column;
-    align-items: center; 
+    align-items: center;
 }
-  .logo {
-      vertical-align: middle; /* align the logo with the middle of the text */
-  }
-  
-  /* Adjust the navbar height, if needed */
-  .navbar {
-      height: 60px;
-      width: 100%;
-      font-family: 'Space Grotesk', sans-serif;
-      font-weight: 700;  /* Adjust as necessary */
-  }
-  
-  body .navbar {
-    background-color: #0097FF !important;
+.logo {
+    vertical-align: middle; /* align the logo with the middle of the text */
+}
+
+/* Adjust the navbar height, if needed */
+.navbar {
+    height: 60px;
+    width: 100%;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700; /* Adjust as necessary */
+}
+
+body .navbar {
+    background-color: #0097ff !important;
 }
 /* Centering labels for sliders */
 div > label {
     text-align: center;
-    display: block;  /* Ensure the label takes up the full width of its parent div */
+    display: block; /* Ensure the label takes up the full width of its parent div */
 }
 
 /* Pressed style for the button */
 .button.pressed {
-    background-color: #0097FF; /* Change to the pressed color */
+    background-color: #0097ff; /* Change to the pressed color */
     border-color: black; /* Change to the pressed border color */
     transform: translateY(1px); /* Simulate a pressed effect */
     box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3); /* Add a bit of shadow */
-
-  }
-  .thicker-underline {
+}
+.thicker-underline {
     text-decoration: none;
-    border-bottom: 2px solid black;  /* Adjust the pixel value to make it thicker or thinner */
-    display: inline;  /* Ensures the style doesn't break inline texts */
+    border-bottom: 2px solid black; /* Adjust the pixel value to make it thicker or thinner */
+    display: inline; /* Ensures the style doesn't break inline texts */
 }
 
-  .btn-lightblue {
+.btn-lightblue {
     background-color: lightblue;
     color: #000;
 }
 .btn-lightblue:hover {
-    background-color: #0097FF;
+    background-color: #0097ff;
     color: #000;
 }
 
 .line-height-button {
-    height: 60px; 
+    height: 60px;
     /* add other styles if needed */
 }
 
 .switch-input {
     transform: scale(2); /* Adjust the scale factor as needed */
     margin-top: 20px;
-  }
-  
-  /* Style for the thumb handle */
+}
+
+/* Style for the thumb handle */
 /* Style for the slider track (thin black line) */
 .form-range::-webkit-slider-runnable-track {
     height: 2px; /* Adjust the height to make it thinner or thicker */
     background-color: black; /* Black color for the track */
     border: none;
-  }
-  
+}
+
 /* Style for the slider thumb (horizontal oval shape) */
 .form-range::-webkit-slider-thumb {
     width: 30px; /* Width of the oval thumb */
     height: 18px; /* Height of the oval thumb */
-    background-color: #B6F0E9; /* Background color of the thumb */
+    background-color: #b6f0e9; /* Background color of the thumb */
     border: 2px solid black; /* Black border around the thumb */
     border-radius: 50px; /* Makes the thumb oval-shaped */
     transform: translateY(-3px); /* Adjust the translateY value to move the thumb up */
+}
 
-  }
-
-  .slider-container {
+.slider-container {
     width: 90%;
     text-align: center;
     margin-bottom: 20px; /* Add some vertical spacing between sliders */
-  }
-  
-  .slider-container input[type="range"] {
+}
+
+.slider-container input[type="range"] {
     width: 90%;
     /* Add your custom styles for the slider thumb here */
-  }
-  
-  /* Custom styling for the slider thumb */
-  .slider-container input[type="range"]::-webkit-slider-thumb {
+}
+
+/* Custom styling for the slider thumb */
+.slider-container input[type="range"]::-webkit-slider-thumb {
     width: 30px; /* Adjust the width as needed */
     height: 18px; /* Adjust the height as needed */
     border: 2px solid black;
     border-radius: 50px;
-    background-color: #B6F0E9;
+    background-color: #b6f0e9;
     cursor: pointer;
     transform: translateY(-3px); /* Adjust the translateY value to move the thumb up */
-  }
-  #colorPickerDialog .highlight-btn {
+}
+#colorPickerDialog .highlight-btn {
     background-image: none !important;
     border: none !important;
-    width: 20px;   
+    width: 20px;
     height: 20px;
     display: block;
 }
 
 /* Add this CSS to your existing style.css file */
 
-  .slider-container .d-flex span {
+.slider-container .d-flex span {
     font-size: 10px; /* Adjust the font size as needed */
     width: 90%; /* Set the width to 90% */
-  }
-  
-  .footer {
-    background-color: #0097FF !important;
-  }
-
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
 }
 
-.loader {
-    border: 2px solid #f3f3f3;
-    border-radius: 50%;
-    border-top: 2px solid #0097FF;
-    width: 16px;
-    height: 16px;
-    animation: spin 1s linear infinite;
-    position: absolute;
-}
-
-button.loading img {
-    opacity: 0.5;
+.footer {
+    background-color: #0097ff !important;
 }
 
 
-.spinner {
-  border: 4px solid rgba(255,255,255,0.3);
-  border-radius: 50%;
-  border-top: 4px solid #0097FF;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
+#login-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #fff;
+    z-index: 999;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+#login-popup > div {
+    position: fixed;
+    width: 100%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 0px 15px;
 }
 
+#login-popup > div > span {
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+    padding: 10px 0px;
+    border: 1px solid #0097ff;
+}
 
+.email {
+    font-size: 0.8rem;
+    margin: 10px 0px;
+    padding: 0px 10px;
+    width: 100%;
+    text-align: center;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}

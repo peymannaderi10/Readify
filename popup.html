@@ -1,131 +1,143 @@
 <!DOCTYPE html>
 <html>
-  <script src="highlight.js"></script>
-  <link href="node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
-  <head>
-    <link rel="stylesheet" type="text/css" href="styles.css">
-    <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  </head>
-  <body class="mainBody">
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-      <div class="container-fluid justify-content-center align-items-center"> <!-- added classes here -->
-          <a class="navbar-brand" href="#">
-              <img src="logo.png" alt="Logo" width="60" class="logo"> <!-- you might want to adjust this width based on your logo's size -->
-              Readify
-          </a>
-      </div>
-  </nav><br>
-    
-    <label class="button" for="toggleBold" id="boldedLabel"><input type="checkbox" id="toggleBold" /><span> Enable Reading Mode </span></label><br>
-    <div class="slider-container">
-      <label for="boldRange" class="form-label">Bolded Width</label>
-      <input type="range" min="0" max="5" value="1" id="boldRange" class="form-range">
-      <div class="d-flex justify-content-between">
-        <span>0</span>
-        <span>1</span>
-        <span>2</span>
-        <span>3</span>
-        <span>4</span>
-        <span>5</span>
-      </div>
-    </div>
-    
-    <div class="slider-container">
-      <label for="skipRange" class="form-label">Saccades Interval</label>
-      <input type="range" min="0" max="3" value="0" id="skipRange" class="form-range">
-      <div class="d-flex justify-content-between">
-        <span>0</span>
-        <span>1</span>
-        <span>2</span>
-        <span>3</span>
-      </div>
-    </div>
-    
-    <div class="slider-container">
-      <label for="opacityRange" class="form-label">Unbolded Opacity</label>
-      <input type="range" min="0" max="4" value="4" id="opacityRange" class="form-range">
-      <div class="d-flex justify-content-between">
-        <span>0</span>
-        <span>1</span>
-        <span>2</span>
-        <span>3</span>
-        <span>4</span>
-      </div>
-    </div>
-    
-    <h4 class="mt-4">Bold Coloring</h4>
-    <div id="colorOptions">
-      <select id="colorSelect" class="form-select">
-        <option hidden selected>Select a Colour</option>
-          <option value="black">Black</option>
-          <option value="blue">Blue</option>
-          <option value="green">Green</option>
-          <option value="red">Red</option>
-          <option value="gold">Gold</option>
-      </select>
-    </div>
-<div style="height: 20px;"></div>
-<h3 class="mt-4">Line Height</h3>
-<div class="row justify-content-between mb-2"> 
-  <div class="col-6">
-    <button id="decrease" class="btn btn-block btn-lightblue line-height-button">
-        Aa-<br>Decrease
-    </button>
-  </div>
-  <div class="col-6">
-    <button id="increase" class="btn btn-block btn-dark line-height-button">
-        Aa+<br>Increase
-    </button>
-  </div>
-</div>
-
-
-<div class="mt-4 text-center">
-  <label for="enableCheckbox">Enable Study Mode</label>
-  <div class="form-check form-switch d-flex justify-content-center align-items-center">
-    <input class="form-check-input switch-input" type="checkbox" id="enableCheckbox">
-  </div>
-</div>
-<br>
-<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-body">
-        Please make all changes in Reading Mode prior to enabling this tool,<br>as enabling or making changes to reading mode will wipe all notes/highlights.
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelBtn">Cancel</button>
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal" id="confirmBtn">Accept</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-  <!-- Footer -->
-  <footer class="footer bg-light">
-    <div class="container">
-        <div class="row">
-            <div class="col">
-                <a href="https://www.readify.ca/faq-s" target="_blank" rel="noopener noreferrer" class="text-light">FAQ</a>
+    <script src="highlight.js"></script>
+    <link href="node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <head>
+        <link rel="stylesheet" type="text/css" href="styles.css" />
+        <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    </head>
+    <body class="mainBody">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+            <div class="container-fluid justify-content-center align-items-center">
+                <!-- added classes here -->
+                <a class="navbar-brand" href="#">
+                    <img src="logo.png" alt="Logo" width="60" class="logo" />
+                    <!-- you might want to adjust this width based on your logo's size -->
+                    Readify
+                </a>
             </div>
-            <div class="col">
-                <a href="https://www.readify.ca/" target="_blank" rel="noopener noreferrer" class="text-light" style="white-space: nowrap;">Report Issue</a>
-            </div>
-            <div class="col">
-                <a href="https://www.readify.ca/" target="_blank" rel="noopener noreferrer" class="text-light">Website</a>
+        </nav>
+        <i class="email">Signed in as -</i>
+        <label class="button" for="toggleBold" id="boldedLabel"><input type="checkbox" id="toggleBold" /><span> Enable Reading Mode </span></label
+        ><br />
+        <div class="slider-container">
+            <label for="boldRange" class="form-label">Bolded Width</label>
+            <input type="range" min="0" max="5" value="1" id="boldRange" class="form-range" />
+            <div class="d-flex justify-content-between">
+                <span>0</span>
+                <span>1</span>
+                <span>2</span>
+                <span>3</span>
+                <span>4</span>
+                <span>5</span>
             </div>
         </div>
-        <div class="row">
-            <img src="thanks.png" style="margin-top: 10px;">
+
+        <div class="slider-container">
+            <label for="skipRange" class="form-label">Saccades Interval</label>
+            <input type="range" min="0" max="3" value="0" id="skipRange" class="form-range" />
+            <div class="d-flex justify-content-between">
+                <span>0</span>
+                <span>1</span>
+                <span>2</span>
+                <span>3</span>
+            </div>
         </div>
-    </div>
-</footer>
 
+        <div class="slider-container">
+            <label for="opacityRange" class="form-label">Unbolded Opacity</label>
+            <input type="range" min="0" max="4" value="4" id="opacityRange" class="form-range" />
+            <div class="d-flex justify-content-between">
+                <span>0</span>
+                <span>1</span>
+                <span>2</span>
+                <span>3</span>
+                <span>4</span>
+            </div>
+        </div>
 
-    <script src="popup.js"></script>
-  </body>
+        <h4 class="mt-4">Bold Coloring</h4>
+        <div id="colorOptions">
+            <select id="colorSelect" class="form-select">
+                <option hidden selected>Select a Colour</option>
+                <option value="black">Black</option>
+                <option value="blue">Blue</option>
+                <option value="green">Green</option>
+                <option value="red">Red</option>
+                <option value="gold">Gold</option>
+            </select>
+        </div>
+        <div style="height: 20px"></div>
+        <h3 class="mt-4">Line Height</h3>
+        <div class="row justify-content-between mb-2">
+            <div class="col-6">
+                <button id="decrease" class="btn btn-block btn-lightblue line-height-button">Aa-<br />Decrease</button>
+            </div>
+            <div class="col-6">
+                <button id="increase" class="btn btn-block btn-dark line-height-button">Aa+<br />Increase</button>
+            </div>
+        </div>
+
+        <div class="mt-4 text-center">
+            <label for="enableCheckbox">Enable Study Mode</label>
+            <div class="form-check form-switch d-flex justify-content-center align-items-center">
+                <input class="form-check-input switch-input" type="checkbox" id="enableCheckbox" />
+            </div>
+        </div>
+        <br />
+        <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-body">
+                        Please make all changes in Reading Mode prior to enabling this tool,<br />as enabling or making changes to reading mode will
+                        wipe all notes/highlights.
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelBtn">Cancel</button>
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal" id="confirmBtn">Accept</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer bg-light">
+            <div class="container">
+                <div class="row">
+                    <div class="col">
+                        <a href="https://www.readify.ca/faq-s" target="_blank" rel="noopener noreferrer" class="text-light">FAQ</a>
+                    </div>
+                    <div class="col">
+                        <a href="https://www.readify.ca/" target="_blank" rel="noopener noreferrer" class="text-light" style="white-space: nowrap"
+                            >Report Issue</a
+                        >
+                    </div>
+                    <div class="col">
+                        <a href="https://www.readify.ca/" target="_blank" rel="noopener noreferrer" class="text-light">Website</a>
+                    </div>
+                </div>
+                <div class="row">
+                    <img src="thanks.png" style="margin-top: 10px" />
+                </div>
+            </div>
+        </footer>
+
+        <div id="login-popup" hidden>
+            <div>
+                <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                    <div class="container-fluid justify-content-center align-items-center">
+                        <!-- added classes here -->
+                        <a class="navbar-brand" href="#">
+                            <img src="logo.png" alt="Logo" width="60" class="logo" />
+                            Readify
+                        </a>
+                    </div>
+                </nav>
+                <span>You are not signed into chromes. Please sign in to continue.</span>
+            </div>
+        </div>
+
+        <script src="popup.js"></script>
+    </body>
 </html>
