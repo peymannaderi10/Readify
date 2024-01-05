@@ -1443,6 +1443,17 @@ async function restoreChangesFromDisk(i = 0) {
     }
 }
 
+async function deleteChangesFromDisk() {
+    let key = `saved-${await getURLDigest()}`;
+
+    chrome.storage.sync.remove(key, function() {
+        console.log(`All changes under the key '${key}' have been deleted.`);
+        // Refresh the page after deletion
+        location.reload();
+    });
+}
+
+
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     if (request.enabled) {
         document.addEventListener("mouseup", handleMouseUp);
@@ -1462,6 +1473,14 @@ chrome.storage.sync.get("enabled", function (data) {
         extensionEnabled = false; // Set the global variable
     }
 });
+
+chrome.runtime.onMessage.addListener(
+    function(request, sender, sendResponse) {
+        if (request.action === "deleteChanges") {
+            deleteChangesFromDisk();
+        }
+    }
+);
 
 function handleDocumentClick(event) {
     let colorPicker = containerRoot.getElementById("colorPickerDialog");

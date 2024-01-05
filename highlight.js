@@ -1,26 +1,38 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // When checkbox changes, save its state
-    document.getElementById("enableCheckbox").addEventListener("change", function () {
-        let checkbox = this;
+    const enableCheckbox = document.getElementById("enableCheckbox");
+    const deleteChangesButton = document.getElementById("deleteChangesButton");
 
-        if (checkbox.checked) {
+    // Initially set the deleteChangesButton state
+    chrome.storage.sync.get("enabled", function (data) {
+        enableCheckbox.checked = data.enabled || false;
+        deleteChangesButton.disabled = !data.enabled;
+    });
+
+    // When checkbox changes, save its state and toggle the deleteChangesButton
+    enableCheckbox.addEventListener("change", function () {
+        let isChecked = this.checked;
+
+        if (isChecked) {
             // Show the modal
             var modal = new bootstrap.Modal(document.getElementById("confirmationModal"));
             modal.show();
 
             // On Confirm
             document.getElementById("confirmBtn").addEventListener("click", function () {
-                saveCheckboxState(checkbox.checked);
+                saveCheckboxState(isChecked);
+                deleteChangesButton.disabled = false;
                 modal.hide();
             });
 
             // On Cancel
             document.getElementById("cancelBtn").addEventListener("click", function () {
-                checkbox.checked = false; // Uncheck the checkbox
+                enableCheckbox.checked = false; // Uncheck the checkbox
+                deleteChangesButton.disabled = true;
                 modal.hide();
             });
         } else {
-            saveCheckboxState(checkbox.checked);
+            saveCheckboxState(isChecked);
+            deleteChangesButton.disabled = true;
         }
     });
 
@@ -34,8 +46,10 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Load the saved checkbox state when the popup is opened
-    chrome.storage.sync.get("enabled", function (data) {
-        document.getElementById("enableCheckbox").checked = data.enabled || false;
+    // Add click listener to deleteChangesButton
+    deleteChangesButton.addEventListener('click', function() {
+        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+            chrome.tabs.sendMessage(tabs[0].id, {action: "deleteChanges"});
+        });
     });
 });
