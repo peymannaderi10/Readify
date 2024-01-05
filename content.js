@@ -407,28 +407,47 @@ function updateUtteranceSettings() {
         if (volumeControl && rateControl) {
             currentUtterance.volume = parseFloat(volumeControl.value);
             currentUtterance.rate = parseFloat(rateControl.value);
+            console.log("Updated rate:", currentUtterance.rate);
+            console.log("Updated volume:", currentUtterance.volume);
             currentUtterance.voice = speechSynthesis.getVoices().find((voice) => voice.name === "Google UK English Male");
         }
     }
 }
 
 function playSpeech() {
-    if (!isPaused) {
-        speechSynthesis.cancel(); // Cancel any ongoing speech only if not paused
-        updateUtteranceSettings(); // Update settings before speaking
+    if (currentUtterance) {
+        if (!isPaused) {
+            // If not paused, create a new utterance
+            if (pausedPosition > 0) {
+                // If pausedPosition is set, resume from that position
+                currentUtterance = new SpeechSynthesisUtterance(textToSpeak.substring(pausedPosition));
+                pausedPosition = 0;
+            } else {
+                speechSynthesis.cancel(); // Cancel any ongoing speech
+                createUtterance();
+            }
 
-        if (pausedPosition > 0) {
-            textToSpeak = textToSpeak.substring(pausedPosition);
-            pausedPosition = 0;
+            // Split the text into sentences using ".", "!", "?", ",", and ";"
+            const sentences = textToSpeak.match(/[^.!,?;]+[.!?,;]+/g);
+
+            // Play each sentence sequentially
+            function playSentence(index) {
+                if (index < sentences.length) {
+                    currentUtterance.text = sentences[index];
+                    currentUtterance.onend = function () {
+                        playSentence(index + 1);
+                    };
+                    speechSynthesis.speak(currentUtterance);
+                }
+            }
+
+            playSentence(0);
+        } else {
+            // If paused, resume from the current position
+            isPaused = false;
+            updateUtteranceSettings(); // Update settings before resuming
+            speechSynthesis.resume();
         }
-
-        createUtterance();
-        speechSynthesis.speak(currentUtterance);
-    } else {
-        // If paused, resume from the current position
-        isPaused = false;
-        updateUtteranceSettings(); // Update settings before resuming
-        speechSynthesis.resume();
     }
 }
 
@@ -438,7 +457,6 @@ function pauseSpeech() {
         isPaused = true;
     }
 }
-
 
 
 function removeTTS() {
@@ -547,8 +565,6 @@ function showTextToSpeech(text) {
     document.body.appendChild(ttsBox);
 
 }
-
-
 
 // Ensure voices are loaded before setting the voice
 speechSynthesis.onvoiceschanged = () => {
