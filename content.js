@@ -389,6 +389,7 @@ let currentUtterance = null;
 let textToSpeak = "";
 let pausedPosition = 0;
 let isPaused = false; // Track whether speech is paused
+let currentSentenceIndex = 0;
 
 function createUtterance() {
     currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -418,36 +419,32 @@ function playSpeech() {
     if (currentUtterance) {
         if (!isPaused) {
             // If not paused, create a new utterance
-            if (pausedPosition > 0) {
-                // If pausedPosition is set, resume from that position
-                currentUtterance = new SpeechSynthesisUtterance(textToSpeak.substring(pausedPosition));
-                pausedPosition = 0;
-            } else {
-                speechSynthesis.cancel(); // Cancel any ongoing speech
-                createUtterance();
-            }
-
-            // Split the text into sentences using ".", "!", "?", ",", and ";"
-            const sentences = textToSpeak.match(/[^.!,?;]+[.!?,;]+/g);
-
-            // Play each sentence sequentially
-            function playSentence(index) {
-                if (index < sentences.length) {
-                    currentUtterance.text = sentences[index];
-                    currentUtterance.onend = function () {
-                        playSentence(index + 1);
-                    };
-                    speechSynthesis.speak(currentUtterance);
-                }
-            }
-
-            playSentence(0);
+            speechSynthesis.cancel(); // Cancel any ongoing speech
+            createUtterance();
+            currentSentenceIndex = 0; // Reset sentence index
         } else {
-            // If paused, resume from the current position
+            // If paused, cancel the current utterance and create a new one
             isPaused = false;
-            updateUtteranceSettings(); // Update settings before resuming
-            speechSynthesis.resume();
+            speechSynthesis.cancel(); // Cancel the current utterance
+            createUtterance(); // Create a new utterance with updated settings
         }
+
+        // Split the text into sentences using ".", "!", "?", ",", and ";"
+        const sentences = textToSpeak.match(/[^.!,?;]+[.!?,;]+/g);
+
+        // Play each sentence sequentially from the current index
+        function playSentence(index) {
+            if (index < sentences.length) {
+                currentUtterance.text = sentences[index];
+                currentUtterance.onend = function () {
+                    playSentence(index + 1);
+                };
+                speechSynthesis.speak(currentUtterance);
+                currentSentenceIndex = index; // Update the current sentence index
+            }
+        }
+
+        playSentence(currentSentenceIndex);
     }
 }
 
