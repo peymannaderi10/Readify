@@ -427,6 +427,7 @@ function playSpeech() {
     } else {
         // If paused, resume from the current position
         isPaused = false;
+        updateUtteranceSettings(); // Update settings before resuming
         speechSynthesis.resume();
     }
 }
@@ -437,6 +438,7 @@ function pauseSpeech() {
         isPaused = true;
     }
 }
+
 
 
 function removeTTS() {
