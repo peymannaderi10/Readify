@@ -121,7 +121,6 @@ if (document.readyState === "loading") {
 }
 
 function afterDOMLoaded() {
-    console.log("DOM fully loaded and parsed");
     wrapDivTextNodesInP();
     restoreChangesFromDisk();
 }
@@ -389,6 +388,7 @@ async function summarizeText(text, option) {
 let currentUtterance = null;
 let textToSpeak = "";
 let pausedPosition = 0;
+let isPaused = false; // Track whether speech is paused
 
 function createUtterance() {
     currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -397,168 +397,162 @@ function createUtterance() {
             pausedPosition = event.charIndex;
         }
     };
-    updateUtteranceSettings();
+    updateUtteranceSettings(); // Apply updated settings
 }
 
 function updateUtteranceSettings() {
     if (currentUtterance) {
         const volumeControl = document.getElementById("volumeControl");
         const rateControl = document.getElementById("rateControl");
-
-        currentUtterance.volume = parseFloat(volumeControl.value);
-        currentUtterance.rate = parseFloat(rateControl.value);
-
-        // Set the voice to Google UK English male
-        currentUtterance.voice = speechSynthesis.getVoices().find((voice) => voice.name === "Google UK English Male");
+        if (volumeControl && rateControl) {
+            currentUtterance.volume = parseFloat(volumeControl.value);
+            currentUtterance.rate = parseFloat(rateControl.value);
+            currentUtterance.voice = speechSynthesis.getVoices().find((voice) => voice.name === "Google UK English Male");
+        }
     }
 }
 
 function playSpeech() {
-    if (currentUtterance) {
+    if (!isPaused) {
+        speechSynthesis.cancel(); // Cancel any ongoing speech only if not paused
+        updateUtteranceSettings(); // Update settings before speaking
+
         if (pausedPosition > 0) {
-            // If pausedPosition is set, resume from that position
-            currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
-            updateUtteranceSettings();
-            currentUtterance.text = currentUtterance.text.substring(pausedPosition);
+            textToSpeak = textToSpeak.substring(pausedPosition);
             pausedPosition = 0;
-        } else {
-            speechSynthesis.cancel(); // Cancel any ongoing speech
-            createUtterance();
         }
 
-        // Split the text into sentences using ".", "!", "?", ",", and ";"
-        const sentences = textToSpeak.match(/[^.!,?;]+[.!?,;]+/g);
-
-        // Play each sentence sequentially
-        function playSentence(index) {
-            if (index < sentences.length) {
-                currentUtterance.text = sentences[index];
-                currentUtterance.onend = function () {
-                    playSentence(index + 1);
-                };
-                speechSynthesis.speak(currentUtterance);
-            }
-        }
-
-        playSentence(0);
+        createUtterance();
+        speechSynthesis.speak(currentUtterance);
+    } else {
+        // If paused, resume from the current position
+        isPaused = false;
+        speechSynthesis.resume();
     }
 }
 
 function pauseSpeech() {
-    if (speechSynthesis.speaking) {
-        // Pause and record the current position
+    if (speechSynthesis.speaking && !isPaused) {
         speechSynthesis.pause();
+        isPaused = true;
     }
 }
+
+
 function removeTTS() {
     if (ttsBox) {
         pauseSpeech();
-        containerRoot.removeChild(ttsBox);
+        document.body.removeChild(ttsBox);
         ttsBox = null;
     }
-    document.removeEventListener("mousedown", handleDocumentClick);
+    document.removeEventListener('mousedown', handleDocumentClick);
 }
 
 function showTextToSpeech(text) {
-    if (ttsBox) {
+    if(ttsBox){
         removeTTS();
     }
-
-    ttsBox = document.createElement("div");
-    ttsBox.style.position = "fixed";
+    
+    ttsBox = document.createElement('div');
+    ttsBox.style.position = 'fixed';
     ttsBox.style.left = selectionBox.style.left;
 
-    let potentialBottomPosition = parseFloat(selectionBox.style.top) + 60 + (25 * window.innerHeight) / 100;
+    let potentialBottomPosition = parseFloat(selectionBox.style.top) + 60 + 25 * window.innerHeight / 100;
     if (potentialBottomPosition > window.innerHeight) {
-        ttsBox.style.top = parseFloat(selectionBox.style.top) - (25 * window.innerHeight) / 100 + "px";
+        ttsBox.style.top = (parseFloat(selectionBox.style.top) - 25 * window.innerHeight / 100) + 'px';
     } else {
-        ttsBox.style.top = parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height + "px";
+        ttsBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height) + 'px';
     }
     textToSpeak = text;
 
-    ttsBox.style.position = "fixed";
-    ttsBox.style.top = parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height + 10 + "px";
+    ttsBox.style.position = 'fixed';
+    ttsBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height + 10) + 'px';
 
-    ttsBox.style.border = "1px";
-    ttsBox.style.background = "white";
-    ttsBox.style.padding = "16px";
-    ttsBox.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.1)";
-    ttsBox.style.zIndex = "1000";
-    ttsBox.style.display = "flex";
-    ttsBox.style.flexDirection = "column";
-    ttsBox.style.alignItems = "center";
-    const closeButton = document.createElement("button");
-    closeButton.innerText = "X";
-    closeButton.style.position = "absolute";
-    closeButton.style.top = "5px";
-    closeButton.style.right = "5px";
-    closeButton.style.background = "transparent";
-    closeButton.style.border = "none";
-    closeButton.style.fontSize = "0.755em";
-    closeButton.style.cursor = "pointer";
-    closeButton.addEventListener("click", removeTTS);
+    ttsBox.style.border = '1px';
+    ttsBox.style.background = 'white';
+    ttsBox.style.padding = '16px';
+    ttsBox.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+    ttsBox.style.zIndex = '1000';
+    ttsBox.style.display = 'flex';
+    ttsBox.style.flexDirection = 'column';
+    ttsBox.style.alignItems = 'center';
+    const closeButton = document.createElement('button');
+    closeButton.innerText = 'X';
+    closeButton.style.position = 'absolute';
+    closeButton.style.top = '5px';
+    closeButton.style.right = '5px';
+    closeButton.style.background = 'transparent';
+    closeButton.style.border = 'none';
+    closeButton.style.fontSize = '0.755em';
+    closeButton.style.cursor = 'pointer';
+    closeButton.addEventListener('click', removeTTS);
     ttsBox.appendChild(closeButton);
+    
 
     // Container for Play and Pause buttons
-    const buttonContainer = document.createElement("div");
-    buttonContainer.style.display = "flex";
-    buttonContainer.style.justifyContent = "space-between";
-    buttonContainer.style.width = "100%";
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.justifyContent = 'space-between';
+    buttonContainer.style.width = '100%';
 
-    const playButton = document.createElement("button");
+    const playButton = document.createElement('button');
     playButton.style = commonButtonStyle;
-    playButton.innerText = "Play";
-    playButton.classList.add("control-button");
+    playButton.innerText = 'Play';
+    playButton.classList.add('control-button');
     playButton.onclick = function () {
         createUtterance();
         playSpeech();
     };
 
-    const pauseButton = document.createElement("button");
+    const pauseButton = document.createElement('button');
     pauseButton.style = commonButtonStyle;
-    pauseButton.style.marginRight = "20px";
-    pauseButton.style.marginLeft = "10px";
-    pauseButton.innerText = "Pause";
-    pauseButton.classList.add("control-button");
+    pauseButton.style.marginRight = '20px';
+    pauseButton.style.marginLeft = '10px';
+    pauseButton.innerText = 'Pause';
+    pauseButton.classList.add('control-button');
     pauseButton.onclick = pauseSpeech;
 
     buttonContainer.appendChild(playButton);
     buttonContainer.appendChild(pauseButton);
 
-    const volumeControl = document.createElement("input");
-    volumeControl.type = "range";
-    volumeControl.min = "0";
-    volumeControl.max = "1";
-    volumeControl.step = "0.01";
-    volumeControl.value = "1";
-    volumeControl.id = "volumeControl";
-    volumeControl.classList.add("slider");
+    const volumeControl = document.createElement('input');
+    volumeControl.type = 'range';
+    volumeControl.min = '0';
+    volumeControl.max = '1';
+    volumeControl.step = '0.01';
+    volumeControl.value = '1';
+    volumeControl.id = 'volumeControl';
+    volumeControl.classList.add('slider');
     volumeControl.oninput = updateUtteranceSettings;
 
-    const rateControl = document.createElement("input");
-    rateControl.type = "range";
-    rateControl.min = "0.5";
-    rateControl.max = "1.5";
-    rateControl.step = "0.25";
-    rateControl.value = "1";
-    rateControl.id = "rateControl";
-    rateControl.classList.add("slider");
+    const rateControl = document.createElement('input');
+    rateControl.type = 'range';
+    rateControl.min = '0.5';
+    rateControl.max = '1.5';
+    rateControl.step = '0.25';
+    rateControl.value = '1';
+    rateControl.id = 'rateControl';
+    rateControl.classList.add('slider');
     rateControl.oninput = updateUtteranceSettings;
 
     ttsBox.appendChild(buttonContainer); // Add the button container
-    ttsBox.appendChild(document.createElement("br"));
-    ttsBox.appendChild(document.createTextNode("Volume: "));
+    ttsBox.appendChild(document.createElement('br'));
+    ttsBox.appendChild(document.createTextNode('Volume: '));
     ttsBox.appendChild(volumeControl);
-    ttsBox.appendChild(document.createElement("br"));
-    ttsBox.appendChild(document.createTextNode("Speed: "));
+    ttsBox.appendChild(document.createElement('br'));
+    ttsBox.appendChild(document.createTextNode('Speed: '));
     ttsBox.appendChild(rateControl);
-    containerRoot.appendChild(ttsBox);
+    document.body.appendChild(ttsBox);
+
 }
+
+
 
 // Ensure voices are loaded before setting the voice
 speechSynthesis.onvoiceschanged = () => {
     updateUtteranceSettings();
 };
+
 
 function showLoadingOverlay(textArea) {
     const overlay = document.createElement("div");
@@ -1076,7 +1070,6 @@ function removeColorPicker() {
 // Function to show selection box
 function showSelectionBox(evt) {
     if (selectionBox && container.contains(evt.target)) {
-        console.log("Inside selection box");
         return;
     }
 
