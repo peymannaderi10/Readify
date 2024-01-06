@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Readify: Your Productivity Companion",
-    "description": "Readify is a powerful browser extension that allows users to customize any webpage or online reading content to their own liking and preferences.",
+    "description": "Readify is a browser extension that allows users to customize any webpage or online reading content to their own preferences.",
     "version": "1.2",
     "action": {
         "default_popup": "popup.html",
