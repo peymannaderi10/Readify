@@ -244,145 +244,175 @@ function createCloseButton(parent) {
 
 async function summarizeText(text, option) {
     var requestText = "";
-
+    const encodedApiKey = "MjE3ZGU3MTk1M21zaDJkNDI0OWQ0OTZiZjRjYnAxN2ZiZDhqc240ZmU5NGJmNGExZGQ=";
+    const decodedApiKey = atob(encodedApiKey);
     switch (option) {
         case "summary":
             requestText =
-                "Please summarize the following text and sum up the paragraph without losing any of its meaning. The result should be a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key take aways in clear and concise bullet points.: " +
+                "Please summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key take aways in clear and concise bullet points.: " +
                 text;
             break;
         case "shortSummary":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be a short summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly the initial summary should be written in 1-3 sentences.: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be a short summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly the initial summary should be written in 1-3 sentences.: " +
                 text;
             break;
         case "longSummary":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be a long summary of the paragraph that is very detailed while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly the initial summary should be written in 3-5 sentences.: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be a long summary of the paragraph that is very detailed while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly the initial summary should be written in 3-5 sentences.: " +
                 text;
             break;
         case "formalTone":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in a formal tone: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in a formal tone: " +
                 text;
             break;
         case "casualTone":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in a casual tone :" +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in a casual tone :" +
                 text;
             break;
         case "neutralTone":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in a neutral tone: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in a neutral tone: " +
                 text;
             break;
         case "spanish":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Spanish Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Spanish Language: " +
                 text;
             break;
         case "french":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the French Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the French Language: " +
                 text;
             break;
         case "mandarin":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Mandarin Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Mandarin Language: " +
                 text;
             break;
         case "cantonese":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Cantonese Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Cantonese Language: " +
                 text;
             break;
         case "korean":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Korean Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Korean Language: " +
                 text;
             break;
         case "japanese":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Japanese Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Japanese Language: " +
                 text;
             break;
         case "vietnamese":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Vietnamese Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Vietnamese Language: " +
                 text;
             break;
         case "punjabi":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Punjabi Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Punjabi Language: " +
                 text;
             break;
         case "arabic":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Arabic Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Arabic Language: " +
                 text;
             break;
         case "indonesian":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Indonesian Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Indonesian Language: " +
                 text;
             break;
         case "turkish":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Turkish Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Turkish Language: " +
                 text;
             break;
         case "russian":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Russian Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Russian Language: " +
                 text;
             break;
         case "german":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the German Language:: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the German Language:: " +
                 text;
             break;
         case "tagalog":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Tagalog Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Tagalog Language: " +
                 text;
             break;
         case "italian":
             requestText =
-                "Please Summarize the following text and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Italian Language: " +
+                "Please Summarize the following text (in paragraph format) and sum up the paragraph without losing any of its meaning. The result should be  a summary of the paragraph that is as short as possible while still keeping all of the original meaning and context. Also, be sure to add key takeaways in clear and concise bullet points. Lastly, the entire output should be in the Italian Language: " +
                 text;
             break;
     }
+
     const data = JSON.stringify([
         {
-            content: requestText,
-            role: "user",
+            content: 'Hello! I\'m an AI assistant bot based on ChatGPT 3. How may I help you?',
+            role: 'system'
         },
+        {
+            content: requestText,
+            role: 'user'
+        }
     ]);
-    const encodedApiKey = "MjE3ZGU3MTk1M21zaDJkNDI0OWQ0OTZiZjRjYnAxN2ZiZDhqc240ZmU5NGJmNGExZGQ=";
-    const decodedApiKey = atob(encodedApiKey);
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.withCredentials = true;
 
-        xhr.addEventListener("readystatechange", function () {
-            if (this.readyState === this.DONE) {
-                try {
-                    const response = JSON.parse(this.responseText);
-                    const text = response.text;
-                    resolve(text);
-                } catch (error) {
-                    reject(error);
+    // Function to delay execution for a set amount of time
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Function to make the API call
+    const makeRequest = async () => {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.withCredentials = true;
+
+            xhr.addEventListener("readystatechange", function () {
+                if (this.readyState === this.DONE) {
+                    try {
+                        const response = JSON.parse(this.responseText);
+                        if (response.text !== null) {
+                            resolve(response.text); // Resolve with text if not null
+                        } else {
+                            throw new Error('Response text is null'); // Force a retry when text is null
+                        }
+                    } catch (error) {
+                        reject(error);
+                    }
                 }
-            }
+            });
+
+            xhr.open("POST", "https://chatgpt-api8.p.rapidapi.com/");
+            xhr.setRequestHeader("content-type", "application/json");
+            xhr.setRequestHeader("X-RapidAPI-Key", decodedApiKey);
+            xhr.setRequestHeader("X-RapidAPI-Host", "chatgpt-api8.p.rapidapi.com");
+
+            xhr.send(data);
         });
+    };
 
-        xhr.open("POST", "https://chatgpt-api8.p.rapidapi.com/");
-        xhr.setRequestHeader("content-type", "application/json");
-        xhr.setRequestHeader("X-RapidAPI-Key", decodedApiKey);
-        xhr.setRequestHeader("X-RapidAPI-Host", "chatgpt-api8.p.rapidapi.com");
+    // Function to retry the request until the text is not null
+    const retryRequest = async (retries, interval) => {
+        for (let i = 0; i < retries; i += 1) {
+            try {
+                return await makeRequest(); // Attempt to make the request
+            } catch (error) {
+                if (i === retries - 1) {
+                    return "Sorry we're a bit busy, please try again later.";
+                }
+                await delay(interval); // Wait for the specified interval before retrying
+            }
+        }
+    };
 
-        xhr.send(data);
-    });
+    return retryRequest(8, 2000); // TEMP FIX TO RETRY 8 TIMES, NEED TO FIND NEW API
 }
 
 let currentUtterance = null;
@@ -1136,7 +1166,7 @@ function showSelectionBox(evt) {
         colorPickerButton.style.height = "25px !important";
         colorPickerButton.style.backgroundColor = "transparent";
         colorPickerButton.innerHTML =
-            "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149874072822485134/image.png' alt='highlight' style= 'height: 24px; width: 24px' />";
+        "<img src='" + chrome.runtime.getURL('images/highlight.png') + "' alt='highlight' style='height: 24px; width: 24px' />";;
         colorPickerButton.style.border = "transparent";
         colorPickerButton.addEventListener("click", function () {
             const selection = window.getSelection();
@@ -1150,11 +1180,10 @@ function showSelectionBox(evt) {
         underlineButton.style.width = "25px !important";
         underlineButton.style.height = "25px !important";
         if (isExactUnderlineSelection()) {
-            // Change to 'remove underline' icon
-            underlineButton.innerHTML = "<img src='https://cdn.discordapp.com/attachments/786832803282812958/1192494400652193792/image.png?ex=65a947f4&is=6596d2f4&hm=ab92c2c6cbb26a271b1a56940a941dc75039a1d5e79a2dcea8b82a808f2b7bd9&' alt='remove underline' style='height: 24px; width: 24px'>";
+            underlineButton.innerHTML = "<img src='" + chrome.runtime.getURL('images/underlineCancel.png') + "' alt='underlineCancel' style='height: 24px; width: 24px' />";
         } else {
             underlineButton.innerHTML =
-            "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149878612674216007/image.png' alt='underline' style= 'height: 24px; width: 24px' />";
+            "<img src='" + chrome.runtime.getURL('images/underline.png') + "' alt='underline' style='height: 24px; width: 24px' />";
         }
 
         
@@ -1180,15 +1209,14 @@ function showSelectionBox(evt) {
         selectionBox.appendChild(underlineButton);
         createTooltip(underlineButton, "Underline");
 
-        const summaryBtn = document.createElement("button");
-        summaryBtn.style.position = "relative";
-        summaryBtn.style.width = "25px !important";
-        summaryBtn.style.height = "25px !important";
-        summaryBtn.style.backgroundColor = "transparent";
-        summaryBtn.innerHTML =
-            "<img src='https://cdn.discordapp.com/attachments/786832803282812958/1149879335898058762/image.png' alt='summarize' style='height: 24px; width: 24px' />";
-        summaryBtn.style.border = "transparent";
-
+        const summaryBtn = document.createElement('button');
+        summaryBtn.style.position = 'relative';
+        summaryBtn.style.width = '25px !important';
+        summaryBtn.style.height = '25px !important';
+        summaryBtn.style.backgroundColor = 'transparent';
+        summaryBtn.innerHTML = "<img src='" + chrome.runtime.getURL('images/summarize.png') + "' alt='summarize' style='height: 24px; width: 24px' />";
+        summaryBtn.style.border = 'transparent';
+        
         summaryBtn.addEventListener("click", async function () {
             console.log("Button clicked, showing spinner");
         
@@ -1235,8 +1263,7 @@ function showSelectionBox(evt) {
         ttsButton.style.width = "25px !important";
         ttsButton.style.height = "25px !important";
 
-        ttsButton.innerHTML =
-            "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1150948713682964540/image.png' alt='summarize' style= 'height: 24px; width: 24px' />";
+        ttsButton.innerHTML ="<img src='" + chrome.runtime.getURL('images/tts.png') + "' alt='tts' style='height: 28px; width: 28px' />";
         ttsButton.style.border = "transparent";
 
         ttsButton.addEventListener("click", async function () {
@@ -1252,8 +1279,7 @@ function showSelectionBox(evt) {
         noteButton.style.width = "25px !important";
         noteButton.style.height = "25px !important";
 
-        noteButton.innerHTML =
-            "<img src = 'https://cdn.discordapp.com/attachments/786832803282812958/1149879518304145509/image.png' alt='summarize' style= 'height: 24px; width: 24px' />";
+        noteButton.innerHTML = "<img src='" + chrome.runtime.getURL('images/notes.png') + "' alt='notes' style='height: 24px; width: 24px' />";
         noteButton.style.border = "transparent";
 
         noteButton.addEventListener("click", function () {
