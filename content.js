@@ -390,7 +390,7 @@ async function summarizeText(text, option) {
             });
 
             xhr.open("POST", "https://chatgpt-api8.p.rapidapi.com/");
-            xhr.setRequestHeader("content-type", "application/json");
+            xhr.setRequestHeader("content-type", "application/json; charset=UTF-8");
             xhr.setRequestHeader("X-RapidAPI-Key", decodedApiKey);
             xhr.setRequestHeader("X-RapidAPI-Host", "chatgpt-api8.p.rapidapi.com");
 
@@ -1232,8 +1232,11 @@ function showSelectionBox(evt) {
             spinner.className = "spinner";
             summaryBtn.appendChild(spinner);
         
-            const text = window.getSelection().toString();
-        
+            const cleanText = window.getSelection().toString().replace(/\r?\n|\r/g, " ").replace(/[^\x00-\x7F]/g, function(char) {
+                return "\\u" + ("0000" + char.charCodeAt(0).toString(16)).slice(-4);
+              });
+              
+              const text = encodeURIComponent(cleanText);
             try {
                 const summarizedText = await summarizeText(text, "summary");
                 showSummary(summarizedText, text);
