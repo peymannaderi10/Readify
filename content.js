@@ -244,7 +244,7 @@ function createCloseButton(parent) {
 
 async function summarizeText(text, option) {
     var requestText = "";
-    const encodedApiKey = "MjE3ZGU3MTk1M21zaDJkNDI0OWQ0OTZiZjRjYnAxN2ZiZDhqc240ZmU5NGJmNGExZGQ=";
+    const encodedApiKey = "ENTER API KEY HERE";
     const decodedApiKey = atob(encodedApiKey);
     switch (option) {
         case "summary":
