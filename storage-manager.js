@@ -60,6 +60,11 @@ async function saveChangeToDisk(type, data, isDelete = false) {
             return true; // Keep non-underline changes
         });
     } else {
+        // Validate selection safety before saving (except for notes which don't span text)
+        if ((type === "highlight" || type === "underline") && !isSelectionSafe()) {
+            console.warn("Attempted to save unsafe selection spanning across paragraphs");
+            return; // Don't save invalid selections
+        }
         let range = serializeSelection();
         changes.push({ type, range, data });
     }

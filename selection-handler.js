@@ -65,6 +65,12 @@ function showSelectionBox(evt) {
         "<img src='" + chrome.runtime.getURL('images/highlight.png') + "' alt='highlight' style='height: 24px; width: 24px' />";;
         colorPickerButton.style.border = "transparent";
         colorPickerButton.addEventListener("click", function () {
+            // Check if selection is safe before showing color picker
+            if (!isSelectionSafe()) {
+                showSelectionWarning();
+                removeSelectionBox();
+                return;
+            }
             const selection = window.getSelection();
             showColorPicker(selection);
         });
@@ -92,6 +98,12 @@ function showSelectionBox(evt) {
                     underlineSelectedText("remove");
                 });
             } else {
+                // Check if selection is safe before applying underline
+                if (!isSelectionSafe()) {
+                    showSelectionWarning();
+                    removeSelectionBox();
+                    return;
+                }
                 // Apply underline otherwise
                 saveChangeToDisk("underline").then(() => {
                     underlineSelectedText();

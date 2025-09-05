@@ -1284,6 +1284,13 @@ function showColorPicker(selection) {
         }
         
         btn.addEventListener("click", function () {
+            // Double-check selection safety before applying highlight
+            if (!isSelectionSafe() && colorOption.name !== "none") {
+                showSelectionWarning();
+                removeColorPicker();
+                removeSelectionBox();
+                return;
+            }
             const highlightColor = colorOption.name === "none" ? "none" : colorOption.name;
             saveChangeToDisk("highlight", highlightColor).then(() => {
                 highlightSelectedText(highlightColor);
