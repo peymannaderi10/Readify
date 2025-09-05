@@ -3,6 +3,16 @@ importScripts("./extpay.js");
 var extpay = ExtPay("readify-dev");
 extpay.startBackground();
 
+// Handle extension icon click to open sidepanel
+chrome.action.onClicked.addListener(async (tab) => {
+    try {
+        // Open the sidepanel
+        await chrome.sidePanel.open({ tabId: tab.id });
+    } catch (error) {
+        console.error('Failed to open sidepanel:', error);
+    }
+});
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === "complete" && tab.active) {
         setTimeout(() => {

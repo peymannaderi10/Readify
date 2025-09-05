@@ -4,10 +4,12 @@
     "description": "Readify is a browser extension that allows users to customize any webpage or online reading content to their own preferences.",
     "version": "1.4",
     "action": {
-        "default_popup": "popup.html",
         "default_icon": {
             "128": "logoExt.png"
         }
+    },
+    "side_panel": {
+        "default_path": "sidepanel.html"
     },
     "content_scripts": [
         {
@@ -31,7 +33,7 @@
     "background": {
         "service_worker": "background.js"
     },
-    "permissions": ["activeTab", "storage", "scripting", "identity", "identity.email"],
+    "permissions": ["activeTab", "storage", "scripting", "sidePanel"],
     "host_permissions": ["<all_urls>"],
     "icons": {
         "128": "logo.png"

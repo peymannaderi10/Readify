@@ -41,7 +41,7 @@ function updateToggleText(isEnabled, toggleElement) {
     }
 }
 
-// On popup load
+// On sidepanel load
 document.addEventListener("DOMContentLoaded", function () {
     getCurrentTabSettingsKey(function (settingsKey) {
         chrome.storage.sync.get(settingsKey, function (data) {
@@ -305,4 +305,4 @@ document.addEventListener("DOMContentLoaded", function() {
         deleteButton.disabled = !enableCheckbox.checked;
         toggleText.textContent = enableCheckbox.checked ? 'Disable Study Mode' : 'Enable Study Mode';
     });
-});
+}); 
