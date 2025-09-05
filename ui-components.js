@@ -1283,7 +1283,7 @@ function showColorPicker(selection) {
         }
         
         btn.addEventListener("click", function () {
-            const highlightColor = colorOption.name === "none" ? "transparent" : colorOption.name;
+            const highlightColor = colorOption.name === "none" ? "none" : colorOption.name;
             saveChangeToDisk("highlight", highlightColor).then(() => {
                 highlightSelectedText(highlightColor);
                 removeColorPicker();

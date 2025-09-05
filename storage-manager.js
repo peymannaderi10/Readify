@@ -34,10 +34,21 @@ async function saveChangeToDisk(type, data, isDelete = false) {
     let key = `saved-${await getURLDigest()}`;
     let savedChanges = await chrome.storage.sync.get(key);
     let changes = savedChanges[key] || [];
+    let originalChangeCount = changes.length;
     
     if (isDelete) {
         // Remove the saved change for the deleted note
         changes = changes.filter(change => !(change.type === 'note' && change.data === data));
+    } else if (type === "highlight" && data === "none") {
+        // Special handling for highlight clearing: remove overlapping highlight entries
+        let currentRange = serializeSelection();
+        changes = changes.filter(change => {
+            if (change.type === 'highlight') {
+                // Check if the current selection overlaps with this stored highlight
+                return !rangesOverlap(currentRange, change.range);
+            }
+            return true; // Keep non-highlight changes
+        });
     } else {
         let range = serializeSelection();
         changes.push({ type, range, data });
@@ -45,8 +56,9 @@ async function saveChangeToDisk(type, data, isDelete = false) {
 
     chrome.storage.sync.set({ [key]: changes });
 
-    // Also save site info for My Sites feature and send update message
-    if (!isDelete && changes.length > 0) {
+    // Handle MySites updates for all cases
+    if (!isDelete && !(type === "highlight" && data === "none") && changes.length > 0) {
+        // Regular addition case
         try {
             await saveSiteInfo();
             // Send message to update My Sites in real-time
@@ -62,12 +74,25 @@ async function saveChangeToDisk(type, data, isDelete = false) {
             }
             throw error;
         }
-    } else if (isDelete && changes.length === 0) {
-        // If this was the last change, clean up site info
+    } else if ((isDelete && changes.length === 0) || (type === "highlight" && data === "none" && changes.length === 0)) {
+        // Site should be removed: either deleted last item OR cleared last highlight
         await cleanupSiteInfo();
         notifyMySitesUpdate('removed');
-    } else if (!isDelete) {
-        // Update existing site's last modified time
+    } else if (!isDelete && !(type === "highlight" && data === "none")) {
+        // Regular update case (not highlight clearing)
+        try {
+            await saveSiteInfo();
+            notifyMySitesUpdate('updated');
+        } catch (error) {
+            if (error.message.includes('Website limit reached')) {
+                // Show user-friendly message
+                alert('🚫 Website Limit Reached!\n\nYou have reached the maximum of 5 websites. Please delete some sites from the sidepanel to continue using Study Mode.');
+                return;
+            }
+            throw error;
+        }
+    } else if (type === "highlight" && data === "none" && changes.length > 0 && originalChangeCount > changes.length) {
+        // Highlight was cleared but site still has other changes - update the site info
         try {
             await saveSiteInfo();
             notifyMySitesUpdate('updated');

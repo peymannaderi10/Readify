@@ -277,6 +277,39 @@ function serializeSelection() {
     return { startContainerPath, endContainerPath, startOffset, endOffset };
 }
 
+function rangesOverlap(range1, range2) {
+    // Compare the paths to determine if ranges overlap
+    function comparePaths(path1, offset1, path2, offset2) {
+        const minLength = Math.min(path1.length, path2.length);
+        
+        for (let i = 0; i < minLength; i++) {
+            if (path1[i] < path2[i]) return -1;
+            if (path1[i] > path2[i]) return 1;
+        }
+        
+        // If paths are identical up to the shorter length, compare by path length and offset
+        if (path1.length < path2.length) return -1;
+        if (path1.length > path2.length) return 1;
+        
+        // Same path length, compare offsets
+        if (offset1 < offset2) return -1;
+        if (offset1 > offset2) return 1;
+        return 0;
+    }
+    
+    // Determine the start and end points for both ranges
+    const range1Start = { path: range1.startContainerPath, offset: range1.startOffset };
+    const range1End = { path: range1.endContainerPath, offset: range1.endOffset };
+    const range2Start = { path: range2.startContainerPath, offset: range2.startOffset };
+    const range2End = { path: range2.endContainerPath, offset: range2.endOffset };
+    
+    // Check if ranges overlap: range1.start <= range2.end && range2.start <= range1.end
+    const range1StartVsRange2End = comparePaths(range1Start.path, range1Start.offset, range2End.path, range2End.offset);
+    const range2StartVsRange1End = comparePaths(range2Start.path, range2Start.offset, range1End.path, range1End.offset);
+    
+    return range1StartVsRange2End <= 0 && range2StartVsRange1End <= 0;
+}
+
 // Export functions for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
