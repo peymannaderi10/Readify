@@ -19,86 +19,6 @@
 
         <!-- Main Content -->
         <main class="sidepanel-main">
-            <!-- Reading Mode Toggle -->
-            <section class="control-section">
-                <div class="section-header">
-                    <h2 class="section-title">📖 Reading Mode</h2>
-                </div>
-                <div class="toggle-container">
-                    <label class="modern-toggle" for="toggleBold">
-                        <input type="checkbox" id="toggleBold" />
-                        <span class="toggle-slider"></span>
-                        <span class="toggle-text">Enable Reading Mode</span>
-                    </label>
-                </div>
-            </section>
-
-            <!-- Reading Settings -->
-            <section class="control-section">
-                <div class="section-header">
-                    <h2 class="section-title">⚙️ Reading Settings</h2>
-                </div>
-                
-                <!-- Bolded Width Slider -->
-                <div class="slider-group">
-                    <label for="boldRange" class="slider-label">Bolded Width</label>
-                    <div class="slider-container">
-                        <input type="range" min="0" max="5" value="1" id="boldRange" class="modern-slider" />
-                        <div class="slider-markers">
-                            <span>0</span>
-                            <span>1</span>
-                            <span>2</span>
-                            <span>3</span>
-                            <span>4</span>
-                            <span>5</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Saccades Interval Slider -->
-                <div class="slider-group">
-                    <label for="skipRange" class="slider-label">Saccades Interval</label>
-                    <div class="slider-container">
-                        <input type="range" min="0" max="3" value="0" id="skipRange" class="modern-slider" />
-                        <div class="slider-markers">
-                            <span>0</span>
-                            <span>1</span>
-                            <span>2</span>
-                            <span>3</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Unbolded Opacity Slider -->
-                <div class="slider-group">
-                    <label for="opacityRange" class="slider-label">Unbolded Opacity</label>
-                    <div class="slider-container">
-                        <input type="range" min="0" max="4" value="4" id="opacityRange" class="modern-slider" />
-                        <div class="slider-markers">
-                            <span>0</span>
-                            <span>1</span>
-                            <span>2</span>
-                            <span>3</span>
-                            <span>4</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Bold Color Selection -->
-                <div class="color-group">
-                    <label for="colorSelect" class="slider-label">Bold Color</label>
-                    <select id="colorSelect" class="modern-select">
-                        <option hidden selected>Select a Color</option>
-                        <option value="black">Black</option>
-                        <option value="blue">Blue</option>
-                        <option value="green">Green</option>
-                        <option value="red">Red</option>
-                        <option value="gold">Gold</option>
-                        <option value="white">White</option>
-                    </select>
-                </div>
-            </section>
-
             <!-- Line Height Controls -->
             <section class="control-section">
                 <div class="section-header">
@@ -160,12 +80,12 @@
                     <h3>⚠️ Important Notice</h3>
                 </div>
                 <div class="modal-body">
-                    <p>Before utilizing this tool please ensure <strong>Reading Mode</strong> is either <strong>ENABLED</strong> or <strong>DISABLED</strong>, as what ever mode you use the changes will apply <strong>ONLY</strong> to that mode.</p>
-                    <p><strong>Tip:</strong> Make changes with <strong>Reading Mode OFF</strong> to avoid distractions, your changes will <strong>save</strong> when switching in and out of <strong>Reading Mode</strong>.</p>
+                    <p>This action will delete all your saved notes, highlights, and underlines from the current webpage.</p>
+                    <p><strong>Note:</strong> This action cannot be undone.</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="control-button secondary" id="cancelBtn">Cancel</button>
-                    <button type="button" class="control-button primary" id="confirmBtn">Accept</button>
+                    <button type="button" class="control-button primary" id="confirmBtn">Delete</button>
                 </div>
             </div>
         </div>
