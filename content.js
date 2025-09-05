@@ -841,40 +841,116 @@ function showNoteInput(initialText, anchorElement) {
 
     summaryBox = document.createElement("div");
     summaryBox.style.position = "fixed";
-    summaryBox.style.width = "30vw";
-    summaryBox.style.maxWidth = "500px";
-    summaryBox.style.backgroundColor = "#fff";
-    summaryBox.style.borderRadius = "10px"; // Rounded edges
-    summaryBox.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.2)"; // Strong shadow
-    summaryBox.style.padding = "10px"; // Increased padding for spacious feel
+    summaryBox.style.width = "min(400px, 90vw)";
+    summaryBox.style.backgroundColor = "#ffffff";
+    summaryBox.style.borderRadius = "16px"; // More rounded for modern look
+    summaryBox.style.boxShadow = "0 20px 40px rgba(0, 151, 255, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1)"; // Modern layered shadow with brand color
+    summaryBox.style.padding = "24px"; // More generous padding
     summaryBox.style.display = "flex";
-    summaryBox.style.flexDirection = "column"; // Vertical layout
-    summaryBox.style.alignItems = "center"; // Center elements horizontally
-    summaryBox.style.gap = "10px"; // Space between elements
+    summaryBox.style.flexDirection = "column";
+    summaryBox.style.alignItems = "stretch"; // Stretch to full width
+    summaryBox.style.gap = "20px"; // Increased spacing
+    summaryBox.style.border = "1px solid rgba(0, 151, 255, 0.1)"; // Subtle brand color border
+    summaryBox.style.backdropFilter = "blur(10px)"; // Modern glass effect
+    summaryBox.style.fontFamily = "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    summaryBox.style.zIndex = "10000";
+
+    // Add a modern header
+    let headerContainer = document.createElement("div");
+    headerContainer.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    `;
+    
+    let titleElement = document.createElement("h3");
+    titleElement.innerText = initialText ? "Edit Note" : "Add Note";
+    titleElement.style.cssText = `
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a202c;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
+    
+    let iconElement = document.createElement("div");
+    iconElement.innerHTML = "📝";
+    iconElement.style.cssText = `
+        font-size: 20px;
+        opacity: 0.7;
+    `;
+    
+    headerContainer.appendChild(titleElement);
+    headerContainer.appendChild(iconElement);
+    summaryBox.appendChild(headerContainer);
 
     let noteTextArea = document.createElement("textarea");
     noteTextArea.style.width = "100%";
-    noteTextArea.style.maxWidth = "500px";
-    noteTextArea.style.minHeight = "20vh";
-    noteTextArea.style.resize = "none";
+    noteTextArea.style.minHeight = "140px";
+    noteTextArea.style.resize = "vertical";
     noteTextArea.value = initialText || "";
-    noteTextArea.style.borderRadius = "5px"; // Rounded edges
-    noteTextArea.style.fontSize = "16px";
-    noteTextArea.style.fontFamily = "Arial, sans-serif"; // Modern font
-    noteTextArea.style.padding = "10px"; // Padding for inside the textarea
+    noteTextArea.style.borderRadius = "12px";
+    noteTextArea.style.fontSize = "15px";
+    noteTextArea.style.fontFamily = "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    noteTextArea.style.padding = "16px";
+    noteTextArea.style.border = "2px solid rgba(182, 240, 233, 0.3)";
+    noteTextArea.style.backgroundColor = "rgba(182, 240, 233, 0.05)";
+    noteTextArea.style.outline = "none";
+    noteTextArea.style.transition = "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+    noteTextArea.style.lineHeight = "1.5";
+    noteTextArea.style.color = "#2d3748";
+    noteTextArea.style.boxSizing = "border-box";
+    noteTextArea.placeholder = "Add your note here...";
+    
+    // Focus and hover effects for textarea
+    noteTextArea.addEventListener("focus", function() {
+        this.style.borderColor = "#0097ff";
+        this.style.backgroundColor = "rgba(182, 240, 233, 0.1)";
+        this.style.boxShadow = "0 0 0 3px rgba(0, 151, 255, 0.1)";
+    });
+    
+    noteTextArea.addEventListener("blur", function() {
+        this.style.borderColor = "rgba(182, 240, 233, 0.3)";
+        this.style.backgroundColor = "rgba(182, 240, 233, 0.05)";
+        this.style.boxShadow = "none";
+    });
 
     let cancelButton = document.createElement("button");
-    cancelButton.style.color = "#0097FF !important";
-
     cancelButton.innerText = "Cancel";
     cancelButton.onclick = function () {
         summaryBox.remove();
     };
-    cancelButton.style = commonButtonStyle;
+    
+    // Modern button styling for cancel
+    cancelButton.style.cssText = `
+        padding: 12px 24px;
+        border-radius: 10px;
+        border: 2px solid rgba(0, 151, 255, 0.2);
+        background: transparent;
+        color: #0097ff;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-weight: 500;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 80px;
+    `;
+    
+    cancelButton.addEventListener("mouseenter", function() {
+        this.style.backgroundColor = "rgba(0, 151, 255, 0.05)";
+        this.style.borderColor = "#0097ff";
+        this.style.transform = "translateY(-1px)";
+    });
+    
+    cancelButton.addEventListener("mouseleave", function() {
+        this.style.backgroundColor = "transparent";
+        this.style.borderColor = "rgba(0, 151, 255, 0.2)";
+        this.style.transform = "translateY(0)";
+    });
 
     let doneButton = document.createElement("button");
-    doneButton.style.color = "#0097FF !important";
-    doneButton.innerText = "Done";
+    doneButton.innerText = "Save Note";
     doneButton.onclick = function () {
         restoreSelection();
         let noteText = noteTextArea.value.trim();
@@ -889,22 +965,49 @@ function showNoteInput(initialText, anchorElement) {
         }
         summaryBox.remove();
     };
-    doneButton.style = commonButtonStyle;
+    
+    // Modern primary button styling for done
+    doneButton.style.cssText = `
+        padding: 12px 24px;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+        color: white;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 100px;
+        box-shadow: 0 4px 12px rgba(0, 151, 255, 0.3);
+    `;
+    
+    doneButton.addEventListener("mouseenter", function() {
+        this.style.background = "linear-gradient(135deg, #0088e6 0%, #00a3e6 100%)";
+        this.style.transform = "translateY(-2px)";
+        this.style.boxShadow = "0 6px 20px rgba(0, 151, 255, 0.4)";
+    });
+    
+    doneButton.addEventListener("mouseleave", function() {
+        this.style.background = "linear-gradient(135deg, #0097ff 0%, #00b4ff 100%)";
+        this.style.transform = "translateY(0)";
+        this.style.boxShadow = "0 4px 12px rgba(0, 151, 255, 0.3)";
+    });
 
     summaryBox.appendChild(noteTextArea);
 // Create a button container to keep them side by side
     const buttonContainer = document.createElement("div");
     buttonContainer.style.display = "flex";
-    buttonContainer.style.justifyContent = "space-between";
-    buttonContainer.style.width = "100%"; // Take full width of parent
-    buttonContainer.appendChild(doneButton);
+    buttonContainer.style.justifyContent = "flex-end";
+    buttonContainer.style.gap = "12px";
+    buttonContainer.style.width = "100%";
+    buttonContainer.style.marginTop = "8px";
     buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(doneButton);
 
-    if (initialText) {
+            if (initialText) {
         let deleteButton = document.createElement("button");
-        deleteButton.innerText = "Delete";
-        deleteButton.style = commonButtonStyle;
-        deleteButton.style.color = "#FF0000 !important"; // Red color for delete button
+        deleteButton.innerText = "Delete Note";
         deleteButton.onclick = function () {
             // Check if the anchor element exists and has a first child that is an element node
             if (anchorElement && anchorElement.firstChild && anchorElement.firstChild.nodeType === Node.ELEMENT_NODE) {
@@ -923,9 +1026,36 @@ function showNoteInput(initialText, anchorElement) {
             summaryBox.remove();
         };
         
+        // Modern danger button styling for delete
+        deleteButton.style.cssText = `
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: 2px solid rgba(239, 68, 68, 0.2);
+            background: transparent;
+            color: #ef4444;
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 100px;
+        `;
+        
+        deleteButton.addEventListener("mouseenter", function() {
+            this.style.backgroundColor = "rgba(239, 68, 68, 0.05)";
+            this.style.borderColor = "#ef4444";
+            this.style.transform = "translateY(-1px)";
+        });
+        
+        deleteButton.addEventListener("mouseleave", function() {
+            this.style.backgroundColor = "transparent";
+            this.style.borderColor = "rgba(239, 68, 68, 0.2)";
+            this.style.transform = "translateY(0)";
+        });
 
-        // Add the delete button to the button container
-        buttonContainer.insertBefore(deleteButton, cancelButton);
+        // Add the delete button to the button container at the beginning
+        buttonContainer.style.justifyContent = "space-between";
+        buttonContainer.insertBefore(deleteButton, buttonContainer.firstChild);
     }
     
     summaryBox.appendChild(buttonContainer);
