@@ -480,6 +480,7 @@ function showTextToSpeech(text) {
     ttsBox.style.top = positionTop + 'px';
     ttsBox.style.left = positionLeft + 'px';
 
+    makeDraggable(ttsBox);
 }
 
 // Ensure voices are loaded before setting the voice

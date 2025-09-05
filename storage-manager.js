@@ -49,6 +49,16 @@ async function saveChangeToDisk(type, data, isDelete = false) {
             }
             return true; // Keep non-highlight changes
         });
+    } else if (type === "underlineRemove") {
+        // Special handling for underline removal: remove overlapping underline entries
+        let currentRange = serializeSelection();
+        changes = changes.filter(change => {
+            if (change.type === 'underline') {
+                // Check if the current selection overlaps with this stored underline
+                return !rangesOverlap(currentRange, change.range);
+            }
+            return true; // Keep non-underline changes
+        });
     } else {
         let range = serializeSelection();
         changes.push({ type, range, data });
@@ -57,7 +67,7 @@ async function saveChangeToDisk(type, data, isDelete = false) {
     chrome.storage.sync.set({ [key]: changes });
 
     // Handle MySites updates for all cases
-    if (!isDelete && !(type === "highlight" && data === "none") && changes.length > 0) {
+    if (!isDelete && !(type === "highlight" && data === "none") && type !== "underlineRemove" && changes.length > 0) {
         // Regular addition case
         try {
             await saveSiteInfo();
@@ -74,12 +84,14 @@ async function saveChangeToDisk(type, data, isDelete = false) {
             }
             throw error;
         }
-    } else if ((isDelete && changes.length === 0) || (type === "highlight" && data === "none" && changes.length === 0)) {
-        // Site should be removed: either deleted last item OR cleared last highlight
+    } else if ((isDelete && changes.length === 0) || 
+               (type === "highlight" && data === "none" && changes.length === 0) ||
+               (type === "underlineRemove" && changes.length === 0)) {
+        // Site should be removed: either deleted last item, cleared last highlight, or removed last underline
         await cleanupSiteInfo();
         notifyMySitesUpdate('removed');
-    } else if (!isDelete && !(type === "highlight" && data === "none")) {
-        // Regular update case (not highlight clearing)
+    } else if (isDelete && changes.length > 0) {
+        // Note was deleted but site still has other changes - update the site info
         try {
             await saveSiteInfo();
             notifyMySitesUpdate('updated');
@@ -91,8 +103,22 @@ async function saveChangeToDisk(type, data, isDelete = false) {
             }
             throw error;
         }
-    } else if (type === "highlight" && data === "none" && changes.length > 0 && originalChangeCount > changes.length) {
-        // Highlight was cleared but site still has other changes - update the site info
+    } else if (!isDelete && !(type === "highlight" && data === "none") && type !== "underlineRemove") {
+        // Regular update case (not highlight clearing or underline removal)
+        try {
+            await saveSiteInfo();
+            notifyMySitesUpdate('updated');
+        } catch (error) {
+            if (error.message.includes('Website limit reached')) {
+                // Show user-friendly message
+                alert('🚫 Website Limit Reached!\n\nYou have reached the maximum of 5 websites. Please delete some sites from the sidepanel to continue using Study Mode.');
+                return;
+            }
+            throw error;
+        }
+    } else if (((type === "highlight" && data === "none") || type === "underlineRemove") && 
+               changes.length > 0 && originalChangeCount > changes.length) {
+        // Highlight was cleared or underline was removed but site still has other changes - update the site info
         try {
             await saveSiteInfo();
             notifyMySitesUpdate('updated');
