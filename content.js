@@ -503,65 +503,197 @@ function showTextToSpeech(text) {
     ttsBox = document.createElement('div');
     ttsBox.style.position = 'fixed';
     ttsBox.style.left = selectionBox.style.left;
-
-    let potentialBottomPosition = parseFloat(selectionBox.style.top) + 60 + 25 * window.innerHeight / 100;
-    if (potentialBottomPosition > window.innerHeight) {
-        ttsBox.style.top = (parseFloat(selectionBox.style.top) - 25 * window.innerHeight / 100) + 'px';
-    } else {
-        ttsBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height) + 'px';
-    }
     textToSpeak = text;
-
-    ttsBox.style.position = 'fixed';
-    ttsBox.style.top = (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height + 10) + 'px';
-
-    ttsBox.style.border = '1px';
-    ttsBox.style.background = 'white';
-    ttsBox.style.padding = '16px';
-    ttsBox.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-    ttsBox.style.zIndex = '1000';
+    ttsBox.style.width = 'min(320px, 90vw)';
+    ttsBox.style.backgroundColor = '#ffffff';
+    ttsBox.style.borderRadius = '16px';
+    ttsBox.style.boxShadow = '0 20px 40px rgba(0, 151, 255, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1)';
+    ttsBox.style.padding = '24px';
+    ttsBox.style.border = '1px solid rgba(0, 151, 255, 0.1)';
+    ttsBox.style.backdropFilter = 'blur(10px)';
+    ttsBox.style.fontFamily = "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ttsBox.style.zIndex = '10000';
     ttsBox.style.display = 'flex';
     ttsBox.style.flexDirection = 'column';
-    ttsBox.style.alignItems = 'center';
+    ttsBox.style.gap = '20px';
+    // Add a modern header
+    let headerContainer = document.createElement("div");
+    headerContainer.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        height: 32px;
+    `;
+    
+    let titleContainer = document.createElement("div");
+    titleContainer.style.cssText = `
+        display: flex;
+        align-items: center;
+    `;
+    
+    let iconElement = document.createElement("div");
+    iconElement.innerHTML = "🔊";
+    iconElement.style.cssText = `
+        font-size: 20px;
+        opacity: 0.7;
+        margin-right: 8px;
+        line-height: 1;
+    `;
+    
+    let titleElement = document.createElement("h3");
+    titleElement.innerText = "Text to Speech";
+    titleElement.style.cssText = `
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a202c;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        line-height: 1;
+    `;
+    
+    titleContainer.appendChild(iconElement);
+    titleContainer.appendChild(titleElement);
+    headerContainer.appendChild(titleContainer);
+    ttsBox.appendChild(headerContainer);
+
     const closeButton = document.createElement('button');
-    closeButton.innerText = 'X';
-    closeButton.style.position = 'absolute';
-    closeButton.style.top = '5px';
-    closeButton.style.right = '5px';
-    closeButton.style.background = 'transparent';
-    closeButton.style.border = 'none';
-    closeButton.style.fontSize = '0.755em';
-    closeButton.style.cursor = 'pointer';
+    closeButton.innerText = '×';
+    closeButton.style.cssText = `
+        background: transparent;
+        border: none;
+        font-size: 24px;
+        color: #6b7280;
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        font-family: system-ui;
+        line-height: 1;
+        padding: 0;
+        margin: 0;
+    `;
+    
+    // Add close button to header container instead of absolute positioning
+    headerContainer.appendChild(closeButton);
     closeButton.addEventListener('click', removeTTS);
-    ttsBox.appendChild(closeButton);
+    closeButton.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = 'rgba(107, 114, 128, 0.1)';
+        this.style.color = '#374151';
+    });
+    closeButton.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = 'transparent';
+        this.style.color = '#6b7280';
+    });
     
 
     // Container for Play and Pause buttons
     const buttonContainer = document.createElement('div');
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.justifyContent = 'space-between';
-    buttonContainer.style.width = '100%';
+    buttonContainer.style.cssText = `
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        width: 100%;
+    `;
 
     const playButton = document.createElement('button');
-    playButton.style = commonButtonStyle;
-    playButton.innerText = 'Play';
+    playButton.innerText = '▶ Play';
     playButton.classList.add('control-button');
     playButton.onclick = function () {
         createUtterance();
         playSpeech();
     };
+    
+    // Modern primary button styling for play
+    playButton.style.cssText = `
+        padding: 12px 24px;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+        color: white;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 80px;
+        box-shadow: 0 4px 12px rgba(0, 151, 255, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    `;
+    
+    playButton.addEventListener("mouseenter", function() {
+        this.style.background = "linear-gradient(135deg, #0088e6 0%, #00a3e6 100%)";
+        this.style.transform = "translateY(-2px)";
+        this.style.boxShadow = "0 6px 20px rgba(0, 151, 255, 0.4)";
+    });
+    
+    playButton.addEventListener("mouseleave", function() {
+        this.style.background = "linear-gradient(135deg, #0097ff 0%, #00b4ff 100%)";
+        this.style.transform = "translateY(0)";
+        this.style.boxShadow = "0 4px 12px rgba(0, 151, 255, 0.3)";
+    });
 
     const pauseButton = document.createElement('button');
-    pauseButton.style = commonButtonStyle;
-    pauseButton.style.marginRight = '20px';
-    pauseButton.style.marginLeft = '10px';
-    pauseButton.innerText = 'Pause';
+    pauseButton.innerText = '⏸ Pause';
     pauseButton.classList.add('control-button');
     pauseButton.onclick = pauseSpeech;
+    
+    // Modern secondary button styling for pause
+    pauseButton.style.cssText = `
+        padding: 12px 24px;
+        border-radius: 10px;
+        border: 2px solid rgba(0, 151, 255, 0.2);
+        background: transparent;
+        color: #0097ff;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-weight: 500;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 80px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    `;
+    
+    pauseButton.addEventListener("mouseenter", function() {
+        this.style.backgroundColor = "rgba(0, 151, 255, 0.05)";
+        this.style.borderColor = "#0097ff";
+        this.style.transform = "translateY(-1px)";
+    });
+    
+    pauseButton.addEventListener("mouseleave", function() {
+        this.style.backgroundColor = "transparent";
+        this.style.borderColor = "rgba(0, 151, 255, 0.2)";
+        this.style.transform = "translateY(0)";
+    });
 
     buttonContainer.appendChild(playButton);
     buttonContainer.appendChild(pauseButton);
 
+    // Modern volume control section
+    const volumeSection = document.createElement('div');
+    volumeSection.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    `;
+    
+    const volumeLabel = document.createElement('label');
+    volumeLabel.innerText = 'Volume';
+    volumeLabel.style.cssText = `
+        font-size: 14px;
+        font-weight: 500;
+        color: #374151;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
+    
     const volumeControl = document.createElement('input');
     volumeControl.type = 'range';
     volumeControl.min = '0';
@@ -569,8 +701,95 @@ function showTextToSpeech(text) {
     volumeControl.step = '0.01';
     volumeControl.value = '1';
     volumeControl.id = 'volumeControl';
-    volumeControl.classList.add('slider');
     volumeControl.oninput = updateUtteranceSettings;
+    
+    // Modern slider styling
+    volumeControl.style.cssText = `
+        width: 100%;
+        height: 8px;
+        border-radius: 4px;
+        background: rgba(182, 240, 233, 0.3);
+        outline: none;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+    `;
+    
+    // Function to update volume slider progress
+    function updateVolumeSliderProgress() {
+        const value = (volumeControl.value - volumeControl.min) / (volumeControl.max - volumeControl.min) * 100;
+        volumeControl.style.background = `linear-gradient(to right, #0097ff 0%, #0097ff ${value}%, rgba(182, 240, 233, 0.3) ${value}%, rgba(182, 240, 233, 0.3) 100%)`;
+    }
+    
+    // Initial progress update
+    updateVolumeSliderProgress();
+    
+    // Update progress on input
+    volumeControl.addEventListener('input', updateVolumeSliderProgress);
+    
+    // Add custom slider thumb styling
+    const volumeThumbStyle = document.createElement('style');
+    volumeThumbStyle.textContent = `
+        #volumeControl::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0, 151, 255, 0.3);
+            transition: all 0.2s ease;
+        }
+        #volumeControl::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 151, 255, 0.4);
+        }
+        #volumeControl::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0, 151, 255, 0.3);
+            border: none;
+        }
+        #volumeControl::-moz-range-track {
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(182, 240, 233, 0.3);
+            border: none;
+        }
+        #volumeControl::-moz-range-progress {
+            height: 8px;
+            border-radius: 4px;
+            background: #0097ff;
+            border: none;
+        }
+    `;
+    document.head.appendChild(volumeThumbStyle);
+    
+    volumeSection.appendChild(volumeLabel);
+    volumeSection.appendChild(volumeControl);
+
+    // Modern speed control section
+    const speedSection = document.createElement('div');
+    speedSection.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    `;
+    
+    const speedLabel = document.createElement('label');
+    speedLabel.innerText = 'Speed';
+    speedLabel.style.cssText = `
+        font-size: 14px;
+        font-weight: 500;
+        color: #374151;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
 
     const rateControl = document.createElement('input');
     rateControl.type = 'range';
@@ -579,17 +798,106 @@ function showTextToSpeech(text) {
     rateControl.step = '0.25';
     rateControl.value = '1';
     rateControl.id = 'rateControl';
-    rateControl.classList.add('slider');
     rateControl.oninput = updateUtteranceSettings;
+    
+    // Modern slider styling
+    rateControl.style.cssText = `
+        width: 100%;
+        height: 8px;
+        border-radius: 4px;
+        background: rgba(182, 240, 233, 0.3);
+        outline: none;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+    `;
+    
+    // Function to update rate slider progress
+    function updateRateSliderProgress() {
+        const value = (rateControl.value - rateControl.min) / (rateControl.max - rateControl.min) * 100;
+        rateControl.style.background = `linear-gradient(to right, #0097ff 0%, #0097ff ${value}%, rgba(182, 240, 233, 0.3) ${value}%, rgba(182, 240, 233, 0.3) 100%)`;
+    }
+    
+    // Initial progress update
+    updateRateSliderProgress();
+    
+    // Update progress on input
+    rateControl.addEventListener('input', updateRateSliderProgress);
+    
+    // Add custom slider thumb styling for rate control
+    const rateThumbStyle = document.createElement('style');
+    rateThumbStyle.textContent = `
+        #rateControl::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0, 151, 255, 0.3);
+            transition: all 0.2s ease;
+        }
+        #rateControl::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 151, 255, 0.4);
+        }
+        #rateControl::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0, 151, 255, 0.3);
+            border: none;
+        }
+        #rateControl::-moz-range-track {
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(182, 240, 233, 0.3);
+            border: none;
+        }
+        #rateControl::-moz-range-progress {
+            height: 8px;
+            border-radius: 4px;
+            background: #0097ff;
+            border: none;
+        }
+    `;
+    document.head.appendChild(rateThumbStyle);
+    
+    speedSection.appendChild(speedLabel);
+    speedSection.appendChild(rateControl);
 
-    ttsBox.appendChild(buttonContainer); // Add the button container
-    ttsBox.appendChild(document.createElement('br'));
-    ttsBox.appendChild(document.createTextNode('Volume: '));
-    ttsBox.appendChild(volumeControl);
-    ttsBox.appendChild(document.createElement('br'));
-    ttsBox.appendChild(document.createTextNode('Speed: '));
-    ttsBox.appendChild(rateControl);
+    ttsBox.appendChild(buttonContainer);
+    ttsBox.appendChild(volumeSection);
+    ttsBox.appendChild(speedSection);
+    
+    // Temporarily append to body to get accurate height for positioning
     document.body.appendChild(ttsBox);
+
+    // Calculate positioning similar to note popup logic
+    let boxHeight = ttsBox.getBoundingClientRect().height;
+    let positionLeft = parseFloat(selectionBox.style.left);
+    let spaceAbove = parseFloat(selectionBox.style.top);
+    let spaceBelow = window.innerHeight - (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height);
+
+    let positionTop;
+    if (spaceBelow > boxHeight + 20) { // 20px buffer
+        // Position below the selection box
+        positionTop = parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height + 10;
+    } else if (spaceAbove > boxHeight + 20) { // 20px buffer
+        // Position above the selection box
+        positionTop = spaceAbove - boxHeight - 10;
+    } else {
+        // Default to above if neither space is sufficient, but adjust to fit
+        positionTop = Math.max(10, spaceAbove - boxHeight - 10);
+    }
+
+    ttsBox.style.top = positionTop + 'px';
+    ttsBox.style.left = positionLeft + 'px';
 
 }
 
@@ -637,50 +945,150 @@ function showSummary(summary, text) {
     summaryBox.style.position = "fixed";
     summaryBox.style.left = selectionBox.style.left;
 
-    let potentialBottomPosition = parseFloat(selectionBox.style.top) + 60 + (25 * window.innerHeight) / 100;
-    if (potentialBottomPosition > window.innerHeight) {
-        summaryBox.style.top = parseFloat(selectionBox.style.top) - (25 * window.innerHeight) / 100 + "px";
-    } else {
-        summaryBox.style.top = parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height + "px";
-    }
-
-    summaryBox.style.width = "500px";
-    summaryBox.style.height = "35vh";
-    summaryBox.style.backgroundColor = "white";
-    summaryBox.style.border = "1px solid #ddd"; // Lighter border color
-    summaryBox.style.borderRadius = "8px"; // Rounded corners
-    summaryBox.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)"; // Add a subtle shadow
-    summaryBox.style.overflow = "auto";
-    summaryBox.style.padding = "20px"; // Increase padding
+    summaryBox.style.width = "min(500px, 90vw)";
+    summaryBox.style.height = "auto";
+    summaryBox.style.maxHeight = "70vh";
+    summaryBox.style.backgroundColor = "#ffffff";
+    summaryBox.style.borderRadius = "16px";
+    summaryBox.style.boxShadow = "0 20px 40px rgba(0, 151, 255, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1)";
+    summaryBox.style.padding = "24px";
+    summaryBox.style.border = "1px solid rgba(0, 151, 255, 0.1)";
+    summaryBox.style.backdropFilter = "blur(10px)";
+    summaryBox.style.fontFamily = "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
     summaryBox.style.display = "flex";
     summaryBox.style.flexDirection = "column";
-    summaryBox.style.justifyContent = "center";
-    summaryBox.style.alignItems = "center";
-    summaryBox.style.overflow = "visible"; // This allows the dropdown to be seen outside of the box
-    // Previous summaryBox styles...
-    summaryBox.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1), 5px 0px 0px #0097FF, 0px 5px 0px #0097FF";
+    summaryBox.style.gap = "20px";
+    summaryBox.style.overflow = "visible";
+    summaryBox.style.zIndex = "10000";
 
-    containerRoot.appendChild(summaryBox);
+    // Add a modern header
+    let headerContainer = document.createElement("div");
+    headerContainer.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        height: 32px;
+    `;
+    
+    let titleContainer = document.createElement("div");
+    titleContainer.style.cssText = `
+        display: flex;
+        align-items: center;
+    `;
+    
+    let iconElement = document.createElement("div");
+    iconElement.innerHTML = "🤖";
+    iconElement.style.cssText = `
+        font-size: 20px;
+        opacity: 0.7;
+        margin-right: 8px;
+        line-height: 1;
+    `;
+    
+    let titleElement = document.createElement("h3");
+    titleElement.innerText = "AI Summary";
+    titleElement.style.cssText = `
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a202c;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        line-height: 1;
+    `;
+    
+    titleContainer.appendChild(iconElement);
+    titleContainer.appendChild(titleElement);
+    headerContainer.appendChild(titleContainer);
 
     const textArea = document.createElement("textarea");
-    textArea.style.width = "calc(100% - 16px)";
-    textArea.style.height = "100%"; // Deduct 20px for the close button space
+    textArea.style.width = "100%";
+    textArea.style.minHeight = "120px";
+    textArea.style.maxHeight = "400px";
     textArea.style.resize = "none";
     textArea.style.boxSizing = "border-box";
-    textArea.style.padding = "10px";
-    textArea.style.fontFamily = "Arial, sans-serif"; // More modern sans-serif font
-    textArea.style.fontSize = "16px"; // Larger font size
-    textArea.style.border = "none"; // Remove border
-    textArea.style.borderRadius = "6px"; // Add rounded corners
-    textArea.style.outline = "none"; // Remove the focus outline
+    textArea.style.padding = "16px";
+    textArea.style.fontFamily = "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    textArea.style.fontSize = "15px";
+    textArea.style.lineHeight = "1.5";
+    textArea.style.border = "2px solid rgba(182, 240, 233, 0.3)";
+    textArea.style.backgroundColor = "rgba(182, 240, 233, 0.05)";
+    textArea.style.borderRadius = "12px";
+    textArea.style.outline = "none";
+    textArea.style.transition = "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+    textArea.style.color = "#2d3748";
+    textArea.style.overflow = "auto";
     textArea.value = summary;
+    
+    // Function to auto-resize textarea based on content
+    function autoResizeTextarea() {
+        textArea.style.height = "auto";
+        const scrollHeight = textArea.scrollHeight;
+        const minHeight = 120;
+        const maxHeight = 400;
+        
+        if (scrollHeight <= maxHeight) {
+            textArea.style.height = Math.max(scrollHeight, minHeight) + "px";
+            textArea.style.overflow = "hidden";
+        } else {
+            textArea.style.height = maxHeight + "px";
+            textArea.style.overflow = "auto";
+        }
+    }
+    
+    // Auto-resize on input and initial load
+    textArea.addEventListener("input", autoResizeTextarea);
+    
+    // Initial resize after content is set
+    setTimeout(autoResizeTextarea, 100);
+    
+    // Focus and hover effects for textarea
+    textArea.addEventListener("focus", function() {
+        this.style.borderColor = "#0097ff";
+        this.style.backgroundColor = "rgba(182, 240, 233, 0.1)";
+        this.style.boxShadow = "0 0 0 3px rgba(0, 151, 255, 0.1)";
+    });
+    
+    textArea.addEventListener("blur", function() {
+        this.style.borderColor = "rgba(182, 240, 233, 0.3)";
+        this.style.backgroundColor = "rgba(182, 240, 233, 0.05)";
+        this.style.boxShadow = "none";
+    });
 
     const dropdownContainer = document.createElement("div");
     dropdownContainer.className = "dropdown-container";
 
     const dropdownButton = document.createElement("button");
-    dropdownButton.className = "dropdown-toggle"; // This is the unique class name for our dropdown button
-    dropdownButton.innerText = "Select A Quick Prompt...";
+    dropdownButton.className = "dropdown-toggle";
+    dropdownButton.innerText = "✨ Quick Actions";
+    
+    // Modern dropdown button styling
+    dropdownButton.style.cssText = `
+        padding: 12px 16px;
+        border-radius: 10px;
+        border: 2px solid rgba(0, 151, 255, 0.2);
+        background: transparent;
+        color: #0097ff;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-weight: 500;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        width: 100%;
+        text-align: left;
+        position: relative;
+    `;
+    
+    dropdownButton.addEventListener("mouseenter", function() {
+        this.style.backgroundColor = "rgba(0, 151, 255, 0.05)";
+        this.style.borderColor = "#0097ff";
+    });
+    
+    dropdownButton.addEventListener("mouseleave", function() {
+        this.style.backgroundColor = "transparent";
+        this.style.borderColor = "rgba(0, 151, 255, 0.2)";
+    });
+    
     dropdownContainer.appendChild(dropdownButton);
 
     const dropdownMenu = document.createElement("ul");
@@ -757,41 +1165,139 @@ function showSummary(summary, text) {
             const overlay = showLoadingOverlay(textArea); // Add the overlay to the text area
             textArea.disabled = true; // Disable the textarea during loading
 
-            const newSummary = await summarizeText(text, value);
+                                    const newSummary = await summarizeText(text, value);
 
-            textArea.value = newSummary;
+                        textArea.value = newSummary;
+                        
+                        // Auto-resize after new content is loaded
+                        setTimeout(autoResizeTextarea, 100);
 
-            overlay.remove(); // Remove the overlay after getting the new summary
-            textArea.disabled = false; // Enable the textarea after loading
+                        overlay.remove(); // Remove the overlay after getting the new summary
+                        textArea.disabled = false; // Enable the textarea after loading
         }
     });
 
+    // Create action buttons container
+    const actionButtonsContainer = document.createElement("div");
+    actionButtonsContainer.style.cssText = `
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 8px;
+    `;
+
     const copyButton = document.createElement("button");
-    copyButton.innerText = "✍";
-    copyButton.style.position = "absolute";
-    copyButton.style.right = "10px";
-    copyButton.style.width = "25px !important";
-    copyButton.style.height = "25px !important";
-    copyButton.style.marginRight = "35px";
-    copyButton.style.top = "10px";
-    copyButton.style.background = "transparent";
-    copyButton.style.border = "none";
-    copyButton.style.fontSize = "20px"; // Bigger close button
-    copyButton.style.cursor = "pointer"; // Hand cursor for better UX
-    copyButton.title = "Copy to Clipboard"; // This line adds the tooltip
+    copyButton.innerText = "📋 Copy";
+    copyButton.title = "Copy to Clipboard";
+    
+    // Modern copy button styling
+    copyButton.style.cssText = `
+        padding: 12px 24px;
+        border-radius: 10px;
+        border: 2px solid rgba(0, 151, 255, 0.2);
+        background: transparent;
+        color: #0097ff;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-weight: 500;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    `;
+    
+    copyButton.addEventListener("mouseenter", function() {
+        this.style.backgroundColor = "rgba(0, 151, 255, 0.05)";
+        this.style.borderColor = "#0097ff";
+        this.style.transform = "translateY(-1px)";
+    });
+    
+    copyButton.addEventListener("mouseleave", function() {
+        this.style.backgroundColor = "transparent";
+        this.style.borderColor = "rgba(0, 151, 255, 0.2)";
+        this.style.transform = "translateY(0)";
+    });
 
     copyButton.onclick = () => {
         copyToClipboard(textArea.value);
-        alert("Copied to clipboard!");
+        // Modern feedback instead of alert
+        copyButton.innerText = "✅ Copied!";
+        setTimeout(() => {
+            copyButton.innerText = "📋 Copy";
+        }, 2000);
     };
 
-    // Append the copy button and close button to the summary box
-    summaryBox.appendChild(copyButton);
-    // Appending the custom dropdown to the summary box
+    actionButtonsContainer.appendChild(copyButton);
+    // Create modern close button
+    const closeButton = document.createElement('button');
+    closeButton.innerText = '×';
+    closeButton.style.cssText = `
+        background: transparent;
+        border: none;
+        font-size: 24px;
+        color: #6b7280;
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        font-family: system-ui;
+        line-height: 1;
+        padding: 0;
+        margin: 0;
+    `;
+    
+    closeButton.addEventListener('click', function() {
+        summaryBox.remove();
+    });
+    
+    closeButton.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = 'rgba(107, 114, 128, 0.1)';
+        this.style.color = '#374151';
+    });
+    
+    closeButton.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = 'transparent';
+        this.style.color = '#6b7280';
+    });
+    
+    // Add close button to header
+    headerContainer.appendChild(closeButton);
+
+    // Assemble the popup
+    summaryBox.appendChild(headerContainer);
     summaryBox.appendChild(dropdownContainer);
     summaryBox.appendChild(textArea);
+    summaryBox.appendChild(actionButtonsContainer);
 
-    createCloseButton(summaryBox);
+    // Temporarily append to body to get accurate height for positioning
+    containerRoot.appendChild(summaryBox);
+
+    // Calculate positioning similar to note popup logic
+    let boxHeight = summaryBox.getBoundingClientRect().height;
+    let positionLeft = parseFloat(selectionBox.style.left);
+    let spaceAbove = parseFloat(selectionBox.style.top);
+    let spaceBelow = window.innerHeight - (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height);
+
+    let positionTop;
+    if (spaceBelow > boxHeight + 20) { // 20px buffer
+        // Position below the selection box
+        positionTop = parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height + 10;
+    } else if (spaceAbove > boxHeight + 20) { // 20px buffer
+        // Position above the selection box
+        positionTop = spaceAbove - boxHeight - 10;
+    } else {
+        // Default to above if neither space is sufficient, but adjust to fit
+        positionTop = Math.max(10, spaceAbove - boxHeight - 10);
+    }
+
+    summaryBox.style.top = positionTop + "px";
+    summaryBox.style.left = positionLeft + "px";
+
     makeDraggable(summaryBox);
 }
 
