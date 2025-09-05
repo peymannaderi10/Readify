@@ -29,7 +29,16 @@ function afterDOMLoaded() {
 
 // Chrome extension messaging
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-    if (request.enabled) {
+    if (request.action === "toggleExtension") {
+        if (request.enabled) {
+            document.addEventListener("mouseup", handleMouseUp);
+            extensionEnabled = true;
+        } else {
+            document.removeEventListener("mouseup", handleMouseUp);
+            removeSelectionBox();
+            extensionEnabled = false;
+        }
+    } else if (request.enabled) {
         document.addEventListener("mouseup", handleMouseUp);
         extensionEnabled = true;
     } else {
@@ -39,8 +48,8 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     }
 });
 
-chrome.storage.sync.get("enabled", function (data) {
-    if (data.enabled) {
+chrome.storage.sync.get("extensionEnabled", function (data) {
+    if (data.extensionEnabled) {
         document.addEventListener("mouseup", handleMouseUp);
         extensionEnabled = true;
     } else {

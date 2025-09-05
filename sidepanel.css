@@ -14,21 +14,37 @@ html, body {
 
 .sidepanel-body {
     width: 100%;
-    min-height: 100vh;
     font-family: 'Space Grotesk', sans-serif;
     background: linear-gradient(135deg, #ffffff 0%, #f8feff 100%);
-    display: flex;
-    flex-direction: column;
     color: #2c3e50;
     overflow-x: hidden;
+    min-height: 100vh;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 151, 255, 0.3) transparent;
+}
+
+/* Custom scrollbar for WebKit browsers */
+.sidepanel-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidepanel-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidepanel-body::-webkit-scrollbar-thumb {
+    background: rgba(0, 151, 255, 0.3);
+    border-radius: 3px;
+}
+
+.sidepanel-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 151, 255, 0.5);
 }
 
 /* Header */
 .sidepanel-header {
-    background: linear-gradient(135deg, #0097ff 0%, #0080e6 100%);
+    background: #ffffff;
     padding: 24px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    flex-shrink: 0;
 }
 
 .header-content {
@@ -52,44 +68,21 @@ html, body {
 .sidepanel-title {
     font-size: 28px;
     font-weight: 700;
-    color: white;
+    color: #0097ff;
     margin: 0;
 }
 
 /* Main Content */
 .sidepanel-main {
-    flex: 1;
     padding: 0;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 151, 255, 0.3) transparent;
-}
-
-.sidepanel-main::-webkit-scrollbar {
-    width: 6px;
-}
-
-.sidepanel-main::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.sidepanel-main::-webkit-scrollbar-thumb {
-    background: rgba(0, 151, 255, 0.3);
-    border-radius: 3px;
-}
-
-.sidepanel-main::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 151, 255, 0.5);
 }
 
 /* Control Sections */
 .control-section {
     padding: 24px;
-    border-bottom: 1px solid rgba(182, 240, 233, 0.2);
 }
 
 .control-section:last-child {
-    border-bottom: none;
     padding-bottom: 32px;
 }
 
@@ -254,12 +247,143 @@ html, body {
     border: 1px solid rgba(239, 68, 68, 0.1);
 }
 
+/* My Sites Section */
+.limit-counter {
+    font-size: 12px;
+    font-weight: 400;
+    color: #7f8c8d;
+    margin-left: 8px;
+}
+
+.limit-counter.limit-reached {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+.sites-container {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-top: 12px;
+}
+
+.sites-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.empty-sites {
+    text-align: center;
+    padding: 20px;
+    color: #7f8c8d;
+}
+
+.empty-sites p {
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #2c3e50;
+    opacity: 0.7;
+}
+
+.empty-sites small {
+    font-size: 12px;
+    color: #7f8c8d;
+}
+
+.site-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(182, 240, 233, 0.05);
+    border: 1px solid rgba(182, 240, 233, 0.2);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.site-item:hover {
+    background: rgba(182, 240, 233, 0.1);
+    border-color: rgba(0, 151, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.site-info {
+    flex: 1;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.site-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c3e50;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.site-url {
+    font-size: 11px;
+    color: #7f8c8d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.site-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.site-delete-btn {
+    padding: 6px 8px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+}
+
+.site-delete-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #dc2626;
+    transform: scale(1.05);
+}
+
+.sites-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sites-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sites-container::-webkit-scrollbar-thumb {
+    background: rgba(0, 151, 255, 0.3);
+    border-radius: 2px;
+}
+
+.sites-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 151, 255, 0.5);
+}
+
 /* Footer */
 .sidepanel-footer {
     background: linear-gradient(135deg, #f8feff 0%, #ffffff 100%);
     padding: 20px 24px;
-    border-top: 1px solid rgba(182, 240, 233, 0.2);
-    flex-shrink: 0;
 }
 
 .footer-links {

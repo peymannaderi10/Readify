@@ -1,6 +1,35 @@
 // Readify Extension - Storage Manager
 // Handles data persistence, restoration, and storage operations
 
+// Website limit constants
+const WEBSITE_LIMIT = 5;
+
+// Website limit tracking functions
+async function getWebsiteLimit() {
+    const result = await chrome.storage.sync.get('websiteLimit');
+    return result.websiteLimit || { used: 0, max: WEBSITE_LIMIT };
+}
+
+async function checkWebsiteLimit() {
+    const limit = await getWebsiteLimit();
+    return limit.used < limit.max;
+}
+
+async function incrementWebsiteLimit() {
+    const limit = await getWebsiteLimit();
+    if (limit.used < limit.max) {
+        limit.used++;
+        await chrome.storage.sync.set({ websiteLimit: limit });
+        return true;
+    }
+    return false;
+}
+
+async function isStudyModeAllowed() {
+    const limit = await getWebsiteLimit();
+    return limit.used < limit.max;
+}
+
 async function saveChangeToDisk(type, data, isDelete = false) {
     let key = `saved-${await getURLDigest()}`;
     let savedChanges = await chrome.storage.sync.get(key);
@@ -15,6 +44,42 @@ async function saveChangeToDisk(type, data, isDelete = false) {
     }
 
     chrome.storage.sync.set({ [key]: changes });
+
+    // Also save site info for My Sites feature and send update message
+    if (!isDelete && changes.length > 0) {
+        try {
+            await saveSiteInfo();
+            // Send message to update My Sites in real-time
+            notifyMySitesUpdate('added');
+        } catch (error) {
+            if (error.message.includes('Website limit reached')) {
+                // Show user-friendly message
+                alert('🚫 Website Limit Reached!\n\nYou have reached the maximum of 5 websites. Please delete some sites from the sidepanel to continue using Study Mode.');
+                // Remove the change we just added since we can't save the site
+                changes.pop();
+                chrome.storage.sync.set({ [key]: changes });
+                return;
+            }
+            throw error;
+        }
+    } else if (isDelete && changes.length === 0) {
+        // If this was the last change, clean up site info
+        await cleanupSiteInfo();
+        notifyMySitesUpdate('removed');
+    } else if (!isDelete) {
+        // Update existing site's last modified time
+        try {
+            await saveSiteInfo();
+            notifyMySitesUpdate('updated');
+        } catch (error) {
+            if (error.message.includes('Website limit reached')) {
+                // Show user-friendly message
+                alert('🚫 Website Limit Reached!\n\nYou have reached the maximum of 5 websites. Please delete some sites from the sidepanel to continue using Study Mode.');
+                return;
+            }
+            throw error;
+        }
+    }
 }
 
 async function restoreChangesFromDisk(i = 0) {
@@ -78,12 +143,145 @@ async function restoreChangesFromDisk(i = 0) {
 
 async function deleteChangesFromDisk() {
     let key = `saved-${await getURLDigest()}`;
+    chrome.storage.sync.remove(key);
+    
+    // Also remove from localStorage (notes)
+    let localStorageKey = `readifyNotes-${await getURLDigest()}`;
+    localStorage.removeItem(localStorageKey);
+    
+    // Clean up site info
+    await cleanupSiteInfo();
+    
+    // Decrement the website limit counter
+    const limitResult = await chrome.storage.sync.get('websiteLimit');
+    const limit = limitResult.websiteLimit || { used: 0, max: 5 };
+    if (limit.used > 0) {
+        limit.used--;
+        await chrome.storage.sync.set({ websiteLimit: limit });
+    }
+    
+    notifyMySitesUpdate('removed');
+    
+    window.location.reload();
+}
 
-    chrome.storage.sync.remove(key, function() {
-        console.log(`All changes under the key '${key}' have been deleted.`);
-        // Refresh the page after deletion
-        location.reload();
+async function saveSiteInfo() {
+    const urlDigest = await getURLDigest();
+    const siteInfoKey = `site-info-${urlDigest}`;
+    
+    // Get current site info or create new
+    const currentSiteInfo = await chrome.storage.sync.get(siteInfoKey);
+    
+    if (!currentSiteInfo[siteInfoKey]) {
+        // Check if we can add a new site (within limit)
+        const canAddSite = await checkWebsiteLimit();
+        if (!canAddSite) {
+            // Limit reached, disable study mode
+            chrome.storage.sync.set({ extensionEnabled: false });
+            throw new Error('Website limit reached. Study mode has been disabled.');
+        }
+        
+        const siteInfo = {
+            url: window.location.href,
+            title: document.title || window.location.hostname,
+            hostname: window.location.hostname,
+            lastModified: Date.now()
+        };
+        
+        chrome.storage.sync.set({ [siteInfoKey]: siteInfo });
+        
+        // Also maintain a list of all site digests
+        const allSitesKey = 'readify-all-sites';
+        const allSites = await chrome.storage.sync.get(allSitesKey);
+        const siteDigests = allSites[allSitesKey] || [];
+        
+        if (!siteDigests.includes(urlDigest)) {
+            siteDigests.push(urlDigest);
+            chrome.storage.sync.set({ [allSitesKey]: siteDigests });
+            
+            // Increment the website limit counter
+            await incrementWebsiteLimit();
+        }
+    } else {
+        // Update last modified time
+        currentSiteInfo[siteInfoKey].lastModified = Date.now();
+        chrome.storage.sync.set({ [siteInfoKey]: currentSiteInfo[siteInfoKey] });
+    }
+}
+
+async function cleanupSiteInfo() {
+    const urlDigest = await getURLDigest();
+    const siteInfoKey = `site-info-${urlDigest}`;
+    
+    // Remove site info
+    chrome.storage.sync.remove(siteInfoKey);
+    
+    // Remove from all sites list
+    const allSitesKey = 'readify-all-sites';
+    const allSites = await chrome.storage.sync.get(allSitesKey);
+    const siteDigests = allSites[allSitesKey] || [];
+    
+    const updatedDigests = siteDigests.filter(d => d !== urlDigest);
+    chrome.storage.sync.set({ [allSitesKey]: updatedDigests });
+}
+
+function notifyMySitesUpdate(action) {
+    // Send message to extension popup/sidepanel to update My Sites
+    chrome.runtime.sendMessage({
+        type: 'mySitesUpdate',
+        action: action, // 'added', 'updated', 'removed'
+        url: window.location.href,
+        title: document.title || window.location.hostname,
+        hostname: window.location.hostname
+    }).catch(() => {
+        // Ignore errors if popup/sidepanel is not open
     });
+}
+
+async function getAllSavedSites() {
+    const allSitesKey = 'readify-all-sites';
+    const allSites = await chrome.storage.sync.get(allSitesKey);
+    const siteDigests = allSites[allSitesKey] || [];
+    
+    const sites = [];
+    for (const digest of siteDigests) {
+        const siteInfoKey = `site-info-${digest}`;
+        const savedKey = `saved-${digest}`;
+        
+        const [siteInfo, savedChanges] = await Promise.all([
+            chrome.storage.sync.get(siteInfoKey),
+            chrome.storage.sync.get(savedKey)
+        ]);
+        
+        if (siteInfo[siteInfoKey] && savedChanges[savedKey] && savedChanges[savedKey].length > 0) {
+            sites.push({
+                digest: digest,
+                info: siteInfo[siteInfoKey],
+                changeCount: savedChanges[savedKey].length
+            });
+        }
+    }
+    
+    // Sort by last modified (most recent first)
+    sites.sort((a, b) => b.info.lastModified - a.info.lastModified);
+    
+    return sites;
+}
+
+async function deleteSiteData(digest) {
+    const siteInfoKey = `site-info-${digest}`;
+    const savedKey = `saved-${digest}`;
+    
+    // Remove site data
+    chrome.storage.sync.remove([siteInfoKey, savedKey]);
+    
+    // Remove from all sites list
+    const allSitesKey = 'readify-all-sites';
+    const allSites = await chrome.storage.sync.get(allSitesKey);
+    const siteDigests = allSites[allSitesKey] || [];
+    
+    const updatedDigests = siteDigests.filter(d => d !== digest);
+    chrome.storage.sync.set({ [allSitesKey]: updatedDigests });
 }
 
 // Note management functions
