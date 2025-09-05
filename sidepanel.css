@@ -144,8 +144,8 @@ html, body {
     height: 26px;
     border-radius: 50%;
     background: linear-gradient(135deg, #b6f0e9 0%, #9ee5db 100%);
-    top: 1px;
-    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
     transition: all 0.3s ease;
     border: 1px solid rgba(0, 151, 255, 0.3);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
@@ -157,7 +157,7 @@ html, body {
 }
 
 .modern-toggle input:checked + .toggle-slider::before {
-    transform: translateX(28px);
+    transform: translateY(-50%) translateX(31px);
     background: white;
     border-color: white;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -285,9 +285,9 @@ html, body {
 }
 
 .thanks-image {
-    max-width: 100%;
+    width: calc(100% - 48px);
     height: auto;
-    max-height: 50px;
+    margin: 0 24px;
     opacity: 0.8;
 }
 
