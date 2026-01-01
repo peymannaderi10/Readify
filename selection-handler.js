@@ -126,6 +126,14 @@ function showSelectionBox(evt) {
         summaryBtn.style.border = 'transparent';
         
         summaryBtn.addEventListener("click", async function () {
+            // ========== TEMPORARILY DISABLED - AI SUMMARIZER ==========
+            // To re-enable, uncomment the code below and remove the "Coming soon" popup code
+            
+            // Show "Coming Soon" popup instead of summarization
+            showComingSoonPopup("summarizer");
+            return;
+            
+            /* --- ORIGINAL SUMMARIZATION CODE (DISABLED) ---
             console.log("Button clicked, showing spinner");
         
             // Get the image inside the button and set its opacity to 50%
@@ -160,6 +168,7 @@ function showSelectionBox(evt) {
             buttonImage.style.opacity = '1';
         
             console.log("Summarization complete, hiding spinner");
+            --- END ORIGINAL SUMMARIZATION CODE --- */
         });
         
         
@@ -175,8 +184,17 @@ function showSelectionBox(evt) {
         ttsButton.style.border = "transparent";
 
         ttsButton.addEventListener("click", async function () {
+            // ========== TEMPORARILY DISABLED - TEXT TO SPEECH ==========
+            // To re-enable, uncomment the code below and remove the "Coming soon" popup code
+            
+            // Show "Coming Soon" popup instead of TTS
+            showComingSoonPopup("tts");
+            return;
+            
+            /* --- ORIGINAL TTS CODE (DISABLED) ---
             const text = window.getSelection().toString();
             showTextToSpeech(text);
+            --- END ORIGINAL TTS CODE --- */
         });
 
         selectionBox.appendChild(ttsButton);
