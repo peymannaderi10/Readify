@@ -17,6 +17,66 @@
             </div>
         </header>
 
+        <!-- Auth Section (collapsible, shown when not logged in) -->
+        <section class="control-section auth-control-section" id="authSection" style="display: none;">
+            <div class="section-header">
+                <h2 class="section-title">👤 Account</h2>
+            </div>
+            <div class="auth-buttons">
+                <button class="auth-toggle-btn" id="showSigninBtn">Sign In</button>
+                <button class="auth-toggle-btn secondary" id="showSignupBtn">Sign Up</button>
+            </div>
+            
+            <!-- Collapsible Forms Container -->
+            <div class="auth-forms-container" id="authFormsContainer" style="display: none;">
+                <!-- Sign In Form -->
+                <div class="auth-form" id="signinForm">
+                    <div class="form-group">
+                        <label for="signinEmail">Email</label>
+                        <input type="email" id="signinEmail" placeholder="you@example.com" />
+                    </div>
+                    <div class="form-group">
+                        <label for="signinPassword">Password</label>
+                        <input type="password" id="signinPassword" placeholder="••••••••" />
+                    </div>
+                    <button class="auth-submit-btn" id="signinBtn">Sign In</button>
+                    <div class="auth-message" id="signinMessage"></div>
+                    <button class="forgot-password-btn" id="forgotPasswordBtn">Forgot Password?</button>
+                </div>
+
+                <!-- Sign Up Form -->
+                <div class="auth-form" id="signupForm" style="display: none;">
+                    <div class="form-group">
+                        <label for="signupEmail">Email</label>
+                        <input type="email" id="signupEmail" placeholder="you@example.com" />
+                    </div>
+                    <div class="form-group">
+                        <label for="signupPassword">Password</label>
+                        <input type="password" id="signupPassword" placeholder="••••••••" />
+                    </div>
+                    <div class="form-group">
+                        <label for="signupConfirmPassword">Confirm Password</label>
+                        <input type="password" id="signupConfirmPassword" placeholder="••••••••" />
+                    </div>
+                    <button class="auth-submit-btn" id="signupBtn">Create Account</button>
+                    <div class="auth-message" id="signupMessage"></div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- Premium Banner (shown for free users) -->
+        <section class="premium-banner" id="premiumBanner" style="display: none;">
+            <div class="premium-content">
+                <span class="premium-icon">✨</span>
+                <div class="premium-text">
+                    <strong>Upgrade to Premium</strong>
+                    <small>Unlimited sites, AI features, cloud sync</small>
+                </div>
+                <button class="premium-cta" id="premiumCta">$4.99/mo</button>
+            </div>
+        </section>
+
         <!-- Main Content -->
         <main class="sidepanel-main">
             <!-- Line Height Controls -->
@@ -74,6 +134,31 @@
                     </div>
                 </div>
             </section>
+
+            <!-- User Profile Section (always visible when logged in) -->
+            <section class="user-profile-section" id="userProfileSection" style="display: none;">
+                <div class="user-info">
+                    <div class="user-avatar">👤</div>
+                    <div class="user-details">
+                        <div class="user-email" id="userEmail">user@example.com</div>
+                        <div class="user-plan" id="userPlan">
+                            <span class="plan-badge free">Free Plan</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-actions">
+                    <button class="upgrade-btn" id="upgradeBtn" style="display: none;">
+                        ✨ Upgrade to Premium
+                    </button>
+                    <button class="cancel-sub-btn" id="cancelSubBtn" style="display: none;">
+                        Cancel Subscription
+                    </button>
+                    <button class="sub-ending-btn" id="subEndingBtn" style="display: none;" disabled>
+                        Ends on ...
+                    </button>
+                    <button class="signout-btn" id="signoutBtn">Sign Out</button>
+                </div>
+            </section>
         </main>
 
         <!-- Footer -->
@@ -92,10 +177,10 @@
         <div class="modal-overlay" id="confirmationModal" style="display: none;">
             <div class="modern-modal">
                 <div class="modal-header">
-                    <h3>⚠️ Important Notice</h3>
+                    <h3 class="modal-title">⚠️ Important Notice</h3>
                 </div>
                 <div class="modal-body">
-                    <p>This action will delete all your saved notes, highlights, and underlines from the current webpage.</p>
+                    <p class="modal-text">This action will delete all your saved notes, highlights, and underlines from the current webpage.</p>
                     <p><strong>Note:</strong> This action cannot be undone.</p>
                 </div>
                 <div class="modal-footer">
@@ -105,6 +190,60 @@
             </div>
         </div>
 
+        <!-- Payment Success Modal -->
+        <div class="modal-overlay" id="paymentSuccessModal" style="display: none;">
+            <div class="modern-modal success-modal">
+                <div class="modal-header">
+                    <h3>🎉 Welcome to Premium!</h3>
+                </div>
+                <div class="modal-body">
+                    <p>Your subscription is now active. Enjoy unlimited sites, AI features, and cloud sync!</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="control-button primary" id="successOkBtn">Get Started</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cancel Subscription Modal -->
+        <div class="modal-overlay" id="cancelSubModal" style="display: none;">
+            <div class="modern-modal">
+                <!-- Confirmation State -->
+                <div id="cancelSubConfirmState">
+                    <div class="modal-header">
+                        <h3 class="modal-title">⚠️ Cancel Subscription</h3>
+                    </div>
+                    <div class="modal-body">
+                        <p class="modal-text">You'll keep Premium access until your billing period ends.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="control-button secondary" id="cancelSubCancelBtn">Keep Premium</button>
+                        <button type="button" class="control-button danger" id="cancelSubConfirmBtn">Cancel</button>
+                    </div>
+                </div>
+                <!-- Success State -->
+                <div id="cancelSubSuccessState" style="display: none;">
+                    <div class="modal-header">
+                        <h3 class="modal-title">✓ Subscription Cancelled</h3>
+                    </div>
+                    <div class="modal-body">
+                        <p class="modal-text" id="cancelSuccessMessage">Your Premium access will end on your billing date.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="control-button primary" id="cancelSubDoneBtn">Done</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Load scripts -->
+        <script src="lib/supabase.min.js"></script>
+        <script src="config.js"></script>
+        <script src="supabase-client.js"></script>
+        <script src="auth-service.js"></script>
+        <script src="subscription-service.js"></script>
+        <script src="storage-service.js"></script>
+        <script src="stripe-service.js"></script>
         <script src="sidepanel.js"></script>
     </body>
-</html> 
+</html>

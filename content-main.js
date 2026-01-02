@@ -29,6 +29,7 @@ function afterDOMLoaded() {
 
 // Chrome extension messaging
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+    // Only handle toggleExtension action - ignore other messages
     if (request.action === "toggleExtension") {
         if (request.enabled) {
             document.addEventListener("mouseup", handleMouseUp);
@@ -38,14 +39,8 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
             removeSelectionBox();
             extensionEnabled = false;
         }
-    } else if (request.enabled) {
-        document.addEventListener("mouseup", handleMouseUp);
-        extensionEnabled = true;
-    } else {
-        document.removeEventListener("mouseup", handleMouseUp);
-        removeSelectionBox();
-        extensionEnabled = false;
     }
+    // Ignore other message types (authStateChange, subscriptionUpdated, etc.)
 });
 
 chrome.storage.sync.get("extensionEnabled", function (data) {

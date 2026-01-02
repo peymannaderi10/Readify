@@ -1,5 +1,8 @@
 // On sidepanel load
 document.addEventListener("DOMContentLoaded", async function () {
+    // Initialize Supabase and auth
+    await initializeAuth();
+    
     // Check if study mode should be disabled due to limit
     const allowed = await checkStudyModeAllowed();
     
@@ -31,7 +34,620 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Set up real-time message listener for My Sites updates
     setupMySitesListener();
+    
+    // Set up auth event listeners
+    setupAuthListeners();
+    
+    // Check for payment status in URL
+    checkPaymentStatusOnLoad();
 });
+
+// ============================================
+// AUTH INITIALIZATION
+// ============================================
+
+async function initializeAuth() {
+    // Wait for services to initialize
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Check current auth state and update UI
+    await updateAuthUI();
+    
+    // Listen for auth state changes
+    if (window.ReadifyAuth) {
+        window.ReadifyAuth.onAuthChange(async (authState) => {
+            await updateAuthUI();
+            if (authState.isAuthenticated) {
+                // Refresh sites list when user logs in
+                await loadMySites();
+                await updateLimitDisplay();
+            }
+        });
+    }
+}
+
+async function updateAuthUI() {
+    const authSection = document.getElementById('authSection');
+    const userProfileSection = document.getElementById('userProfileSection');
+    const premiumBanner = document.getElementById('premiumBanner');
+    const authFormsContainer = document.getElementById('authFormsContainer');
+    
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (isAuthenticated) {
+        // User is logged in
+        // Hide auth section
+        if (authSection) authSection.style.display = 'none';
+        
+        // Always show profile section when logged in
+        if (userProfileSection) userProfileSection.style.display = 'block';
+        
+        // Update subscription status
+        await updateSubscriptionUI();
+    } else {
+        // User is not logged in
+        // Show auth section (collapsed by default)
+        if (authSection) authSection.style.display = 'block';
+        
+        // Collapse the forms
+        if (authFormsContainer) authFormsContainer.style.display = 'none';
+        
+        // Reset button states
+        const showSigninBtn = document.getElementById('showSigninBtn');
+        const showSignupBtn = document.getElementById('showSignupBtn');
+        if (showSigninBtn) showSigninBtn.classList.remove('active');
+        if (showSignupBtn) showSignupBtn.classList.remove('active');
+        
+        // Hide profile section
+        if (userProfileSection) userProfileSection.style.display = 'none';
+        
+        // Show premium banner for non-logged in users
+        if (premiumBanner) {
+            premiumBanner.style.display = 'block';
+        }
+    }
+}
+
+async function updateSubscriptionUI() {
+    const userEmail = document.getElementById('userEmail');
+    const userPlan = document.getElementById('userPlan');
+    const upgradeBtn = document.getElementById('upgradeBtn');
+    const cancelSubBtn = document.getElementById('cancelSubBtn');
+    const subEndingBtn = document.getElementById('subEndingBtn');
+    const premiumBanner = document.getElementById('premiumBanner');
+    const limitCounter = document.getElementById('limitCounter');
+    
+    const user = window.ReadifyAuth?.getCurrentUser();
+    if (userEmail && user) {
+        userEmail.textContent = user.email || 'Unknown';
+    }
+    
+    // Get subscription status
+    if (window.ReadifySubscription) {
+        const subscription = await window.ReadifySubscription.getStatus();
+        
+        if (subscription.isPremium) {
+            // Premium user - check if cancelled (has cancelled_at date or status is canceling)
+            const isCanceling = subscription.cancelledAt || subscription.status === 'canceling';
+            
+            if (userPlan) {
+                if (isCanceling) {
+                    userPlan.innerHTML = '<span class="plan-badge canceling">Premium (Ending)</span>';
+                } else {
+                    userPlan.innerHTML = '<span class="plan-badge premium">Premium</span>';
+                }
+            }
+            if (upgradeBtn) upgradeBtn.style.display = 'none';
+            
+            if (isCanceling) {
+                // Show "Ends on [date]" button instead of cancel button
+                if (cancelSubBtn) cancelSubBtn.style.display = 'none';
+                if (subEndingBtn) {
+                    subEndingBtn.style.display = 'block';
+                    // Format the end date
+                    if (subscription.subscriptionEndsAt) {
+                        const endDate = new Date(subscription.subscriptionEndsAt);
+                        const dateStr = endDate.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            year: 'numeric'
+                        });
+                        subEndingBtn.textContent = `Ends ${dateStr}`;
+                    } else {
+                        subEndingBtn.textContent = 'Subscription ending';
+                    }
+                }
+            } else {
+                // Show cancel button
+                if (cancelSubBtn) cancelSubBtn.style.display = 'block';
+                if (subEndingBtn) subEndingBtn.style.display = 'none';
+            }
+            
+            if (premiumBanner) premiumBanner.style.display = 'none';
+            if (limitCounter) limitCounter.textContent = '(Unlimited)';
+        } else {
+            // Free user
+            if (userPlan) {
+                userPlan.innerHTML = '<span class="plan-badge free">Free Plan</span>';
+            }
+            if (upgradeBtn) upgradeBtn.style.display = 'block';
+            if (cancelSubBtn) cancelSubBtn.style.display = 'none';
+            if (subEndingBtn) subEndingBtn.style.display = 'none';
+            if (premiumBanner) premiumBanner.style.display = 'block';
+        }
+    }
+}
+
+// ============================================
+// AUTH EVENT LISTENERS
+// ============================================
+
+function setupAuthListeners() {
+    // Sign In button - expands to show sign in form
+    const showSigninBtn = document.getElementById('showSigninBtn');
+    if (showSigninBtn) {
+        showSigninBtn.addEventListener('click', () => {
+            expandAuthForm('signin');
+        });
+    }
+    
+    // Sign Up button - expands to show sign up form
+    const showSignupBtn = document.getElementById('showSignupBtn');
+    if (showSignupBtn) {
+        showSignupBtn.addEventListener('click', () => {
+            expandAuthForm('signup');
+        });
+    }
+    
+    // Sign in button
+    const signinBtn = document.getElementById('signinBtn');
+    if (signinBtn) {
+        signinBtn.addEventListener('click', handleSignIn);
+    }
+    
+    // Sign up button
+    const signupBtn = document.getElementById('signupBtn');
+    if (signupBtn) {
+        signupBtn.addEventListener('click', handleSignUp);
+    }
+    
+    // Sign out button
+    const signoutBtn = document.getElementById('signoutBtn');
+    if (signoutBtn) {
+        signoutBtn.addEventListener('click', handleSignOut);
+    }
+    
+    // Close button for auth section
+    const authCloseBtn = document.getElementById('authCloseBtn');
+    if (authCloseBtn) {
+        authCloseBtn.addEventListener('click', () => {
+            document.getElementById('authSection').style.display = 'none';
+        });
+    }
+    
+    // Upgrade buttons
+    const upgradeBtn = document.getElementById('upgradeBtn');
+    if (upgradeBtn) {
+        upgradeBtn.addEventListener('click', handleUpgrade);
+    }
+    
+    const premiumCta = document.getElementById('premiumCta');
+    if (premiumCta) {
+        premiumCta.addEventListener('click', handleUpgrade);
+    }
+    
+    // Manage subscription button
+    const cancelSubBtn = document.getElementById('cancelSubBtn');
+    if (cancelSubBtn) {
+        cancelSubBtn.addEventListener('click', showCancelSubscriptionModal);
+    }
+    
+    // Cancel subscription modal buttons
+    const cancelSubCancelBtn = document.getElementById('cancelSubCancelBtn');
+    const cancelSubConfirmBtn = document.getElementById('cancelSubConfirmBtn');
+    const cancelSubDoneBtn = document.getElementById('cancelSubDoneBtn');
+    
+    if (cancelSubCancelBtn) {
+        cancelSubCancelBtn.addEventListener('click', hideCancelSubscriptionModal);
+    }
+    if (cancelSubConfirmBtn) {
+        cancelSubConfirmBtn.addEventListener('click', handleCancelSubscription);
+    }
+    if (cancelSubDoneBtn) {
+        cancelSubDoneBtn.addEventListener('click', hideCancelSubscriptionModal);
+    }
+    
+    // Forgot password
+    const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+    if (forgotPasswordBtn) {
+        forgotPasswordBtn.addEventListener('click', handleForgotPassword);
+    }
+    
+    // Enter key handlers for forms
+    document.getElementById('signinEmail')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSignIn();
+    });
+    document.getElementById('signinPassword')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSignIn();
+    });
+    document.getElementById('signupEmail')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSignUp();
+    });
+    document.getElementById('signupPassword')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSignUp();
+    });
+    document.getElementById('signupConfirmPassword')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSignUp();
+    });
+    
+    // Success modal close
+    const successOkBtn = document.getElementById('successOkBtn');
+    if (successOkBtn) {
+        successOkBtn.addEventListener('click', () => {
+            document.getElementById('paymentSuccessModal').style.display = 'none';
+        });
+    }
+}
+
+
+function expandAuthForm(formType) {
+    const authFormsContainer = document.getElementById('authFormsContainer');
+    const signinForm = document.getElementById('signinForm');
+    const signupForm = document.getElementById('signupForm');
+    const showSigninBtn = document.getElementById('showSigninBtn');
+    const showSignupBtn = document.getElementById('showSignupBtn');
+    
+    // Check if already expanded with this form
+    const isExpanded = authFormsContainer.style.display !== 'none';
+    const isSigninVisible = signinForm.style.display !== 'none';
+    
+    if (isExpanded) {
+        // If clicking the same button, collapse
+        if ((formType === 'signin' && isSigninVisible) || (formType === 'signup' && !isSigninVisible)) {
+            authFormsContainer.style.display = 'none';
+            showSigninBtn.classList.remove('active');
+            showSignupBtn.classList.remove('active');
+            return;
+        }
+    }
+    
+    // Expand and show the correct form
+    authFormsContainer.style.display = 'block';
+    
+    if (formType === 'signin') {
+        signinForm.style.display = 'flex';
+        signupForm.style.display = 'none';
+        showSigninBtn.classList.add('active');
+        showSignupBtn.classList.remove('active');
+    } else {
+        signinForm.style.display = 'none';
+        signupForm.style.display = 'flex';
+        showSigninBtn.classList.remove('active');
+        showSignupBtn.classList.add('active');
+    }
+    
+    // Clear messages
+    const signinMessage = document.getElementById('signinMessage');
+    const signupMessage = document.getElementById('signupMessage');
+    if (signinMessage) signinMessage.textContent = '';
+    if (signupMessage) signupMessage.textContent = '';
+}
+
+async function handleSignIn() {
+    const email = document.getElementById('signinEmail').value.trim();
+    const password = document.getElementById('signinPassword').value;
+    const messageEl = document.getElementById('signinMessage');
+    const signinBtn = document.getElementById('signinBtn');
+    
+    if (!email || !password) {
+        showAuthMessage(messageEl, 'Please enter email and password', 'error');
+        return;
+    }
+    
+    signinBtn.disabled = true;
+    signinBtn.textContent = 'Signing in...';
+    
+    const result = await window.ReadifyAuth?.signIn(email, password);
+    
+    signinBtn.disabled = false;
+    signinBtn.textContent = 'Sign In';
+    
+    if (result?.error) {
+        showAuthMessage(messageEl, result.error.message || 'Sign in failed', 'error');
+    } else {
+        showAuthMessage(messageEl, 'Signed in successfully!', 'success');
+        document.getElementById('authSection').style.display = 'none';
+        
+        // Clear form
+        document.getElementById('signinEmail').value = '';
+        document.getElementById('signinPassword').value = '';
+        
+        // Update UI
+        await updateAuthUI();
+        await loadMySites();
+        await updateLimitDisplay();
+        
+        // Check for migration
+        if (window.ReadifyStorage?.needsMigration) {
+            const needsMigration = await window.ReadifyStorage.needsMigration();
+            if (needsMigration) {
+                const isPremium = await window.ReadifySubscription?.isPremium();
+                if (isPremium) {
+                    await window.ReadifyStorage.migrateToCloud();
+                    await loadMySites();
+                }
+            }
+        }
+    }
+}
+
+async function handleSignUp() {
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const confirmPassword = document.getElementById('signupConfirmPassword').value;
+    const messageEl = document.getElementById('signupMessage');
+    const signupBtn = document.getElementById('signupBtn');
+    
+    if (!email || !password || !confirmPassword) {
+        showAuthMessage(messageEl, 'Please fill in all fields', 'error');
+        return;
+    }
+    
+    if (password !== confirmPassword) {
+        showAuthMessage(messageEl, 'Passwords do not match', 'error');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showAuthMessage(messageEl, 'Password must be at least 6 characters', 'error');
+        return;
+    }
+    
+    signupBtn.disabled = true;
+    signupBtn.textContent = 'Creating account...';
+    
+    const result = await window.ReadifyAuth?.signUp(email, password);
+    
+    signupBtn.disabled = false;
+    signupBtn.textContent = 'Create Account';
+    
+    if (result?.error) {
+        showAuthMessage(messageEl, result.error.message || 'Sign up failed', 'error');
+    } else if (result?.message) {
+        showAuthMessage(messageEl, result.message, 'success');
+    } else {
+        showAuthMessage(messageEl, 'Account created! Please check your email to verify.', 'success');
+        
+        // Clear form
+        document.getElementById('signupEmail').value = '';
+        document.getElementById('signupPassword').value = '';
+        document.getElementById('signupConfirmPassword').value = '';
+    }
+}
+
+async function handleSignOut() {
+    await window.ReadifyAuth?.signOut();
+    
+    await updateAuthUI();
+    await loadMySites();
+    await updateLimitDisplay();
+}
+
+async function handleUpgrade() {
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (!isAuthenticated) {
+        // Show auth section
+        document.getElementById('authSection').style.display = 'block';
+        return;
+    }
+    
+    // Create checkout session
+    if (window.ReadifyStripe) {
+        const result = await window.ReadifyStripe.createCheckout();
+        if (result.error) {
+            alert(result.error.message || 'Failed to start checkout');
+        }
+    } else if (window.ReadifySubscription) {
+        const result = await window.ReadifySubscription.createCheckoutSession();
+        if (result.error) {
+            alert(result.error.message || 'Failed to start checkout');
+        }
+    }
+}
+
+function showCancelSubscriptionModal() {
+    const modal = document.getElementById('cancelSubModal');
+    const confirmState = document.getElementById('cancelSubConfirmState');
+    const successState = document.getElementById('cancelSubSuccessState');
+    
+    if (modal) {
+        // Reset to confirmation state
+        if (confirmState) confirmState.style.display = 'block';
+        if (successState) successState.style.display = 'none';
+        modal.style.display = 'flex';
+    }
+}
+
+function hideCancelSubscriptionModal() {
+    const modal = document.getElementById('cancelSubModal');
+    const confirmState = document.getElementById('cancelSubConfirmState');
+    const successState = document.getElementById('cancelSubSuccessState');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        // Reset states for next time
+        if (confirmState) confirmState.style.display = 'block';
+        if (successState) successState.style.display = 'none';
+    }
+}
+
+async function handleCancelSubscription() {
+    const confirmBtn = document.getElementById('cancelSubConfirmBtn');
+    const cancelBtn = document.getElementById('cancelSubCancelBtn');
+    const confirmState = document.getElementById('cancelSubConfirmState');
+    const successState = document.getElementById('cancelSubSuccessState');
+    const successMessage = document.getElementById('cancelSuccessMessage');
+    
+    // Disable buttons and show loading
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Cancelling...';
+    }
+    if (cancelBtn) {
+        cancelBtn.disabled = true;
+    }
+    
+    try {
+        const client = window.ReadifySupabase?.getClient();
+        const user = window.ReadifyAuth?.getCurrentUser();
+        
+        if (!client || !user) {
+            throw new Error('Not authenticated');
+        }
+        
+        // Step 1: Get user's subscription info
+        const { data: profile, error: profileError } = await client
+            .from('user_profiles')
+            .select('stripe_subscription_id')
+            .eq('id', user.id)
+            .single();
+        
+        if (profileError) {
+            throw new Error('Failed to get subscription info');
+        }
+        
+        if (!profile?.stripe_subscription_id) {
+            throw new Error('No active subscription found');
+        }
+        
+        // Step 2: Cancel the Stripe subscription at period end via Edge Function
+        const { data: sessionData } = await client.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        
+        if (!accessToken) {
+            throw new Error('No valid session');
+        }
+        
+        const response = await fetch(
+            `${window.READIFY_CONFIG.SUPABASE_URL}/functions/v1/cancel-subscription`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'apikey': window.READIFY_CONFIG.SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({
+                    subscriptionId: profile.stripe_subscription_id
+                })
+            }
+        );
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            console.error('Cancel subscription error:', result);
+            throw new Error(result.error || 'Failed to cancel subscription');
+        }
+        
+        // Step 3: Clear subscription cache
+        if (window.ReadifySubscription) {
+            await window.ReadifySubscription.refresh();
+        }
+        
+        // Format the end date
+        let endDateStr = 'your billing date';
+        if (result.current_period_end) {
+            const endDate = new Date(result.current_period_end);
+            endDateStr = endDate.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+        
+        // Show success state in modal
+        if (confirmState) confirmState.style.display = 'none';
+        if (successState) successState.style.display = 'block';
+        if (successMessage) {
+            successMessage.textContent = `Premium access ends on ${endDateStr}.`;
+        }
+        
+        // Refresh UI
+        await updateAuthUI();
+        await loadMySites();
+        await updateLimitDisplay();
+        
+    } catch (error) {
+        console.error('Cancel subscription error:', error);
+        // Show error in modal or fallback to alert
+        if (successMessage) {
+            if (confirmState) confirmState.style.display = 'none';
+            if (successState) successState.style.display = 'block';
+            successMessage.textContent = 'Failed to cancel: ' + (error.message || 'Unknown error');
+            document.querySelector('#cancelSubSuccessState .modal-title').textContent = '❌ Error';
+        } else {
+            alert('Failed to cancel subscription: ' + (error.message || 'Unknown error'));
+        }
+    } finally {
+        // Re-enable buttons
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Cancel';
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = false;
+        }
+    }
+}
+
+async function handleForgotPassword() {
+    const email = document.getElementById('signinEmail').value.trim();
+    const messageEl = document.getElementById('signinMessage');
+    
+    if (!email) {
+        showAuthMessage(messageEl, 'Please enter your email address', 'error');
+        return;
+    }
+    
+    const result = await window.ReadifyAuth?.resetPassword(email);
+    
+    if (result?.error) {
+        showAuthMessage(messageEl, result.error.message || 'Failed to send reset email', 'error');
+    } else {
+        showAuthMessage(messageEl, 'Password reset email sent! Check your inbox.', 'success');
+    }
+}
+
+function showAuthMessage(element, message, type) {
+    if (!element) return;
+    element.textContent = message;
+    element.className = 'auth-message ' + type;
+}
+
+function checkPaymentStatusOnLoad() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    
+    if (paymentStatus === 'success') {
+        // Show success modal
+        document.getElementById('paymentSuccessModal').style.display = 'flex';
+        
+        // Refresh subscription status
+        setTimeout(async () => {
+            await updateAuthUI();
+            await loadMySites();
+            await updateLimitDisplay();
+        }, 500);
+        
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname);
+    } else if (paymentStatus === 'canceled') {
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+}
 
 function setupMySitesListener() {
     // Listen for messages from content scripts about site changes
@@ -159,64 +775,130 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
-// Helper function to get all saved sites (will be available from storage-manager.js)
+// Helper function to get all saved sites
 async function getAllSavedSites() {
-    // This function is defined in storage-manager.js, but we need to call it from here
-    // We'll use chrome.tabs.executeScript to call it in the content script context
+    // Check if user is premium - use Supabase
+    if (window.ReadifySubscription) {
+        const subscription = await window.ReadifySubscription.getStatus();
+        if (subscription.isPremium) {
+            return await getAllSitesFromSupabase();
+        }
+    }
+    
+    // Free users - use Chrome storage
+    return await getAllSitesFromChromeStorage();
+}
+
+async function getAllSitesFromSupabase() {
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (!client || !user) {
+        console.log('No client or user for Supabase sites');
+        return [];
+    }
+    
+    try {
+        const { data, error } = await client
+            .from('user_sites')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('last_modified', { ascending: false });
+        
+        if (error) {
+            console.error('Get all sites from Supabase error:', error);
+            return [];
+        }
+        
+        return (data || []).map(site => ({
+            digest: site.url_digest,
+            info: {
+                url: site.url,
+                title: site.title,
+                hostname: site.hostname,
+                lastModified: new Date(site.last_modified).getTime()
+            },
+            changeCount: site.changes?.length || 0,
+            changes: site.changes
+        }));
+    } catch (e) {
+        console.error('Get all sites from Supabase exception:', e);
+        return [];
+    }
+}
+
+async function getAllSitesFromChromeStorage() {
     return new Promise((resolve) => {
-        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-            if (tabs[0]) {
-                chrome.scripting.executeScript({
-                    target: { tabId: tabs[0].id },
-                    func: async function() {
-                        // This will run in the content script context where getAllSavedSites is available
-                        try {
-                            const allSitesKey = 'readify-all-sites';
-                            const allSites = await chrome.storage.sync.get(allSitesKey);
-                            const siteDigests = allSites[allSitesKey] || [];
-                            
-                            const sites = [];
-                            for (const digest of siteDigests) {
-                                const siteInfoKey = `site-info-${digest}`;
-                                const savedKey = `saved-${digest}`;
-                                
-                                const [siteInfo, savedChanges] = await Promise.all([
-                                    chrome.storage.sync.get(siteInfoKey),
-                                    chrome.storage.sync.get(savedKey)
-                                ]);
-                                
-                                if (siteInfo[siteInfoKey] && savedChanges[savedKey] && savedChanges[savedKey].length > 0) {
-                                    sites.push({
-                                        digest: digest,
-                                        info: siteInfo[siteInfoKey],
-                                        changeCount: savedChanges[savedKey].length
-                                    });
-                                }
-                            }
-                            
-                            sites.sort((a, b) => b.info.lastModified - a.info.lastModified);
-                            return sites;
-                        } catch (error) {
-                            console.error('Error in getAllSavedSites:', error);
-                            return [];
-                        }
-                    }
-                }, function(results) {
-                    if (results && results[0]) {
-                        resolve(results[0].result || []);
-                    } else {
-                        resolve([]);
-                    }
-                });
-            } else {
+        chrome.storage.sync.get(null, function(allData) {
+            if (chrome.runtime.lastError) {
                 resolve([]);
+                return;
             }
+            
+            const sites = [];
+            const siteInfoKeys = Object.keys(allData).filter(key => key.startsWith('site-info-'));
+            
+            for (const siteInfoKey of siteInfoKeys) {
+                const digest = siteInfoKey.replace('site-info-', '');
+                const savedKey = `saved-${digest}`;
+                
+                if (allData[savedKey] && allData[savedKey].length > 0) {
+                    sites.push({
+                        digest: digest,
+                        info: allData[siteInfoKey],
+                        changeCount: allData[savedKey].length,
+                        changes: allData[savedKey]
+                    });
+                }
+            }
+            
+            // Sort by last modified
+            sites.sort((a, b) => (b.info?.lastModified || 0) - (a.info?.lastModified || 0));
+            resolve(sites);
         });
     });
 }
 
 // Helper function to delete site data
 async function deleteSiteData(digest) {
+    // Check if user is premium - delete from Supabase
+    if (window.ReadifySubscription) {
+        const subscription = await window.ReadifySubscription.getStatus();
+        if (subscription.isPremium) {
+            await deleteSiteFromSupabase(digest);
+            return;
+        }
+    }
+    
+    // Free users - delete from Chrome storage
+    await deleteSiteFromChromeStorage(digest);
+}
+
+async function deleteSiteFromSupabase(digest) {
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (!client || !user) {
+        console.error('No client or user for Supabase delete');
+        return;
+    }
+    
+    try {
+        const { error } = await client
+            .from('user_sites')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('url_digest', digest);
+        
+        if (error) {
+            console.error('Delete from Supabase error:', error);
+        }
+    } catch (e) {
+        console.error('Delete from Supabase exception:', e);
+    }
+}
+
+async function deleteSiteFromChromeStorage(digest) {
     return new Promise((resolve) => {
         chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
             if (tabs[0]) {
@@ -408,12 +1090,50 @@ document.getElementById("confirmationModal").addEventListener("click", function(
 
 // Website limit functions
 async function getWebsiteLimit() {
+    // Check if user is premium
+    if (window.ReadifySubscription) {
+        const subscription = await window.ReadifySubscription.getStatus();
+        if (subscription.isPremium) {
+            // Premium users have unlimited sites - count from Supabase
+            const siteCount = await getSiteCountForPremium();
+            return { used: siteCount, max: Infinity, isPremium: true };
+        }
+    }
+    
+    // Free users - count from Chrome storage
     return new Promise((resolve) => {
         chrome.storage.sync.get('websiteLimit', function(result) {
             const limit = result.websiteLimit || { used: 0, max: 5 };
+            limit.isPremium = false;
             resolve(limit);
         });
     });
+}
+
+async function getSiteCountForPremium() {
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (!client || !user) {
+        return 0;
+    }
+    
+    try {
+        const { count, error } = await client
+            .from('user_sites')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id);
+        
+        if (error) {
+            console.error('Error getting site count:', error);
+            return 0;
+        }
+        
+        return count || 0;
+    } catch (e) {
+        console.error('Exception getting site count:', e);
+        return 0;
+    }
 }
 
 async function syncSiteTracking() {
@@ -449,22 +1169,33 @@ async function syncSiteTracking() {
 
 async function updateLimitDisplay() {
     try {
-        // First sync the site tracking to ensure accuracy
-        await syncSiteTracking();
+        const limit = await getWebsiteLimit();
+        const limitCounter = document.getElementById('limitCounter');
         
-        // Then update display
-        setTimeout(async () => {
-            const limit = await getWebsiteLimit();
-            const limitCounter = document.getElementById('limitCounter');
-            if (limitCounter) {
-                limitCounter.textContent = `(${limit.used}/${limit.max})`;
-                if (limit.used >= limit.max) {
-                    limitCounter.classList.add('limit-reached');
-                } else {
-                    limitCounter.classList.remove('limit-reached');
-                }
+        if (limitCounter) {
+            if (limit.isPremium) {
+                // Premium users - show site count without limit
+                limitCounter.textContent = limit.used > 0 ? `(${limit.used} sites)` : '';
+                limitCounter.classList.remove('limit-reached');
+                limitCounter.classList.add('premium-unlimited');
+            } else {
+                // Free users - show used/max format
+                // Sync site tracking for free users
+                await syncSiteTracking();
+                
+                // Small delay to ensure sync completes
+                setTimeout(async () => {
+                    const updatedLimit = await getWebsiteLimit();
+                    limitCounter.textContent = `(${updatedLimit.used}/${updatedLimit.max})`;
+                    if (updatedLimit.used >= updatedLimit.max) {
+                        limitCounter.classList.add('limit-reached');
+                    } else {
+                        limitCounter.classList.remove('limit-reached');
+                    }
+                    limitCounter.classList.remove('premium-unlimited');
+                }, 100);
             }
-        }, 100);
+        }
     } catch (error) {
         console.error('Error updating limit display:', error);
     }

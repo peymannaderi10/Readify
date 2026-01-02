@@ -126,14 +126,14 @@ function showSelectionBox(evt) {
         summaryBtn.style.border = 'transparent';
         
         summaryBtn.addEventListener("click", async function () {
-            // ========== TEMPORARILY DISABLED - AI SUMMARIZER ==========
-            // To re-enable, uncomment the code below and remove the "Coming soon" popup code
+            // Check if user has premium access for AI summarization
+            const canAccess = await checkPremiumFeature('summarize');
+            if (!canAccess) {
+                showUpgradePrompt('summarize');
+                return;
+            }
             
-            // Show "Coming Soon" popup instead of summarization
-            showComingSoonPopup("summarizer");
-            return;
-            
-            /* --- ORIGINAL SUMMARIZATION CODE (DISABLED) ---
+            // AI Summarization for premium users
             console.log("Button clicked, showing spinner");
         
             // Get the image inside the button and set its opacity to 50%
@@ -150,25 +150,25 @@ function showSelectionBox(evt) {
         
             const cleanText = window.getSelection().toString().replace(/\r?\n|\r/g, " ").replace(/[^\x00-\x7F]/g, function(char) {
                 return "\\u" + ("0000" + char.charCodeAt(0).toString(16)).slice(-4);
-              });
+            });
               
-              const text = encodeURIComponent(cleanText);
+            const text = encodeURIComponent(cleanText);
             try {
                 const summarizedText = await summarizeText(text, "summary");
                 showSummary(summarizedText, text);
             } catch (error) {
                 console.error("Error during summarization:", error);
-                // Handle any errors here
             }
         
             // Remove the spinner once the process is complete
-            summaryBtn.removeChild(spinner);
+            if (summaryBtn.contains(spinner)) {
+                summaryBtn.removeChild(spinner);
+            }
         
             // Reset the image opacity to 100%
             buttonImage.style.opacity = '1';
         
             console.log("Summarization complete, hiding spinner");
-            --- END ORIGINAL SUMMARIZATION CODE --- */
         });
         
         
@@ -184,17 +184,16 @@ function showSelectionBox(evt) {
         ttsButton.style.border = "transparent";
 
         ttsButton.addEventListener("click", async function () {
-            // ========== TEMPORARILY DISABLED - TEXT TO SPEECH ==========
-            // To re-enable, uncomment the code below and remove the "Coming soon" popup code
+            // Check if user has premium access for TTS
+            const canAccess = await checkPremiumFeature('tts');
+            if (!canAccess) {
+                showUpgradePrompt('tts');
+                return;
+            }
             
-            // Show "Coming Soon" popup instead of TTS
-            showComingSoonPopup("tts");
-            return;
-            
-            /* --- ORIGINAL TTS CODE (DISABLED) ---
+            // TTS for premium users
             const text = window.getSelection().toString();
             showTextToSpeech(text);
-            --- END ORIGINAL TTS CODE --- */
         });
 
         selectionBox.appendChild(ttsButton);
@@ -224,4 +223,14 @@ function handleMouseUp(evt) {
         // Check the global variable
         showSelectionBox(evt);
     }
+}
+
+// Helper function to check premium feature access
+async function checkPremiumFeature(featureName) {
+    // If subscription service is available, use it
+    if (window.ReadifySubscription) {
+        return await window.ReadifySubscription.canAccessFeature(featureName);
+    }
+    // Default to false if service not available
+    return false;
 } 

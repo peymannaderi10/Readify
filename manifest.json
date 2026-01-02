@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Readify: Your Productivity Companion",
     "description": "Readify is a browser extension that allows users to customize any webpage or online reading content to their own preferences.",
-    "version": "1.4",
+    "version": "1.5",
     "action": {
         "default_icon": {
             "128": "logoExt.png"
@@ -15,6 +15,12 @@
         {
             "matches": ["<all_urls>"],
             "js": [
+                "lib/supabase.min.js",
+                "config.js",
+                "supabase-client.js",
+                "auth-service.js",
+                "subscription-service.js",
+                "storage-service.js",
                 "utils.js",
                 "ai-services.js", 
                 "storage-manager.js",
@@ -28,19 +34,19 @@
         }
     ],
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self';"
+        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co https://api.stripe.com;"
     },
     "background": {
         "service_worker": "background.js"
     },
-    "permissions": ["activeTab", "storage", "scripting", "sidePanel"],
-    "host_permissions": ["<all_urls>"],
+    "permissions": ["activeTab", "storage", "scripting", "sidePanel", "identity", "alarms"],
+    "host_permissions": ["<all_urls>", "https://*.supabase.co/*", "https://api.stripe.com/*"],
     "icons": {
         "128": "logo.png"
     },
     "web_accessible_resources": [
         {
-            "resources": ["images/*"],
+            "resources": ["images/*", "lib/*"],
             "matches": ["<all_urls>"]
         }
     ]
