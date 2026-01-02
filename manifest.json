@@ -38,7 +38,7 @@
         }
     ],
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.openai.com;"
+        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.openai.com wss://api.openai.com;"
     },
     "background": {
         "service_worker": "background.js"
@@ -50,7 +50,7 @@
     },
     "web_accessible_resources": [
         {
-            "resources": ["images/*", "lib/*"],
+            "resources": ["images/*", "lib/*", "realtime-worklet.js"],
             "matches": ["<all_urls>"]
         }
     ]

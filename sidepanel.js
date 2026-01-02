@@ -1268,16 +1268,20 @@ window.fixSiteTracking = function() {
 let chatMessages = [];
 let chatIsLoading = false;
 let currentPageContent = null;
-let voiceActive = false;
-let mediaRecorder = null;
-let recordedChunks = [];
-let voiceLoopActive = false;
-let voiceCurrentAudio = null;
-let voiceStream = null;
-let voiceAudioContext = null;
-let voiceAnalyser = null;
-let voiceSilenceInterval = null;
-let voiceSilenceMs = 0;
+
+// ============================================
+// OPENAI REALTIME API - Voice Mode State
+// ============================================
+let realtimeWs = null;           // WebSocket connection
+let realtimeActive = false;      // Is voice mode active?
+let realtimeAudioContext = null; // AudioContext for playback
+let realtimeMicStream = null;    // Microphone stream
+let realtimeScriptProcessor = null; // For PCM encoding
+let realtimeAudioQueue = [];     // Queue of audio chunks to play
+let realtimeIsPlaying = false;   // Is AI currently speaking?
+let realtimeNextPlayTime = 0;    // For gapless playback
+let realtimeActiveSources = [];  // Track scheduled audio sources for stopping
+let realtimeResponseActive = false; // Track if API has an active response
 
 // Initialize chat panel listeners
 document.addEventListener('DOMContentLoaded', function() {
@@ -1312,13 +1316,13 @@ function setupChatListeners() {
     }
 
     if (voiceOverlay) {
-        voiceOverlay.addEventListener('click', stopVoiceMode);
+        voiceOverlay.addEventListener('click', stopRealtimeVoice);
     }
 
     if (voiceStopBtn) {
         voiceStopBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            stopVoiceMode();
+            stopRealtimeVoice();
         });
     }
     
@@ -1386,7 +1390,7 @@ function closeChatPanel() {
     if (chatPanel) {
         chatPanel.classList.remove('open');
     }
-    stopVoiceMode();
+    stopRealtimeVoice();
 }
 
 async function extractCurrentPageContent() {
@@ -1556,395 +1560,491 @@ function hideTypingIndicator() {
     if (typing) typing.remove();
 }
 
+// ============================================
+// OPENAI REALTIME API - Voice Mode Functions
+// ============================================
+
 function toggleVoiceMode() {
-    if (voiceActive) {
-        stopVoiceMode();
+    if (realtimeActive) {
+        stopRealtimeVoice();
     } else {
-        voiceLoopActive = true;
-        startVoiceTurn();
+        startRealtimeVoice();
     }
 }
 
-function startVoiceTurn() {
+async function startRealtimeVoice() {
     const overlay = document.getElementById('voiceOverlay');
     const voiceLabel = document.getElementById('voiceText');
     if (!overlay) return;
-    voiceActive = true;
-    stopVoicePlayback(); // avoid picking up our own TTS
+    
+    realtimeActive = true;
     overlay.classList.add('active');
-    if (voiceLabel) voiceLabel.textContent = 'Requesting microphone...';
-
-    // Start recording with MediaRecorder (simple client-side Whisper capture)
-    recordedChunks = [];
-    navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-            if (voiceLabel) voiceLabel.textContent = 'Listening...';
-            voiceStream = stream;
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data && e.data.size > 0) {
-                    recordedChunks.push(e.data);
-                }
-            };
-            mediaRecorder.onstop = () => {
-                console.log('[Readify] mediaRecorder.onstop fired, voiceLoopActive:', voiceLoopActive);
-                cleanupVoiceStream();
-                if (recordedChunks.length === 0) {
-                    console.log('[Readify] No recorded chunks, skipping transcription');
-                    return;
-                }
-                const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
-                console.log('[Readify] Audio blob created, size:', audioBlob.size);
-                transcribeAndSend(audioBlob);
-            };
-            mediaRecorder.start(100);
-
-            // Start silence detection (simple RMS-based VAD)
-            setupSilenceDetection(stream);
-        })
-        .catch(err => {
-            console.error('Mic error:', err);
-            stopVoiceMode();
-            addChatMessage(
-                'Microphone access was blocked. Please allow mic permissions:\n' +
-                '- In Chrome: Settings > Privacy and security > Site settings > Microphone > Allow\n' +
-                '- For this extension: chrome://settings/content/siteDetails?site=chrome-extension://' + chrome.runtime.id + '\n' +
-                'Then click the mic again.',
-                'system'
-            );
-        });
-}
-
-function stopVoiceMode() {
-    const overlay = document.getElementById('voiceOverlay');
-    if (!overlay) return;
-    voiceActive = false;
-    voiceLoopActive = false;
-    overlay.classList.remove('active');
-    // Stop recorder if active
-    try {
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();
-        }
-    } catch (e) {
-        console.warn('Recorder stop error:', e);
-    }
-    stopVoicePlayback();
-    cleanupVoiceStream();
-}
-
-async function transcribeAndSend(audioBlob) {
-    const voiceLabel = document.getElementById('voiceText');
-    console.log('[Readify] transcribeAndSend called, voiceLoopActive:', voiceLoopActive);
-    if (voiceLabel) voiceLabel.textContent = 'Transcribing...';
-
-    try {
-        const transcript = await transcribeWithWhisper(audioBlob);
-        const cleanedTranscript = transcript?.trim() || '';
-        
-        // Filter out common Whisper hallucinations from background noise
-        const noisePatterns = [
-            /^thanks for watching[.!]?$/i,
-            /^thank you for watching[.!]?$/i,
-            /^please subscribe[.!]?$/i,
-            /^like and subscribe[.!]?$/i,
-            /^don't forget to subscribe[.!]?$/i,
-            /^see you next time[.!]?$/i,
-            /^bye[.!]?$/i,
-            /^\.+$/,
-            /^,+$/,
-        ];
-        
-        const isNoise = noisePatterns.some(pattern => pattern.test(cleanedTranscript));
-        
-        if (cleanedTranscript.length > 0 && !isNoise) {
-            console.log('[Readify] Valid transcript:', cleanedTranscript);
-            await handleAssistantReply(cleanedTranscript);
-        } else if (isNoise) {
-            console.log('[Readify] Filtered noise:', cleanedTranscript);
-            // Silently skip noise - don't show error, just continue listening
-            if (voiceLoopActive) {
-                startVoiceTurn();
-            }
-        } else {
-            addChatMessage('No speech detected. Please try again.', 'system');
-        }
-    } catch (err) {
-        console.error('Transcription error:', err);
-        addChatMessage('Transcription failed. Please try again.', 'system');
-    } finally {
-        if (voiceLabel) voiceLabel.textContent = 'Listening...';
-    }
-}
-
-function cleanupVoiceStream() {
-    if (voiceSilenceInterval) {
-        clearInterval(voiceSilenceInterval);
-        voiceSilenceInterval = null;
-    }
-    voiceSilenceMs = 0;
-    if (voiceAudioContext) {
-        voiceAudioContext.close().catch(() => {});
-        voiceAudioContext = null;
-    }
-    if (voiceStream) {
-        voiceStream.getTracks().forEach(t => t.stop());
-        voiceStream = null;
-    }
-    voiceAnalyser = null;
-}
-
-function setupSilenceDetection(stream) {
-    try {
-        voiceAudioContext = new AudioContext({ sampleRate: 24000 });
-        const source = voiceAudioContext.createMediaStreamSource(stream);
-        voiceAnalyser = voiceAudioContext.createAnalyser();
-        voiceAnalyser.fftSize = 2048;
-        source.connect(voiceAnalyser);
-
-        const data = new Uint8Array(voiceAnalyser.fftSize);
-        const SILENCE_THRESHOLD = 10;   // more strict: ignore background
-        const SILENCE_HANG_MS = 800;    // need this much silence to end a turn
-        const MIN_SPEECH_MS = 250;      // require at least this much speech before stopping
-        const CHECK_MS = 120;
-        let speechMs = 0;
-        let hadSpeech = false;
-
-        voiceSilenceInterval = setInterval(() => {
-            if (!voiceAnalyser) return;
-            voiceAnalyser.getByteTimeDomainData(data);
-            let sum = 0;
-            for (let i = 0; i < data.length; i++) {
-                const v = (data[i] - 128) / 128;
-                sum += v * v;
-            }
-            const rms = Math.sqrt(sum / data.length);
-            const level = rms * 1000; // simple scaled level
-
-            if (level < SILENCE_THRESHOLD) {
-                voiceSilenceMs += CHECK_MS;
-            } else {
-                voiceSilenceMs = 0;
-                speechMs += CHECK_MS;
-                hadSpeech = true;
-            }
-
-            // Auto-stop when enough speech happened AND then silence
-            if (hadSpeech && speechMs >= MIN_SPEECH_MS && voiceSilenceMs >= SILENCE_HANG_MS) {
-                console.log('[Readify] Silence detected, stopping recording. voiceLoopActive:', voiceLoopActive);
-                voiceSilenceMs = 0;
-                speechMs = 0;
-                hadSpeech = false;
-                try {
-                    if (mediaRecorder && mediaRecorder.state === 'recording') {
-                        mediaRecorder.stop();
-                    }
-                } catch (e) {
-                    console.warn('Stop on silence error:', e);
-                }
-            }
-        }, CHECK_MS);
-    } catch (e) {
-        console.warn('Silence detection setup failed:', e);
-    }
-}
-
-// Track current TTS source for stopping
-let currentTtsSource = null;
-
-function stopVoicePlayback() {
-    try {
-        // Stop Web Audio API source
-        if (currentTtsSource) {
-            currentTtsSource.stop();
-            currentTtsSource = null;
-        }
-        // Also stop any HTML5 audio (legacy)
-        if (voiceCurrentAudio) {
-            voiceCurrentAudio.pause();
-            URL.revokeObjectURL(voiceCurrentAudio.src);
-            voiceCurrentAudio = null;
-        }
-    } catch (e) {
-        console.warn('Audio stop error:', e);
-    }
-}
-
-// Global audio context for TTS playback (created on first user interaction)
-let ttsAudioContext = null;
-let ttsInterrupted = false;
-let bargeInStream = null;
-let bargeInInterval = null;
-
-async function speakAssistant(text) {
-    const voiceLabel = document.getElementById('voiceText');
-    ttsInterrupted = false;
+    if (voiceLabel) voiceLabel.textContent = 'Connecting...';
     
     try {
-        console.log('[Readify] Speaking assistant response:', text.substring(0, 100) + '...');
-        if (voiceLabel) voiceLabel.textContent = 'Generating speech...';
-        
-        // Check if textToSpeechOpenAI is available
-        if (typeof textToSpeechOpenAI !== 'function') {
-            console.error('[Readify] textToSpeechOpenAI function not found!');
-            return;
-        }
-        
-        const audioBlob = await textToSpeechOpenAI(text, {});
-        console.log('[Readify] TTS audio generated, size:', audioBlob?.size);
-        
-        if (!audioBlob || audioBlob.size === 0) {
-            console.error('[Readify] TTS returned empty audio');
-            return;
-        }
-        
-        // Use Web Audio API for better autoplay support in extensions
-        if (!ttsAudioContext) {
-            ttsAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        
-        // Resume audio context if suspended (autoplay policy)
-        if (ttsAudioContext.state === 'suspended') {
-            console.log('[Readify] Resuming suspended audio context');
-            await ttsAudioContext.resume();
-        }
-        
-        if (voiceLabel) voiceLabel.textContent = 'AI is speaking... (speak to interrupt)';
-        
-        // Decode and play audio
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const audioBuffer = await ttsAudioContext.decodeAudioData(arrayBuffer);
-        
-        const source = ttsAudioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(ttsAudioContext.destination);
-        currentTtsSource = source;
-        
-        // Start barge-in detection (listen for user speech while TTS plays)
-        startBargeInDetection();
-        
-        return new Promise((resolve) => {
-            source.onended = () => {
-                console.log('[Readify] TTS playback ended, interrupted:', ttsInterrupted);
-                stopBargeInDetection();
-                currentTtsSource = null;
-                if (!ttsInterrupted && voiceLabel) {
-                    voiceLabel.textContent = 'Listening...';
-                }
-                resolve({ interrupted: ttsInterrupted });
-            };
-            
-            source.start(0);
-            console.log('[Readify] TTS playback started via Web Audio API');
+        // Get microphone access first
+        realtimeMicStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: { 
+                sampleRate: 24000,
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true
+            } 
         });
         
-    } catch (e) {
-        console.error('[Readify] TTS error:', e);
-        stopBargeInDetection();
-        if (voiceLabel) voiceLabel.textContent = 'Listening...';
-        return { interrupted: false };
+        // Connect to OpenAI Realtime API
+        await connectRealtimeSession();
+        
+        // Start streaming audio to the API
+        await startAudioCapture();
+        
+        if (voiceLabel) voiceLabel.textContent = 'Listening... (speak anytime)';
+        
+    } catch (err) {
+        console.error('[Realtime] Setup error:', err);
+        stopRealtimeVoice();
+        addChatMessage(
+            'Voice mode failed to start: ' + (err.message || 'Unknown error') + '\n' +
+            'Please check microphone permissions.',
+            'system'
+        );
     }
 }
 
-// Barge-in detection: listen for user speech while TTS is playing
-async function startBargeInDetection() {
+function stopRealtimeVoice() {
+    const overlay = document.getElementById('voiceOverlay');
+    const voiceLabel = document.getElementById('voiceText');
+    
+    realtimeActive = false;
+    if (overlay) overlay.classList.remove('active');
+    if (voiceLabel) voiceLabel.textContent = 'Speak naturally. Tap to stop.';
+    
+    // Stop all audio playback first
+    stopRealtimePlayback();
+    
+    // Reset state flags
+    realtimeResponseActive = false;
+    
+    // Close WebSocket
+    if (realtimeWs) {
+        try {
+            realtimeWs.close();
+        } catch (e) {}
+        realtimeWs = null;
+    }
+    
+    // Stop microphone
+    if (realtimeMicStream) {
+        realtimeMicStream.getTracks().forEach(t => t.stop());
+        realtimeMicStream = null;
+    }
+    
+    // Stop and disconnect worklet
+    if (realtimeScriptProcessor) {
+        realtimeScriptProcessor.disconnect();
+        realtimeScriptProcessor = null;
+    }
+    
+    // Close audio context
+    if (realtimeAudioContext) {
+        realtimeAudioContext.close().catch(() => {});
+        realtimeAudioContext = null;
+    }
+    
+    console.log('[Realtime] Voice mode stopped');
+}
+
+async function connectRealtimeSession() {
+    const config = window.READIFY_CONFIG || {};
+    const apiKey = config.OPENAI_API_KEY;
+    const realtimeConfig = config.AI_REALTIME || {};
+    const model = realtimeConfig.MODEL || 'gpt-4o-realtime-preview-2024-12-17';
+    
+    if (!apiKey || apiKey.startsWith('YOUR_')) {
+        throw new Error('OpenAI API key not configured');
+    }
+    
+    return new Promise((resolve, reject) => {
+        const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
+        
+        realtimeWs = new WebSocket(wsUrl, [
+            'realtime',
+            `openai-insecure-api-key.${apiKey}`,
+            'openai-beta.realtime-v1'
+        ]);
+        
+        realtimeWs.onopen = () => {
+            console.log('[Realtime] WebSocket connected');
+            
+            // Initialize playback audio context if needed
+            if (!realtimeAudioContext || realtimeAudioContext.state === 'closed') {
+                realtimeAudioContext = new AudioContext({ sampleRate: 24000 });
+            }
+            
+            // Initialize playback timing
+            realtimeNextPlayTime = realtimeAudioContext.currentTime;
+            
+            // Configure the session with page context
+            const sessionConfig = buildSessionConfig();
+            console.log('[Realtime] Sending session config...');
+            realtimeWs.send(JSON.stringify(sessionConfig));
+            
+            resolve();
+        };
+        
+        realtimeWs.onmessage = (event) => {
+            try {
+                const message = JSON.parse(event.data);
+                handleRealtimeMessage(message);
+            } catch (e) {
+                console.error('[Realtime] Message parse error:', e);
+            }
+        };
+        
+        realtimeWs.onerror = (err) => {
+            console.error('[Realtime] WebSocket error:', err);
+            reject(new Error('WebSocket connection failed'));
+        };
+        
+        realtimeWs.onclose = (event) => {
+            console.log('[Realtime] WebSocket closed:', event.code, event.reason);
+            if (realtimeActive) {
+                stopRealtimeVoice();
+            }
+        };
+    });
+}
+
+function buildSessionConfig() {
+    const config = window.READIFY_CONFIG || {};
+    const realtimeConfig = config.AI_REALTIME || {};
+    const voice = realtimeConfig.VOICE || 'alloy';
+    
+    // Build system prompt with page context
+    let instructions = 'You are a helpful voice assistant. Be concise and conversational. Give brief answers (1-3 sentences) unless asked for more detail.';
+    
+    if (currentPageContent && currentPageContent.content) {
+        instructions = `You are a reading assistant having a voice conversation. Answer questions using ONLY the webpage content below.
+
+RULES:
+1. Be CONCISE - give brief, conversational answers (1-3 sentences).
+2. Only use information from the page content.
+3. If something is not in the content, say "I don't see that on this page."
+4. Speak naturally, as if having a conversation.
+
+WEBPAGE: ${currentPageContent.title}
+URL: ${currentPageContent.url}
+
+CONTENT:
+${currentPageContent.content.substring(0, 50000)}`;
+    }
+    
+    return {
+        type: 'session.update',
+        session: {
+            modalities: ['text', 'audio'],
+            instructions: instructions,
+            voice: voice,
+            input_audio_format: 'pcm16',
+            output_audio_format: 'pcm16',
+            input_audio_transcription: {
+                model: 'whisper-1'
+            },
+            turn_detection: {
+                type: 'server_vad',
+                threshold: realtimeConfig.VAD_THRESHOLD || 0.5,
+                prefix_padding_ms: 300,
+                silence_duration_ms: realtimeConfig.SILENCE_DURATION_MS || 500
+            }
+        }
+    };
+}
+
+// ============================================
+// REALTIME API - Audio Capture (PCM Encoder)
+// ============================================
+
+async function startAudioCapture() {
+    if (!realtimeMicStream || !realtimeWs) return;
+    
+    // Use existing audio context or create new one at 24kHz
+    if (!realtimeAudioContext || realtimeAudioContext.state === 'closed') {
+        realtimeAudioContext = new AudioContext({ sampleRate: 24000 });
+    }
+    
+    const source = realtimeAudioContext.createMediaStreamSource(realtimeMicStream);
+    
     try {
-        bargeInStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioContext.createMediaStreamSource(bargeInStream);
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 512;
-        source.connect(analyser);
+        // Load AudioWorklet module
+        const workletUrl = chrome.runtime.getURL('realtime-worklet.js');
+        await realtimeAudioContext.audioWorklet.addModule(workletUrl);
         
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        const INTERRUPT_THRESHOLD = 25; // Higher threshold to avoid self-triggering
-        let consecutiveSpeechFrames = 0;
-        const FRAMES_TO_INTERRUPT = 3; // Need sustained speech to interrupt
+        // Create worklet node
+        const workletNode = new AudioWorkletNode(realtimeAudioContext, 'realtime-audio-processor');
         
-        bargeInInterval = setInterval(() => {
-            if (!currentTtsSource) {
-                stopBargeInDetection();
+        // Listen for PCM data from worklet
+        workletNode.port.onmessage = (event) => {
+            if (!realtimeActive || !realtimeWs || realtimeWs.readyState !== WebSocket.OPEN) {
                 return;
             }
             
-            analyser.getByteTimeDomainData(data);
-            let sum = 0;
-            for (let i = 0; i < data.length; i++) {
-                const v = (data[i] - 128) / 128;
-                sum += v * v;
-            }
-            const rms = Math.sqrt(sum / data.length);
-            const level = rms * 1000;
+            // event.data is Int16Array buffer
+            const base64Audio = arrayBufferToBase64(event.data);
             
-            if (level > INTERRUPT_THRESHOLD) {
-                consecutiveSpeechFrames++;
-                if (consecutiveSpeechFrames >= FRAMES_TO_INTERRUPT) {
-                    console.log('[Readify] User speech detected, interrupting TTS');
-                    ttsInterrupted = true;
-                    stopVoicePlayback();
-                    stopBargeInDetection();
-                    
-                    // Immediately start new voice turn
-                    const voiceLabel = document.getElementById('voiceText');
-                    if (voiceLabel) voiceLabel.textContent = 'Listening...';
-                    
-                    // Small delay to let TTS fully stop, then start new turn
-                    setTimeout(() => {
-                        if (voiceLoopActive) {
-                            startVoiceTurn();
-                        }
-                    }, 100);
-                }
-            } else {
-                consecutiveSpeechFrames = 0;
-            }
-        }, 50);
+            // Send to Realtime API
+            realtimeWs.send(JSON.stringify({
+                type: 'input_audio_buffer.append',
+                audio: base64Audio
+            }));
+        };
         
+        // Connect audio graph
+        source.connect(workletNode);
+        workletNode.connect(realtimeAudioContext.destination);
+        
+        // Store reference for cleanup
+        realtimeScriptProcessor = workletNode;
+        
+        console.log('[Realtime] Audio capture started with AudioWorklet');
+        
+    } catch (err) {
+        console.error('[Realtime] AudioWorklet setup failed:', err);
+        throw err;
+    }
+}
+
+
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+// ============================================
+// REALTIME API - Message Handler
+// ============================================
+
+function handleRealtimeMessage(message) {
+    const voiceLabel = document.getElementById('voiceText');
+    
+    switch (message.type) {
+        case 'session.created':
+            console.log('[Realtime] Session created');
+            break;
+            
+        case 'session.updated':
+            console.log('[Realtime] Session configured');
+            break;
+            
+        case 'input_audio_buffer.speech_started':
+            console.log('[Realtime] User started speaking, responseActive:', realtimeResponseActive);
+            if (voiceLabel) voiceLabel.textContent = 'Listening...';
+            // Cancel any ongoing AI response when user interrupts
+            if (realtimeResponseActive && realtimeWs && realtimeWs.readyState === WebSocket.OPEN) {
+                console.log('[Realtime] Cancelling AI response due to user speech');
+                try {
+                    realtimeWs.send(JSON.stringify({ type: 'response.cancel' }));
+                } catch (e) {
+                    console.warn('[Realtime] Cancel send failed:', e);
+                }
+            }
+            // Always stop local playback immediately, even if API cancel fails
+            stopRealtimePlayback();
+            break;
+            
+        case 'input_audio_buffer.speech_stopped':
+            console.log('[Realtime] User stopped speaking');
+            if (voiceLabel) voiceLabel.textContent = 'Processing...';
+            // Mark that we're expecting a response
+            realtimeResponseActive = true;
+            break;
+            
+        case 'conversation.item.input_audio_transcription.completed':
+            // User's speech was transcribed
+            const userTranscript = message.transcript;
+            if (userTranscript && userTranscript.trim()) {
+                console.log('[Realtime] User said:', userTranscript);
+                addChatMessage(userTranscript.trim(), 'user');
+            }
+            break;
+            
+        case 'response.audio_transcript.delta':
+            // AI response text (streaming)
+            // We could accumulate this for display
+            break;
+            
+        case 'response.audio_transcript.done':
+            // AI finished speaking - add to chat
+            const aiTranscript = message.transcript;
+            if (aiTranscript && aiTranscript.trim()) {
+                console.log('[Realtime] AI said:', aiTranscript);
+                addChatMessage(aiTranscript.trim(), 'assistant');
+            }
+            break;
+            
+        case 'response.created':
+            console.log('[Realtime] Response created');
+            realtimeResponseActive = true;
+            break;
+            
+        case 'response.audio.delta':
+            // Streaming audio chunk from AI
+            console.log('[Realtime] Audio delta received, delta field exists:', !!message.delta);
+            if (message.delta) {
+                playAudioChunk(message.delta);
+            }
+            break;
+            
+        case 'response.audio.done':
+            console.log('[Realtime] AI audio complete');
+            realtimeIsPlaying = false;
+            break;
+            
+        case 'response.done':
+            console.log('[Realtime] Response complete');
+            realtimeIsPlaying = false;
+            realtimeResponseActive = false;
+            // Reset playback timing for next response
+            if (realtimeAudioContext && realtimeAudioContext.state !== 'closed') {
+                realtimeNextPlayTime = realtimeAudioContext.currentTime;
+            }
+            if (voiceLabel && realtimeActive) {
+                voiceLabel.textContent = 'Listening... (speak anytime)';
+            }
+            break;
+            
+        case 'response.cancelled':
+            console.log('[Realtime] Response cancelled');
+            realtimeResponseActive = false;
+            break;
+            
+        case 'error':
+            console.error('[Realtime] API error:', JSON.stringify(message.error));
+            
+            // If it's a cancellation error, the response wasn't active anyway
+            if (message.error?.code === 'response_cancel_not_active') {
+                realtimeResponseActive = false;
+                // Don't show to user, just log
+            } else if (message.error?.message) {
+                addChatMessage('Error: ' + message.error.message, 'system');
+            }
+            break;
+            
+        default:
+            // Log other message types for debugging
+            if (message.type && !message.type.includes('delta')) {
+                console.log('[Realtime] Message:', message.type);
+            }
+            // Log full message for audio-related events
+            if (message.type && message.type.includes('audio')) {
+                console.log('[Realtime] Full audio message:', JSON.stringify(message).substring(0, 200));
+            }
+    }
+}
+
+// ============================================
+// REALTIME API - Streaming Audio Playback
+// ============================================
+
+async function playAudioChunk(base64Audio) {
+    if (!realtimeActive) return;
+    
+    try {
+        const voiceLabel = document.getElementById('voiceText');
+        if (voiceLabel) voiceLabel.textContent = 'AI is speaking...';
+        
+        realtimeIsPlaying = true;
+        
+        // Decode base64 to PCM16
+        const arrayBuffer = base64ToArrayBuffer(base64Audio);
+        const int16Array = new Int16Array(arrayBuffer);
+        
+        console.log('[Realtime] Playing audio chunk, samples:', int16Array.length);
+        
+        // Convert Int16 to Float32 for Web Audio
+        const float32Array = new Float32Array(int16Array.length);
+        for (let i = 0; i < int16Array.length; i++) {
+            float32Array[i] = int16Array[i] / 32768.0;
+        }
+        
+        // Create audio buffer (24kHz, mono)
+        if (!realtimeAudioContext || realtimeAudioContext.state === 'closed') {
+            realtimeAudioContext = new AudioContext({ sampleRate: 24000 });
+        }
+        
+        // Resume if suspended
+        if (realtimeAudioContext.state === 'suspended') {
+            await realtimeAudioContext.resume();
+        }
+        
+        const audioBuffer = realtimeAudioContext.createBuffer(1, float32Array.length, 24000);
+        audioBuffer.getChannelData(0).set(float32Array);
+        
+        // Schedule for gapless playback
+        const source = realtimeAudioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(realtimeAudioContext.destination);
+        
+        const currentTime = realtimeAudioContext.currentTime;
+        const startTime = Math.max(currentTime, realtimeNextPlayTime);
+        
+        // Track this source so we can stop it on interruption
+        realtimeActiveSources.push(source);
+        
+        // Remove from tracking when it ends
+        source.onended = () => {
+            const index = realtimeActiveSources.indexOf(source);
+            if (index > -1) {
+                realtimeActiveSources.splice(index, 1);
+            }
+        };
+        
+        source.start(startTime);
+        realtimeNextPlayTime = startTime + audioBuffer.duration;
+        
+        console.log('[Realtime] Audio chunk scheduled at', startTime, 'active sources:', realtimeActiveSources.length);
     } catch (e) {
-        console.warn('[Readify] Barge-in detection failed:', e);
+        console.error('[Realtime] Audio playback error:', e);
     }
 }
 
-function stopBargeInDetection() {
-    if (bargeInInterval) {
-        clearInterval(bargeInInterval);
-        bargeInInterval = null;
-    }
-    if (bargeInStream) {
-        bargeInStream.getTracks().forEach(t => t.stop());
-        bargeInStream = null;
-    }
-}
-
-async function transcribeWithWhisper(audioBlob) {
-    const config = window.READIFY_CONFIG || {};
-    const apiKey = config.OPENAI_API_KEY;
-    if (!apiKey || apiKey.startsWith('YOUR_')) {
-        throw new Error('OpenAI API key missing');
-    }
-
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-1');
-    formData.append('response_format', 'text');
-    // Default to English to avoid picking up background noise in other languages
-    const language = config.AI_WHISPER_LANGUAGE || 'en';
-    formData.append('language', language);
-
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`
-        },
-        body: formData
+function stopRealtimePlayback() {
+    console.log('[Realtime] Stopping playback, active sources:', realtimeActiveSources.length);
+    
+    // Stop all scheduled audio sources immediately
+    realtimeActiveSources.forEach(source => {
+        try {
+            source.stop();
+            source.disconnect();
+        } catch (e) {
+            // Source may have already finished or been stopped
+        }
     });
-
-    if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || 'Transcription request failed');
+    realtimeActiveSources = [];
+    
+    realtimeIsPlaying = false;
+    realtimeAudioQueue = [];
+    
+    // Reset playback timing to current time
+    if (realtimeAudioContext && realtimeAudioContext.state !== 'closed') {
+        realtimeNextPlayTime = realtimeAudioContext.currentTime;
+    } else {
+        realtimeNextPlayTime = 0;
     }
-
-    return await response.text();
+    
+    console.log('[Realtime] Playback stopped, nextPlayTime reset to:', realtimeNextPlayTime);
 }
 
 async function sendChatMessage() {
@@ -1964,7 +2064,6 @@ async function handleAssistantReply(message) {
     chatIsLoading = true;
     if (sendBtn) sendBtn.disabled = true;
     showTypingIndicator();
-    stopVoicePlayback();
 
     try {
         // Ensure page content is loaded
@@ -2018,25 +2117,11 @@ Now answer the user's question using ONLY the information above. If it's not in 
             history.pop();
         }
         
-        // Call OpenAI
+        // Call OpenAI Chat API (for text-based chat, not voice)
         const response = await chatWithAI(message, systemPrompt, history);
         
         hideTypingIndicator();
         addChatMessage(response, 'assistant');
-
-        // Auto TTS playback if voice loop active
-        console.log('[Readify] Voice loop active?', voiceLoopActive, 'Response length:', response?.length);
-        if (voiceLoopActive && response) {
-            console.log('[Readify] Starting TTS playback...');
-            const result = await speakAssistant(response);
-            console.log('[Readify] TTS playback complete, interrupted:', result?.interrupted, 'voiceLoopActive:', voiceLoopActive);
-            
-            // Only start a new turn if TTS wasn't interrupted (interruption already starts a new turn)
-            if (voiceLoopActive && !result?.interrupted) {
-                console.log('[Readify] Starting next voice turn...');
-                startVoiceTurn();
-            }
-        }
         
     } catch (error) {
         console.error('Chat error:', error);
