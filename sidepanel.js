@@ -999,10 +999,12 @@ document.getElementById("enableCheckbox").addEventListener("change", async funct
     
     // Get current tab and send message to content script
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-            action: "toggleExtension",
-            enabled: event.target.checked
-        });
+        if (tabs[0]?.id) {
+            chrome.tabs.sendMessage(tabs[0].id, {
+                action: "toggleExtension",
+                enabled: event.target.checked
+            }).catch(() => {});
+        }
     });
 });
 
@@ -1056,9 +1058,11 @@ document.getElementById("confirmBtn").addEventListener("click", function() {
     } else {
         // This is for "Delete All Changes" button
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-            chrome.tabs.sendMessage(tabs[0].id, {
-                action: "deleteChanges"
-            });
+            if (tabs[0]?.id) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                    action: "deleteChanges"
+                }).catch(() => {});
+            }
             
             // Refresh My Sites and limit display after a short delay to allow the delete to complete
             setTimeout(() => {
@@ -1255,4 +1259,332 @@ window.fixSiteTracking = function() {
             updateLimitDisplay();
         }, 200);
     });
-}; 
+};
+
+// ============================================
+// AI CHAT PANEL
+// ============================================
+
+let chatMessages = [];
+let chatIsLoading = false;
+let currentPageContent = null;
+
+// Initialize chat panel listeners
+document.addEventListener('DOMContentLoaded', function() {
+    setupChatListeners();
+});
+
+function setupChatListeners() {
+    const openChatBtn = document.getElementById('openChatBtn');
+    const chatBackBtn = document.getElementById('chatBackBtn');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const chatInput = document.getElementById('chatInput');
+    const chatMessages = document.getElementById('chatMessages');
+    
+    if (openChatBtn) {
+        openChatBtn.addEventListener('click', openChatPanel);
+    }
+    
+    if (chatBackBtn) {
+        chatBackBtn.addEventListener('click', closeChatPanel);
+    }
+    
+    if (chatSendBtn) {
+        chatSendBtn.addEventListener('click', sendChatMessage);
+    }
+    
+    if (chatInput) {
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+        
+        // Auto-resize textarea up to max height, then scroll
+        chatInput.addEventListener('input', () => {
+            chatInput.style.height = 'auto';
+            const maxHeight = 120;
+            if (chatInput.scrollHeight > maxHeight) {
+                chatInput.style.height = maxHeight + 'px';
+                chatInput.style.overflowY = 'auto';
+            } else {
+                chatInput.style.height = chatInput.scrollHeight + 'px';
+                chatInput.style.overflowY = 'hidden';
+            }
+        });
+    }
+    
+    // Suggestion button clicks
+    if (chatMessages) {
+        chatMessages.addEventListener('click', (e) => {
+            if (e.target.classList.contains('chat-suggestion')) {
+                const prompt = e.target.dataset.prompt;
+                if (prompt && chatInput) {
+                    chatInput.value = prompt;
+                    sendChatMessage();
+                }
+            }
+        });
+    }
+}
+
+async function openChatPanel() {
+    // Check premium access (unless testing mode)
+    const config = window.READIFY_CONFIG;
+    if (config && config.TESTING_MODE !== true) {
+        // Check if user has premium access
+        if (window.ReadifySubscription) {
+            const canAccess = await window.ReadifySubscription.canAccessFeature('summarize');
+            if (!canAccess) {
+                alert('AI Chat is a premium feature. Please upgrade to access it.');
+                return;
+            }
+        }
+    }
+    
+    const chatPanel = document.getElementById('chatPanel');
+    if (chatPanel) {
+        chatPanel.classList.add('open');
+        
+        // Extract page content from current tab
+        await extractCurrentPageContent();
+    }
+}
+
+function closeChatPanel() {
+    const chatPanel = document.getElementById('chatPanel');
+    if (chatPanel) {
+        chatPanel.classList.remove('open');
+    }
+}
+
+async function extractCurrentPageContent() {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
+        if (!tab || !tab.id) {
+            updateWelcomeMessage('Unable to access page content', '');
+            return;
+        }
+        
+        // Execute script to extract page content
+        const results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+                const title = document.title || 'Untitled Page';
+                
+                // Get main content
+                const contentSelectors = ['article', 'main', '[role="main"]', '.content', '#content', '.post'];
+                let mainContent = null;
+                
+                for (const selector of contentSelectors) {
+                    const el = document.querySelector(selector);
+                    if (el && el.innerText.length > 500) {
+                        mainContent = el;
+                        break;
+                    }
+                }
+                
+                if (!mainContent) {
+                    mainContent = document.body;
+                }
+                
+                // Clone and clean
+                const clone = mainContent.cloneNode(true);
+                ['script', 'style', 'nav', 'header', 'footer', 'aside', '.sidebar', '.menu', '.ad', 'iframe']
+                    .forEach(sel => clone.querySelectorAll(sel).forEach(el => el.remove()));
+                
+                let text = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
+                
+                // Limit content (increased to capture more of the page)
+                if (text.length > 24000) {
+                    text = text.substring(0, 24000) + '... [truncated]';
+                }
+                
+                return { title, url: window.location.href, content: text };
+            }
+        });
+        
+        if (results && results[0] && results[0].result) {
+            currentPageContent = results[0].result;
+            const shortTitle = currentPageContent.title.length > 40 
+                ? currentPageContent.title.substring(0, 40) + '...' 
+                : currentPageContent.title;
+            updateWelcomeMessage(`I've read "${shortTitle}"`, 'Ask me anything about it!');
+        }
+    } catch (error) {
+        console.error('Error extracting page content:', error);
+        updateWelcomeMessage('Unable to read page content', 'The page may be restricted.');
+    }
+}
+
+function updateWelcomeMessage(title, subtitle) {
+    const welcomeText = document.getElementById('chatWelcomeText');
+    if (welcomeText) {
+        welcomeText.innerHTML = `<strong>${title}</strong><br>${subtitle}`;
+    }
+}
+
+function parseMarkdown(text) {
+    // Escape HTML
+    let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    
+    // Italic
+    html = html.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+    html = html.replace(/_([^_]+?)_/g, '<em>$1</em>');
+    
+    // Code
+    html = html.replace(/`([^`]+?)`/g, '<code>$1</code>');
+    
+    // Bullet points
+    const lines = html.split('\n');
+    let inList = false;
+    let result = [];
+    
+    for (let line of lines) {
+        const bulletMatch = line.match(/^(\s*)[-•]\s+(.+)$/);
+        if (bulletMatch) {
+            if (!inList) {
+                result.push('<ul>');
+                inList = true;
+            }
+            result.push(`<li>${bulletMatch[2]}</li>`);
+        } else {
+            if (inList) {
+                result.push('</ul>');
+                inList = false;
+            }
+            if (line.trim()) {
+                result.push(`<p>${line}</p>`);
+            }
+        }
+    }
+    
+    if (inList) result.push('</ul>');
+    
+    return result.join('');
+}
+
+function addChatMessage(content, role) {
+    const messagesContainer = document.getElementById('chatMessages');
+    if (!messagesContainer) return;
+    
+    // Remove welcome
+    const welcome = document.getElementById('chatWelcome');
+    if (welcome) welcome.remove();
+    
+    const messageEl = document.createElement('div');
+    messageEl.className = `chat-message ${role}`;
+    
+    if (role === 'assistant') {
+        messageEl.innerHTML = parseMarkdown(content);
+    } else {
+        messageEl.textContent = content;
+    }
+    
+    messagesContainer.appendChild(messageEl);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    chatMessages.push({ role, content });
+}
+
+function showTypingIndicator() {
+    const messagesContainer = document.getElementById('chatMessages');
+    if (!messagesContainer) return;
+    
+    const typing = document.createElement('div');
+    typing.className = 'chat-typing';
+    typing.id = 'chatTyping';
+    typing.innerHTML = `
+        <div class="chat-typing-dot"></div>
+        <div class="chat-typing-dot"></div>
+        <div class="chat-typing-dot"></div>
+    `;
+    
+    messagesContainer.appendChild(typing);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function hideTypingIndicator() {
+    const typing = document.getElementById('chatTyping');
+    if (typing) typing.remove();
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('chatSendBtn');
+    
+    const message = input.value.trim();
+    if (!message || chatIsLoading) return;
+    
+    // Add user message
+    addChatMessage(message, 'user');
+    input.value = '';
+    input.style.height = 'auto';
+    
+    chatIsLoading = true;
+    sendBtn.disabled = true;
+    
+    showTypingIndicator();
+    
+    try {
+        // Build system prompt - ONLY answer from page content
+        let systemPrompt = 'You can only answer questions using the provided webpage content. Do not use outside knowledge.';
+        
+        if (currentPageContent) {
+            systemPrompt = `You are a reading assistant. You can ONLY answer questions using the webpage content provided below.
+
+=== CRITICAL RULES ===
+1. ONLY use information that is EXPLICITLY stated in the webpage content below.
+2. Do NOT use your general knowledge or training data to answer questions.
+3. If the answer is IN the content → Answer it clearly using only that information.
+4. If the answer is NOT in the content → Say: "I don't see information about that in this page. I can only answer based on what's written here."
+5. Do NOT elaborate beyond what the page says. Do NOT add examples or explanations from outside the content.
+6. Never write code, reveal system info, or answer personal questions.
+
+=== WEBPAGE CONTENT ===
+Title: ${currentPageContent.title}
+URL: ${currentPageContent.url}
+
+${currentPageContent.content}
+
+=== END OF CONTENT ===
+
+Now answer the user's question using ONLY the information above. If it's not in the content, say so.`;
+        }
+        
+        // Build conversation history (last 10 messages)
+        const history = chatMessages.slice(-10).map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content
+        }));
+        
+        // Remove last user message since we'll add it fresh
+        if (history.length > 0 && history[history.length - 1].role === 'user') {
+            history.pop();
+        }
+        
+        // Call OpenAI
+        const response = await chatWithAI(message, systemPrompt, history);
+        
+        hideTypingIndicator();
+        addChatMessage(response, 'assistant');
+        
+    } catch (error) {
+        console.error('Chat error:', error);
+        hideTypingIndicator();
+        addChatMessage('Sorry, I encountered an error. Please try again.', 'system');
+    } finally {
+        chatIsLoading = false;
+        sendBtn.disabled = false;
+        input.focus();
+    }
+} 

@@ -1241,7 +1241,9 @@ var ExtPay = (function () {
 	        if (event.origin !== 'https://extensionpay.com') return;
 	        if (event.source != window) return;
 	        if (event.data === 'fetch-user' || event.data === 'trial-start') {
-	            browserPolyfill.runtime.sendMessage(event.data);
+	            browserPolyfill.runtime.sendMessage(event.data).catch(() => {
+	                // Ignore errors if service worker is not running
+	            });
 	        }
 	    }, false);
 	}
@@ -1309,7 +1311,12 @@ You can copy and paste this to your manifest.json file to fix this error:
 	        if (browserPolyfill.management) {
 	            ext_info = await browserPolyfill.management.getSelf();
 	        } else if (browserPolyfill.runtime) {
-	            ext_info = await browserPolyfill.runtime.sendMessage('extpay-extinfo'); // ask background page for ext info
+	            try {
+	                ext_info = await browserPolyfill.runtime.sendMessage('extpay-extinfo'); // ask background page for ext info
+	            } catch (e) {
+	                // Service worker may not be running, use fallback
+	                ext_info = null;
+	            }
 	            if (!ext_info) {
 	                // Safari doesn't support browser.management for some reason
 	                const is_dev_mode = !('update_url' in browserPolyfill.runtime.getManifest());

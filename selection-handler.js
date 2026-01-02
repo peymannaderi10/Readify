@@ -141,63 +141,7 @@ function showSelectionBox(evt) {
         selectionBox.appendChild(underlineButton);
         createTooltip(underlineButton, "Underline");
 
-        const summaryBtn = document.createElement('button');
-        summaryBtn.style.position = 'relative';
-        summaryBtn.style.width = '25px !important';
-        summaryBtn.style.height = '25px !important';
-        summaryBtn.style.backgroundColor = 'transparent';
-        summaryBtn.innerHTML = "<img src='" + safeGetURL('images/summarize.png') + "' alt='summarize' style='height: 24px; width: 24px' />";
-        summaryBtn.style.border = 'transparent';
-        
-        summaryBtn.addEventListener("click", async function () {
-            // Check if user has premium access for AI summarization
-            const canAccess = await checkPremiumFeature('summarize');
-            if (!canAccess) {
-                showUpgradePrompt('summarize');
-                return;
-            }
-            
-            // AI Summarization for premium users
-            console.log("Button clicked, showing spinner");
-        
-            // Get the image inside the button and set its opacity to 50%
-            const buttonImage = summaryBtn.querySelector('img');
-            buttonImage.style.opacity = '0.5';
-        
-            // Ensure the button has relative positioning
-            summaryBtn.style.position = 'relative';
-        
-            // Create spinner element and add it to the button
-            const spinner = document.createElement("div");
-            spinner.className = "spinner";
-            summaryBtn.appendChild(spinner);
-        
-            const cleanText = window.getSelection().toString().replace(/\r?\n|\r/g, " ").replace(/[^\x00-\x7F]/g, function(char) {
-                return "\\u" + ("0000" + char.charCodeAt(0).toString(16)).slice(-4);
-            });
-              
-            const text = encodeURIComponent(cleanText);
-            try {
-                const summarizedText = await summarizeText(text, "summary");
-                showSummary(summarizedText, text);
-            } catch (error) {
-                console.error("Error during summarization:", error);
-            }
-        
-            // Remove the spinner once the process is complete
-            if (summaryBtn.contains(spinner)) {
-                summaryBtn.removeChild(spinner);
-            }
-        
-            // Reset the image opacity to 100%
-            buttonImage.style.opacity = '1';
-        
-            console.log("Summarization complete, hiding spinner");
-        });
-        
-        
-        selectionBox.appendChild(summaryBtn);
-        createTooltip(summaryBtn, "Summarize");
+        // Summarize button removed - now using the floating AI Chat panel instead
 
         const ttsButton = document.createElement("button");
         ttsButton.style.backgroundColor = "transparent";
@@ -254,6 +198,13 @@ function handleMouseUp(evt) {
 
 // Helper function to check premium feature access
 async function checkPremiumFeature(featureName) {
+    // Check if testing mode is enabled - bypass premium checks
+    const config = window.READIFY_CONFIG || READIFY_CONFIG;
+    if (config.TESTING_MODE === true) {
+        console.log(`[TESTING MODE] Bypassing premium check for: ${featureName}`);
+        return true;
+    }
+    
     // If subscription service is available, use it
     if (window.ReadifySubscription) {
         return await window.ReadifySubscription.canAccessFeature(featureName);

@@ -1,75 +1,210 @@
 // Readify Extension - UI Components
 // Handles all popup UI components (Notes, TTS, Summary, Highlighter)
 
-// Text-to-Speech functionality
-let currentUtterance = null;
+// Text-to-Speech functionality using OpenAI TTS
 let textToSpeak = "";
-let pausedPosition = 0;
-let isPaused = false;
-let currentSentenceIndex = 0;
+let ttsAudioPlayer = null;
+let ttsIsPlaying = false;
+let ttsIsLoading = false;
 
-function createUtterance() {
-    currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
-    currentUtterance.onboundary = function (event) {
-        if (event.name == "word") {
-            pausedPosition = event.charIndex;
+/**
+ * Generates and plays TTS audio using OpenAI
+ */
+async function generateAndPlayTTS() {
+    if (ttsIsLoading || !textToSpeak) return;
+    
+    ttsIsLoading = true;
+    updateTTSButtonStates();
+    
+    try {
+        // Stop any existing playback
+        if (ttsAudioPlayer) {
+            ttsAudioPlayer.pause();
+            ttsAudioPlayer = null;
         }
-    };
-    updateUtteranceSettings();
-}
-
-function updateUtteranceSettings() {
-    if (currentUtterance) {
-        const volumeControl = document.getElementById("volumeControl");
-        const rateControl = document.getElementById("rateControl");
-        if (volumeControl && rateControl) {
-            currentUtterance.volume = parseFloat(volumeControl.value);
-            currentUtterance.rate = parseFloat(rateControl.value);
-            currentUtterance.voice = speechSynthesis.getVoices().find((voice) => voice.name === "Google UK English Male");
-        }
+        
+        // Generate audio using OpenAI TTS (at normal speed, we'll adjust playback rate)
+        ttsAudioPlayer = await speakText(textToSpeak, { speed: 1.0 });
+        
+        // Apply current volume and speed settings from sliders
+        applyAudioSettings();
+        
+        // Handle playback events
+        ttsAudioPlayer.addEventListener('ended', () => {
+            ttsIsPlaying = false;
+            updateTTSButtonStates();
+        });
+        
+        ttsAudioPlayer.addEventListener('pause', () => {
+            ttsIsPlaying = false;
+            updateTTSButtonStates();
+        });
+        
+        ttsAudioPlayer.addEventListener('play', () => {
+            ttsIsPlaying = true;
+            updateTTSButtonStates();
+        });
+        
+        // Start playback
+        await ttsAudioPlayer.play();
+        ttsIsPlaying = true;
+        
+    } catch (error) {
+        console.error('TTS Error:', error);
+        showTTSError(error.message);
+    } finally {
+        ttsIsLoading = false;
+        updateTTSButtonStates();
     }
 }
 
+/**
+ * Applies current volume and speed settings to the audio player
+ */
+function applyAudioSettings() {
+    if (!ttsAudioPlayer) return;
+    
+    const volumeControl = document.getElementById("volumeControl");
+    const rateControl = document.getElementById("rateControl");
+    
+    if (volumeControl) {
+        ttsAudioPlayer.volume = parseFloat(volumeControl.value);
+    }
+    
+    if (rateControl) {
+        ttsAudioPlayer.playbackRate = parseFloat(rateControl.value);
+    }
+}
+
+/**
+ * Plays or resumes TTS audio
+ */
 function playSpeech() {
-    if (currentUtterance) {
-        if (!isPaused) {
-            speechSynthesis.cancel();
-            createUtterance();
-            currentSentenceIndex = 0;
-        } else {
-            isPaused = false;
-            speechSynthesis.cancel();
-            createUtterance();
-        }
+    if (ttsAudioPlayer && !ttsIsPlaying) {
+        // Audio is pre-generated, just play it
+        ttsAudioPlayer.play().then(() => {
+            ttsIsPlaying = true;
+            updateTTSButtonStates();
+        }).catch(err => {
+            console.error('Play error:', err);
+            showTTSError('Failed to play audio');
+        });
+    } else if (!ttsAudioPlayer && !ttsIsLoading) {
+        // No audio yet and not loading, generate and play
+        generateAndPlayTTS();
+    }
+    // If ttsIsLoading is true, audio is being generated - button should be disabled anyway
+}
 
-        const sentences = textToSpeak.match(/[^.!,?;]+[.!?,;]+/g);
-
-        function playSentence(index) {
-            if (index < sentences.length) {
-                currentUtterance.text = sentences[index];
-                currentUtterance.onend = function () {
-                    playSentence(index + 1);
-                };
-                speechSynthesis.speak(currentUtterance);
-                currentSentenceIndex = index;
-            }
-        }
-
-        playSentence(currentSentenceIndex);
+/**
+ * Pauses TTS audio
+ */
+function pauseSpeech() {
+    if (ttsAudioPlayer && ttsIsPlaying) {
+        ttsAudioPlayer.pause();
+        ttsIsPlaying = false;
+        updateTTSButtonStates();
     }
 }
 
-function pauseSpeech() {
-    if (speechSynthesis.speaking && !isPaused) {
-        speechSynthesis.pause();
-        isPaused = true;
+/**
+ * Updates the play/pause button states with animated loading spinner
+ */
+function updateTTSButtonStates() {
+    const playButton = document.getElementById("ttsPlayButton");
+    const pauseButton = document.getElementById("ttsPauseButton");
+    const loadingIndicator = document.getElementById("ttsLoadingIndicator");
+    
+    if (playButton) {
+        if (ttsIsLoading) {
+            playButton.innerHTML = '<span class="tts-spinner"></span> Generating...';
+            playButton.disabled = true;
+            playButton.style.opacity = '0.7';
+            playButton.style.cursor = 'wait';
+        } else if (ttsIsPlaying) {
+            playButton.innerHTML = '🔊 Playing';
+            playButton.disabled = true;
+            playButton.style.opacity = '0.7';
+            playButton.style.cursor = 'default';
+        } else if (ttsAudioPlayer) {
+            // Audio is ready, show instant play option
+            playButton.innerHTML = '▶ Play';
+            playButton.disabled = false;
+            playButton.style.opacity = '1';
+            playButton.style.cursor = 'pointer';
+        } else {
+            playButton.innerHTML = '▶ Play';
+            playButton.disabled = false;
+            playButton.style.opacity = '1';
+            playButton.style.cursor = 'pointer';
+        }
+    }
+    
+    if (pauseButton) {
+        pauseButton.disabled = !ttsIsPlaying;
+        pauseButton.style.opacity = ttsIsPlaying ? '1' : '0.5';
+    }
+    
+    // Update loading indicator
+    if (loadingIndicator) {
+        if (ttsIsLoading) {
+            const charCount = textToSpeak.length;
+            const estSeconds = Math.max(2, Math.ceil(charCount / 500)); // ~500 chars per second generation
+            loadingIndicator.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <div class="tts-pulse"></div>
+                <span>Generating audio (~${estSeconds}s)...</span>
+            </div>`;
+            loadingIndicator.style.display = 'block';
+        } else if (ttsAudioPlayer && !ttsIsPlaying) {
+            // Show ready state
+            loadingIndicator.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span style="color: #10b981;">✓</span>
+                <span style="color: #10b981;">Audio ready!</span>
+            </div>`;
+            loadingIndicator.style.display = 'block';
+            // Hide after 2 seconds
+            setTimeout(() => {
+                if (loadingIndicator && ttsAudioPlayer && !ttsIsPlaying && !ttsIsLoading) {
+                    loadingIndicator.style.display = 'none';
+                }
+            }, 2000);
+        } else {
+            loadingIndicator.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Shows TTS error message in the TTS box
+ */
+function showTTSError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+        color: #ef4444;
+        font-size: 12px;
+        text-align: center;
+        padding: 8px;
+        background: rgba(239, 68, 68, 0.1);
+        border-radius: 8px;
+        margin-top: 8px;
+    `;
+    errorDiv.textContent = message || 'Failed to generate speech. Please try again.';
+    
+    if (ttsBox) {
+        ttsBox.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 5000);
     }
 }
 
 function removeTTS() {
     if (ttsBox) {
-        speechSynthesis.cancel(); // Stop any ongoing speech completely
-        pauseSpeech();
+        // Stop any ongoing audio
+        if (ttsAudioPlayer) {
+            ttsAudioPlayer.pause();
+            ttsAudioPlayer = null;
+        }
+        ttsIsPlaying = false;
+        ttsIsLoading = false;
         removeElementWithCleanup(ttsBox);
         ttsBox = null;
     }
@@ -85,6 +220,10 @@ function showTextToSpeech(text) {
     ttsBox.style.position = 'fixed';
     ttsBox.style.left = selectionBox.style.left;
     textToSpeak = text;
+    ttsAudioPlayer = null; // Reset audio player for new text
+    ttsIsPlaying = false;
+    ttsIsLoading = false;
+    
     ttsBox.style.width = 'min(320px, 90vw)';
     ttsBox.style.backgroundColor = '#ffffff';
     ttsBox.style.borderRadius = '16px';
@@ -134,8 +273,22 @@ function showTextToSpeech(text) {
         line-height: 1;
     `;
     
+    // Add "Powered by OpenAI" badge
+    let poweredByBadge = document.createElement("span");
+    poweredByBadge.innerText = "OpenAI";
+    poweredByBadge.style.cssText = `
+        font-size: 10px;
+        color: #6b7280;
+        background: rgba(0, 151, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 8px;
+        font-weight: 500;
+    `;
+    
     titleContainer.appendChild(iconElement);
     titleContainer.appendChild(titleElement);
+    titleContainer.appendChild(poweredByBadge);
 
     const closeButton = document.createElement('button');
     closeButton.innerText = '×';
@@ -183,10 +336,10 @@ function showTextToSpeech(text) {
     `;
 
     const playButton = document.createElement('button');
+    playButton.id = 'ttsPlayButton';
     playButton.innerText = '▶ Play';
     playButton.classList.add('control-button');
     playButton.onclick = function () {
-        createUtterance();
         playSpeech();
     };
     
@@ -202,29 +355,36 @@ function showTextToSpeech(text) {
         font-size: 14px;
         cursor: pointer;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        min-width: 80px;
+        min-width: 100px;
         box-shadow: 0 4px 12px rgba(0, 151, 255, 0.3);
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
     `;
     
     playButton.addEventListener("mouseenter", function() {
-        this.style.background = "linear-gradient(135deg, #0088e6 0%, #00a3e6 100%)";
-        this.style.transform = "translateY(-2px)";
-        this.style.boxShadow = "0 6px 20px rgba(0, 151, 255, 0.4)";
+        if (!this.disabled) {
+            this.style.background = "linear-gradient(135deg, #0088e6 0%, #00a3e6 100%)";
+            this.style.transform = "translateY(-2px)";
+            this.style.boxShadow = "0 6px 20px rgba(0, 151, 255, 0.4)";
+        }
     });
     
     playButton.addEventListener("mouseleave", function() {
-        this.style.background = "linear-gradient(135deg, #0097ff 0%, #00b4ff 100%)";
-        this.style.transform = "translateY(0)";
-        this.style.boxShadow = "0 4px 12px rgba(0, 151, 255, 0.3)";
+        if (!this.disabled) {
+            this.style.background = "linear-gradient(135deg, #0097ff 0%, #00b4ff 100%)";
+            this.style.transform = "translateY(0)";
+            this.style.boxShadow = "0 4px 12px rgba(0, 151, 255, 0.3)";
+        }
     });
 
     const pauseButton = document.createElement('button');
+    pauseButton.id = 'ttsPauseButton';
     pauseButton.innerText = '⏸ Pause';
     pauseButton.classList.add('control-button');
     pauseButton.onclick = pauseSpeech;
+    pauseButton.disabled = true; // Initially disabled until audio is playing
     
     // Modern secondary button styling for pause
     pauseButton.style.cssText = `
@@ -242,18 +402,23 @@ function showTextToSpeech(text) {
         display: flex;
         align-items: center;
         gap: 6px;
+        opacity: 0.5;
     `;
     
     pauseButton.addEventListener("mouseenter", function() {
-        this.style.backgroundColor = "rgba(0, 151, 255, 0.05)";
-        this.style.borderColor = "#0097ff";
-        this.style.transform = "translateY(-1px)";
+        if (!this.disabled) {
+            this.style.backgroundColor = "rgba(0, 151, 255, 0.05)";
+            this.style.borderColor = "#0097ff";
+            this.style.transform = "translateY(-1px)";
+        }
     });
     
     pauseButton.addEventListener("mouseleave", function() {
-        this.style.backgroundColor = "transparent";
-        this.style.borderColor = "rgba(0, 151, 255, 0.2)";
-        this.style.transform = "translateY(0)";
+        if (!this.disabled) {
+            this.style.backgroundColor = "transparent";
+            this.style.borderColor = "rgba(0, 151, 255, 0.2)";
+            this.style.transform = "translateY(0)";
+        }
     });
 
     buttonContainer.appendChild(playButton);
@@ -267,6 +432,13 @@ function showTextToSpeech(text) {
         gap: 8px;
     `;
     
+    const volumeLabelContainer = document.createElement('div');
+    volumeLabelContainer.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    `;
+    
     const volumeLabel = document.createElement('label');
     volumeLabel.innerText = 'Volume';
     volumeLabel.style.cssText = `
@@ -276,6 +448,19 @@ function showTextToSpeech(text) {
         font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     `;
     
+    const volumeValue = document.createElement('span');
+    volumeValue.id = 'volumeValueDisplay';
+    volumeValue.innerText = '100%';
+    volumeValue.style.cssText = `
+        font-size: 12px;
+        font-weight: 600;
+        color: #0097ff;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
+    
+    volumeLabelContainer.appendChild(volumeLabel);
+    volumeLabelContainer.appendChild(volumeValue);
+    
     const volumeControl = document.createElement('input');
     volumeControl.type = 'range';
     volumeControl.min = '0';
@@ -283,7 +468,18 @@ function showTextToSpeech(text) {
     volumeControl.step = '0.01';
     volumeControl.value = '1';
     volumeControl.id = 'volumeControl';
-    volumeControl.oninput = updateUtteranceSettings;
+    volumeControl.oninput = function() {
+        const volume = parseFloat(this.value);
+        // Update volume on the audio player in real-time
+        if (ttsAudioPlayer) {
+            ttsAudioPlayer.volume = volume;
+        }
+        // Update the volume display
+        const display = document.getElementById('volumeValueDisplay');
+        if (display) {
+            display.innerText = Math.round(volume * 100) + '%';
+        }
+    };
     
     // Modern slider styling
     volumeControl.style.cssText = `
@@ -353,7 +549,7 @@ function showTextToSpeech(text) {
     `;
     document.head.appendChild(volumeThumbStyle);
     
-    volumeSection.appendChild(volumeLabel);
+    volumeSection.appendChild(volumeLabelContainer);
     volumeSection.appendChild(volumeControl);
 
     // Modern speed control section
@@ -364,6 +560,13 @@ function showTextToSpeech(text) {
         gap: 8px;
     `;
     
+    const speedLabelContainer = document.createElement('div');
+    speedLabelContainer.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    `;
+    
     const speedLabel = document.createElement('label');
     speedLabel.innerText = 'Speed';
     speedLabel.style.cssText = `
@@ -372,15 +575,45 @@ function showTextToSpeech(text) {
         color: #374151;
         font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     `;
+    
+    const speedValue = document.createElement('span');
+    speedValue.id = 'speedValueDisplay';
+    speedValue.innerText = '1.0x';
+    speedValue.style.cssText = `
+        font-size: 12px;
+        font-weight: 600;
+        color: #0097ff;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
+    
+    speedLabelContainer.appendChild(speedLabel);
+    speedLabelContainer.appendChild(speedValue);
+    
+    // Helper function to update speed display
+    function updateSpeedDisplay(speed) {
+        const display = document.getElementById('speedValueDisplay');
+        if (display) {
+            display.innerText = speed.toFixed(1) + 'x';
+        }
+    }
 
     const rateControl = document.createElement('input');
     rateControl.type = 'range';
     rateControl.min = '0.5';
-    rateControl.max = '1.5';
-    rateControl.step = '0.25';
+    rateControl.max = '2.0';
+    rateControl.step = '0.1';
     rateControl.value = '1';
     rateControl.id = 'rateControl';
-    rateControl.oninput = updateUtteranceSettings;
+    // Real-time speed adjustment using HTML5 Audio playbackRate
+    rateControl.oninput = function() {
+        const speed = parseFloat(this.value);
+        // Update playback speed in real-time
+        if (ttsAudioPlayer) {
+            ttsAudioPlayer.playbackRate = speed;
+        }
+        // Update the speed display
+        updateSpeedDisplay(speed);
+    };
     
     // Modern slider styling
     rateControl.style.cssText = `
@@ -450,10 +683,54 @@ function showTextToSpeech(text) {
     `;
     document.head.appendChild(rateThumbStyle);
     
-    speedSection.appendChild(speedLabel);
+    speedSection.appendChild(speedLabelContainer);
     speedSection.appendChild(rateControl);
 
+    // Loading indicator with animation
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'ttsLoadingIndicator';
+    loadingIndicator.style.cssText = `
+        display: none;
+        font-size: 12px;
+        color: #6b7280;
+        text-align: center;
+        padding: 8px 12px;
+        background: rgba(0, 151, 255, 0.05);
+        border-radius: 8px;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
+    
+    // Add CSS for spinner and pulse animations
+    const ttsAnimationStyle = document.createElement('style');
+    ttsAnimationStyle.textContent = `
+        @keyframes tts-spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes tts-pulse-animation {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .tts-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: tts-spin 0.8s linear infinite;
+        }
+        .tts-pulse {
+            width: 10px;
+            height: 10px;
+            background: #0097ff;
+            border-radius: 50%;
+            animation: tts-pulse-animation 1.5s ease-in-out infinite;
+        }
+    `;
+    document.head.appendChild(ttsAnimationStyle);
+
     ttsBox.appendChild(buttonContainer);
+    ttsBox.appendChild(loadingIndicator);
     ttsBox.appendChild(volumeSection);
     ttsBox.appendChild(speedSection);
     
@@ -482,12 +759,61 @@ function showTextToSpeech(text) {
     ttsBox.style.left = positionLeft + 'px';
 
     makeDraggable(ttsBox);
+    
+    // Auto-generate audio in background so it's ready when user clicks Play
+    // This reduces perceived latency significantly
+    setTimeout(() => {
+        if (textToSpeak && !ttsAudioPlayer && !ttsIsLoading) {
+            preGenerateTTSAudio();
+        }
+    }, 100);
 }
 
-// Ensure voices are loaded before setting the voice
-speechSynthesis.onvoiceschanged = () => {
-    updateUtteranceSettings();
-};
+/**
+ * Pre-generates TTS audio in background (doesn't auto-play)
+ */
+async function preGenerateTTSAudio() {
+    if (ttsIsLoading || ttsAudioPlayer || !textToSpeak) return;
+    
+    ttsIsLoading = true;
+    updateTTSButtonStates();
+    
+    try {
+        // Generate audio at normal speed (we'll adjust playback rate in real-time)
+        ttsAudioPlayer = await speakText(textToSpeak, { speed: 1.0 });
+        
+        // Apply current volume and speed settings
+        applyAudioSettings();
+        
+        // Set up event handlers
+        ttsAudioPlayer.addEventListener('ended', () => {
+            ttsIsPlaying = false;
+            updateTTSButtonStates();
+        });
+        
+        ttsAudioPlayer.addEventListener('pause', () => {
+            ttsIsPlaying = false;
+            updateTTSButtonStates();
+        });
+        
+        ttsAudioPlayer.addEventListener('play', () => {
+            ttsIsPlaying = true;
+            updateTTSButtonStates();
+        });
+        
+        console.log('[TTS] Audio pre-generated and ready to play');
+        
+    } catch (error) {
+        console.error('TTS Pre-generation Error:', error);
+        // Don't show error - user hasn't clicked play yet
+        ttsAudioPlayer = null;
+    } finally {
+        ttsIsLoading = false;
+        updateTTSButtonStates();
+    }
+}
+
+// OpenAI TTS doesn't require voice initialization like browser speechSynthesis
 
 // ========== COMING SOON POPUP (for temporarily disabled features) ==========
 // featureName: "summarizer" | "tts" (or any string for custom features)
@@ -709,7 +1035,7 @@ function showSummary(summary, text) {
     `;
     
     let titleElement = document.createElement("h3");
-    titleElement.innerText = "AI Summary";
+    titleElement.innerText = "AI Chat";
     titleElement.style.cssText = `
         margin: 0;
         font-size: 18px;
@@ -719,8 +1045,22 @@ function showSummary(summary, text) {
         line-height: 1;
     `;
     
+    // Add "Powered by OpenAI" badge
+    let poweredByBadge = document.createElement("span");
+    poweredByBadge.innerText = "GPT-4o";
+    poweredByBadge.style.cssText = `
+        font-size: 10px;
+        color: #6b7280;
+        background: rgba(0, 151, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 8px;
+        font-weight: 500;
+    `;
+    
     titleContainer.appendChild(iconElement);
     titleContainer.appendChild(titleElement);
+    titleContainer.appendChild(poweredByBadge);
     headerContainer.appendChild(titleContainer);
 
     const dropdownContainer = document.createElement("div");
@@ -1517,4 +1857,655 @@ function handleDocumentClick(event) {
             selectionBox.style.display = "none";
         }
     }
+}
+
+// ============================================
+// AI CHAT PANEL - Slide-in from right
+// ============================================
+
+let chatPanel = null;
+let chatButton = null;
+let chatMessages = [];
+let chatIsLoading = false;
+let pageContentCache = null;
+
+/**
+ * Extracts the main text content from the current page
+ */
+function extractPageContent() {
+    if (pageContentCache) return pageContentCache;
+    
+    // Get the page title
+    const title = document.title || 'Untitled Page';
+    
+    // Get main content - prioritize article, main, or body
+    const contentSelectors = ['article', 'main', '[role="main"]', '.content', '#content', '.post', '.article'];
+    let mainContent = null;
+    
+    for (const selector of contentSelectors) {
+        const el = document.querySelector(selector);
+        if (el && el.innerText.length > 500) {
+            mainContent = el;
+            break;
+        }
+    }
+    
+    // Fallback to body if no main content found
+    if (!mainContent) {
+        mainContent = document.body;
+    }
+    
+    // Extract text, removing scripts, styles, and navigation
+    const clone = mainContent.cloneNode(true);
+    
+    // Remove unwanted elements
+    const unwantedSelectors = ['script', 'style', 'nav', 'header', 'footer', 'aside', '.sidebar', '.menu', '.navigation', '.ad', '.advertisement', 'iframe'];
+    unwantedSelectors.forEach(selector => {
+        clone.querySelectorAll(selector).forEach(el => el.remove());
+    });
+    
+    let text = clone.innerText || clone.textContent || '';
+    
+    // Clean up whitespace
+    text = text.replace(/\s+/g, ' ').trim();
+    
+    // Limit to ~12000 characters (~3000 tokens) to stay within context limits
+    if (text.length > 12000) {
+        text = text.substring(0, 12000) + '... [content truncated]';
+    }
+    
+    pageContentCache = {
+        title,
+        url: window.location.href,
+        content: text
+    };
+    
+    return pageContentCache;
+}
+
+/**
+ * Creates the floating chat button
+ */
+function createChatButton() {
+    if (chatButton) return;
+    
+    chatButton = document.createElement('div');
+    chatButton.id = 'readify-chat-button';
+    chatButton.innerHTML = '🤖';
+    chatButton.style.cssText = `
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(0, 151, 255, 0.4);
+        z-index: 99999;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+    `;
+    
+    chatButton.addEventListener('mouseenter', () => {
+        chatButton.style.transform = 'scale(1.1)';
+        chatButton.style.boxShadow = '0 6px 28px rgba(0, 151, 255, 0.5)';
+    });
+    
+    chatButton.addEventListener('mouseleave', () => {
+        chatButton.style.transform = 'scale(1)';
+        chatButton.style.boxShadow = '0 4px 20px rgba(0, 151, 255, 0.4)';
+    });
+    
+    chatButton.addEventListener('click', toggleChatPanel);
+    
+    document.body.appendChild(chatButton);
+}
+
+/**
+ * Toggles the chat panel open/closed
+ */
+function toggleChatPanel() {
+    if (chatPanel && chatPanel.classList.contains('open')) {
+        closeChatPanel();
+    } else {
+        openChatPanel();
+    }
+}
+
+/**
+ * Opens the chat panel
+ */
+async function openChatPanel() {
+    // Check premium access
+    const config = window.READIFY_CONFIG || READIFY_CONFIG;
+    if (config.TESTING_MODE !== true) {
+        const canAccess = await checkPremiumFeature('summarize');
+        if (!canAccess) {
+            showUpgradePrompt('summarize');
+            return;
+        }
+    }
+    
+    if (!chatPanel) {
+        createChatPanel();
+    }
+    
+    // Extract page content when opening
+    extractPageContent();
+    
+    // Slide in
+    setTimeout(() => {
+        chatPanel.classList.add('open');
+        chatButton.innerHTML = '✕';
+        chatButton.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+    }, 10);
+}
+
+/**
+ * Closes the chat panel
+ */
+function closeChatPanel() {
+    if (chatPanel) {
+        chatPanel.classList.remove('open');
+        chatButton.innerHTML = '🤖';
+        chatButton.style.background = 'linear-gradient(135deg, #0097ff 0%, #00b4ff 100%)';
+    }
+}
+
+/**
+ * Creates the chat panel UI
+ */
+function createChatPanel() {
+    // Add CSS animations
+    const chatStyles = document.createElement('style');
+    chatStyles.id = 'readify-chat-styles';
+    chatStyles.textContent = `
+        #readify-chat-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 380px;
+            max-width: 90vw;
+            height: 100vh;
+            background: #ffffff;
+            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+            z-index: 99998;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #readify-chat-panel.open {
+            right: 0;
+        }
+        .chat-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .chat-header-icon {
+            font-size: 24px;
+        }
+        .chat-header-title {
+            flex: 1;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .chat-header-badge {
+            font-size: 10px;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #f8feff;
+        }
+        .chat-message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        .chat-message.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-message.assistant {
+            align-self: flex-start;
+            background: white;
+            color: #2c3e50;
+            border: 1px solid rgba(0, 151, 255, 0.1);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        .chat-message.assistant p:first-child {
+            margin-top: 0;
+        }
+        .chat-message.assistant p:last-child {
+            margin-bottom: 0;
+        }
+        .chat-message.assistant ul {
+            margin: 8px 0;
+        }
+        .chat-message.assistant li {
+            margin: 4px 0;
+        }
+        .chat-message.assistant strong {
+            color: #1a202c;
+        }
+        .chat-message.system {
+            align-self: center;
+            background: rgba(0, 151, 255, 0.1);
+            color: #0097ff;
+            font-size: 12px;
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+        .chat-typing {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+            align-self: flex-start;
+        }
+        .chat-typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #0097ff;
+            border-radius: 50%;
+            animation: typing-bounce 1.4s infinite ease-in-out;
+        }
+        .chat-typing-dot:nth-child(1) { animation-delay: 0s; }
+        .chat-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .chat-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+            40% { transform: translateY(-6px); opacity: 1; }
+        }
+        .chat-input-container {
+            padding: 16px;
+            background: white;
+            border-top: 1px solid rgba(0, 151, 255, 0.1);
+            display: flex;
+            gap: 12px;
+        }
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid rgba(0, 151, 255, 0.2);
+            border-radius: 24px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+            resize: none;
+            max-height: 120px;
+        }
+        .chat-input:focus {
+            border-color: #0097ff;
+        }
+        .chat-send-btn {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chat-send-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 151, 255, 0.4);
+        }
+        .chat-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .chat-welcome {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+        .chat-welcome-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .chat-welcome-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .chat-welcome-text {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .chat-suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .chat-suggestion {
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid rgba(0, 151, 255, 0.2);
+            border-radius: 20px;
+            font-size: 13px;
+            color: #0097ff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .chat-suggestion:hover {
+            background: rgba(0, 151, 255, 0.1);
+            border-color: #0097ff;
+        }
+    `;
+    document.head.appendChild(chatStyles);
+    
+    // Create panel
+    chatPanel = document.createElement('div');
+    chatPanel.id = 'readify-chat-panel';
+    
+    // Header
+    const header = document.createElement('div');
+    header.className = 'chat-header';
+    header.innerHTML = `
+        <span class="chat-header-icon">🤖</span>
+        <span class="chat-header-title">AI Chat</span>
+        <span class="chat-header-badge">GPT-4o</span>
+    `;
+    
+    // Messages container
+    const messagesContainer = document.createElement('div');
+    messagesContainer.className = 'chat-messages';
+    messagesContainer.id = 'chat-messages';
+    
+    // Welcome message
+    const pageInfo = extractPageContent();
+    messagesContainer.innerHTML = `
+        <div class="chat-welcome">
+            <div class="chat-welcome-icon">💬</div>
+            <div class="chat-welcome-title">Chat about this page</div>
+            <div class="chat-welcome-text">
+                I've read "${pageInfo.title.substring(0, 50)}${pageInfo.title.length > 50 ? '...' : ''}". Ask me anything about it!
+            </div>
+            <div class="chat-suggestions">
+                <div class="chat-suggestion" data-prompt="Summarize this page">📝 Summarize</div>
+                <div class="chat-suggestion" data-prompt="What are the key points?">🎯 Key points</div>
+                <div class="chat-suggestion" data-prompt="Explain this in simple terms">💡 Simplify</div>
+            </div>
+        </div>
+    `;
+    
+    // Input container
+    const inputContainer = document.createElement('div');
+    inputContainer.className = 'chat-input-container';
+    
+    const input = document.createElement('textarea');
+    input.className = 'chat-input';
+    input.id = 'chat-input';
+    input.placeholder = 'Ask about this page...';
+    input.rows = 1;
+    
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'chat-send-btn';
+    sendBtn.id = 'chat-send-btn';
+    sendBtn.innerHTML = '➤';
+    
+    inputContainer.appendChild(input);
+    inputContainer.appendChild(sendBtn);
+    
+    chatPanel.appendChild(header);
+    chatPanel.appendChild(messagesContainer);
+    chatPanel.appendChild(inputContainer);
+    
+    document.body.appendChild(chatPanel);
+    
+    // Event listeners
+    sendBtn.addEventListener('click', sendChatMessage);
+    
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChatMessage();
+        }
+    });
+    
+    // Auto-resize textarea
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    });
+    
+    // Suggestion clicks
+    messagesContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('chat-suggestion')) {
+            const prompt = e.target.dataset.prompt;
+            if (prompt) {
+                input.value = prompt;
+                sendChatMessage();
+            }
+        }
+    });
+}
+
+/**
+ * Converts basic markdown to HTML
+ */
+function parseMarkdown(text) {
+    // Escape HTML first
+    let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    
+    // Bold: **text** or __text__
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    
+    // Italic: *text* or _text_
+    html = html.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+    html = html.replace(/_([^_]+?)_/g, '<em>$1</em>');
+    
+    // Inline code: `code`
+    html = html.replace(/`([^`]+?)`/g, '<code style="background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 13px;">$1</code>');
+    
+    // Convert bullet points (- or •) to styled list items
+    const lines = html.split('\n');
+    let inList = false;
+    let result = [];
+    
+    for (let line of lines) {
+        const bulletMatch = line.match(/^(\s*)[-•]\s+(.+)$/);
+        if (bulletMatch) {
+            if (!inList) {
+                result.push('<ul style="margin: 8px 0; padding-left: 20px; list-style-type: disc;">');
+                inList = true;
+            }
+            result.push(`<li style="margin: 4px 0;">${bulletMatch[2]}</li>`);
+        } else {
+            if (inList) {
+                result.push('</ul>');
+                inList = false;
+            }
+            if (line.trim()) {
+                result.push(`<p style="margin: 8px 0;">${line}</p>`);
+            }
+        }
+    }
+    
+    if (inList) {
+        result.push('</ul>');
+    }
+    
+    return result.join('');
+}
+
+/**
+ * Adds a message to the chat
+ */
+function addChatMessage(content, role) {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+    
+    // Remove welcome message if it exists
+    const welcome = messagesContainer.querySelector('.chat-welcome');
+    if (welcome) welcome.remove();
+    
+    const messageEl = document.createElement('div');
+    messageEl.className = `chat-message ${role}`;
+    
+    // Parse markdown for assistant messages, plain text for user
+    if (role === 'assistant') {
+        messageEl.innerHTML = parseMarkdown(content);
+    } else {
+        messageEl.textContent = content;
+    }
+    
+    messagesContainer.appendChild(messageEl);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Store in history
+    chatMessages.push({ role, content });
+}
+
+/**
+ * Shows typing indicator
+ */
+function showTypingIndicator() {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+    
+    const typingEl = document.createElement('div');
+    typingEl.className = 'chat-typing';
+    typingEl.id = 'chat-typing';
+    typingEl.innerHTML = `
+        <div class="chat-typing-dot"></div>
+        <div class="chat-typing-dot"></div>
+        <div class="chat-typing-dot"></div>
+    `;
+    
+    messagesContainer.appendChild(typingEl);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+/**
+ * Hides typing indicator
+ */
+function hideTypingIndicator() {
+    const typing = document.getElementById('chat-typing');
+    if (typing) typing.remove();
+}
+
+/**
+ * Sends a chat message
+ */
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('chat-send-btn');
+    
+    const message = input.value.trim();
+    if (!message || chatIsLoading) return;
+    
+    // Add user message
+    addChatMessage(message, 'user');
+    input.value = '';
+    input.style.height = 'auto';
+    
+    // Disable input
+    chatIsLoading = true;
+    sendBtn.disabled = true;
+    
+    showTypingIndicator();
+    
+    try {
+        // Build context with page content
+        const pageInfo = extractPageContent();
+        
+        const systemPrompt = `You are an AI assistant helping users understand web content. You have access to the following webpage:
+
+Title: ${pageInfo.title}
+URL: ${pageInfo.url}
+
+Content:
+${pageInfo.content}
+
+Answer questions about this content. Be concise, helpful, and accurate. If asked to summarize, provide clear summaries with bullet points for key takeaways. If the user asks about something not in the content, let them know.`;
+        
+        // Build conversation history (limit to last 10 messages)
+        const conversationHistory = chatMessages.slice(-10).map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content
+        }));
+        
+        // Remove the last user message since we'll add it fresh
+        if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1].role === 'user') {
+            conversationHistory.pop();
+        }
+        
+        // Call OpenAI
+        const response = await chatWithAI(message, systemPrompt, conversationHistory);
+        
+        hideTypingIndicator();
+        addChatMessage(response, 'assistant');
+        
+    } catch (error) {
+        console.error('Chat error:', error);
+        hideTypingIndicator();
+        addChatMessage('Sorry, I encountered an error. Please try again.', 'system');
+    } finally {
+        chatIsLoading = false;
+        sendBtn.disabled = false;
+        input.focus();
+    }
+}
+
+/**
+ * Initializes the chat button when extension is enabled
+ */
+function initializeChatButton() {
+    if (!chatButton) {
+        createChatButton();
+    }
+}
+
+/**
+ * Removes the chat button and panel
+ */
+function removeChatButton() {
+    if (chatButton) {
+        chatButton.remove();
+        chatButton = null;
+    }
+    if (chatPanel) {
+        chatPanel.remove();
+        chatPanel = null;
+    }
+    // Clear cache
+    pageContentCache = null;
+    chatMessages = [];
 } 

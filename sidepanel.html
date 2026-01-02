@@ -110,6 +110,18 @@
                 </div>
             </section>
 
+            <!-- AI Chat Button -->
+            <section class="control-section">
+                <div class="section-header">
+                    <h2 class="section-title">🤖 AI Chat</h2>
+                </div>
+                <button id="openChatBtn" class="control-button primary chat-button">
+                    <span class="button-icon">💬</span>
+                    <span class="button-label">Chat about this page</span>
+                </button>
+                <p class="chat-description">Ask questions about the current webpage content</p>
+            </section>
+
             <!-- My Sites -->
             <section class="control-section">
                 <div class="section-header">
@@ -236,6 +248,40 @@
             </div>
         </div>
 
+        <!-- AI Chat Panel (slides in from right) -->
+        <div id="chatPanel" class="chat-panel">
+            <div class="chat-panel-header">
+                <button id="chatBackBtn" class="chat-back-btn">
+                    <span>←</span>
+                </button>
+                <div class="chat-panel-title">
+                    <span class="chat-panel-icon">🤖</span>
+                    <span>AI Chat</span>
+                </div>
+                <span class="chat-panel-badge">GPT-4o</span>
+            </div>
+            
+            <div id="chatMessages" class="chat-messages">
+                <div class="chat-welcome" id="chatWelcome">
+                    <div class="chat-welcome-icon">💬</div>
+                    <div class="chat-welcome-title">Chat about this page</div>
+                    <div class="chat-welcome-text" id="chatWelcomeText">
+                        Ask me anything about the current page!
+                    </div>
+                    <div class="chat-suggestions">
+                        <button class="chat-suggestion" data-prompt="Summarize this page">📝 Summarize</button>
+                        <button class="chat-suggestion" data-prompt="What are the key points?">🎯 Key points</button>
+                        <button class="chat-suggestion" data-prompt="Explain this in simple terms">💡 Simplify</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <textarea id="chatInput" class="chat-input" placeholder="Ask about this page..." rows="1"></textarea>
+                <button id="chatSendBtn" class="chat-send-btn">➤</button>
+            </div>
+        </div>
+
         <!-- Load scripts -->
         <script src="lib/supabase.min.js"></script>
         <script src="config.js"></script>
@@ -244,6 +290,7 @@
         <script src="subscription-service.js"></script>
         <script src="storage-service.js"></script>
         <script src="stripe-service.js"></script>
+        <script src="ai-services.js"></script>
         <script src="sidepanel.js"></script>
     </body>
 </html>

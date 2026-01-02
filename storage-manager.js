@@ -615,7 +615,9 @@ function showUpgradePrompt(feature) {
             await window.ReadifySubscription.createCheckoutSession();
         } else {
             // Fallback: Open sidepanel
-            chrome.runtime.sendMessage({ type: 'openSidepanel' });
+            chrome.runtime.sendMessage({ type: 'openSidepanel' }).catch(() => {
+                // Ignore errors if service worker is not running
+            });
         }
     });
     

@@ -38,13 +38,13 @@
         }
     ],
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co https://api.stripe.com;"
+        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.openai.com;"
     },
     "background": {
         "service_worker": "background.js"
     },
     "permissions": ["activeTab", "storage", "scripting", "sidePanel", "identity", "alarms"],
-    "host_permissions": ["<all_urls>", "https://*.supabase.co/*", "https://api.stripe.com/*"],
+    "host_permissions": ["<all_urls>", "https://*.supabase.co/*", "https://api.stripe.com/*", "https://api.openai.com/*"],
     "icons": {
         "128": "logo.png"
     },

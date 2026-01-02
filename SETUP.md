@@ -95,7 +95,27 @@ This will create:
    - `invoice.payment_failed`
 5. Copy the **Signing secret** (`whsec_...`) and add it to Supabase secrets
 
-## Step 7: Configure the Extension
+## Step 7: Configure OpenAI API
+
+Readify uses OpenAI for AI Chat/Summarization and Text-to-Speech.
+
+1. Go to [platform.openai.com](https://platform.openai.com)
+2. Create an account or sign in
+3. Go to **API Keys** and create a new key
+4. Add credits to your account (the API is pay-per-use)
+
+### Cost Estimates (per user at moderate usage)
+
+| Feature | Model | Usage | Cost/User/Month |
+|---------|-------|-------|-----------------|
+| Chat/Summarize | gpt-4o-mini | ~200k tokens | $0.05 - $0.20 |
+| Chat/Summarize | gpt-4o | ~200k tokens | $1.00 - $2.00 |
+| Text-to-Speech | tts-1 | 20-60 min | $0.36 - $1.08 |
+| Text-to-Speech | tts-1-hd | 20-60 min | $0.72 - $2.16 |
+
+**Recommended for $4.99/mo pricing:** Use `gpt-4o-mini` + `tts-1` for best margins.
+
+## Step 8: Configure the Extension
 
 1. Open `config.js` and update with your credentials:
 
@@ -114,18 +134,43 @@ const READIFY_CONFIG = {
     
     // Feature limits
     FREE_WEBSITE_LIMIT: 5,
-    PREMIUM_WEBSITE_LIMIT: Infinity
+    PREMIUM_WEBSITE_LIMIT: Infinity,
+    
+    // OpenAI Configuration
+    OPENAI_API_KEY: 'sk-YOUR_OPENAI_API_KEY',
+    OPENAI_CHAT_MODEL: 'gpt-4o-mini',  // or 'gpt-4o' for higher quality
+    OPENAI_TTS_MODEL: 'tts-1',         // or 'tts-1-hd' for higher quality
+    OPENAI_TTS_VOICE: 'nova',          // alloy, echo, fable, onyx, nova, shimmer
+    
+    AI_CHAT: {
+        ENABLED: true,
+        MAX_TOKENS: 1024,
+        TEMPERATURE: 0.7
+    },
+    
+    AI_TTS: {
+        ENABLED: true,
+        SPEED: 1.0  // 0.25 to 4.0
+    }
 };
 ```
 
-## Step 8: Load the Extension
+### Available TTS Voices
+- **alloy** - Neutral, balanced
+- **echo** - Warm, conversational
+- **fable** - British accent
+- **onyx** - Deep, authoritative
+- **nova** - Friendly, upbeat (recommended)
+- **shimmer** - Soft, gentle
+
+## Step 9: Load the Extension
 
 1. Open Chrome and go to `chrome://extensions/`
 2. Enable **Developer mode**
 3. Click **Load unpacked** and select the Readify folder
 4. Note your extension ID from the extensions page
 
-## Step 9: Update Supabase Site URL
+## Step 10: Update Supabase Site URL
 
 1. Go to Supabase **Authentication** > **URL Configuration**
 2. Add your extension URL to **Redirect URLs**:
@@ -158,6 +203,22 @@ const READIFY_CONFIG = {
 
 ## Troubleshooting
 
+### "OpenAI API key not configured"
+- Make sure `OPENAI_API_KEY` is set in `config.js`
+- Verify the key starts with `sk-`
+- Check that your OpenAI account has credits
+
+### AI features not working / "OpenAI API Error"
+- Check browser console for specific error messages
+- Verify API key has not expired
+- Check OpenAI dashboard for rate limits
+- Ensure your account has sufficient credits
+
+### TTS audio not playing
+- Check that text is selected before clicking TTS
+- Verify audio permissions in browser
+- Check console for audio blob errors
+
 ### "Authentication service not available"
 - Make sure `lib/supabase.min.js` exists
 - Check that `config.js` has correct credentials
@@ -181,4 +242,8 @@ const READIFY_CONFIG = {
 - [ ] Set up error monitoring
 - [ ] Configure email templates in Supabase
 - [ ] Review RLS policies for security
+- [ ] Set OpenAI API key for production
+- [ ] Monitor OpenAI API usage and costs
+- [ ] Set up usage limits or rate limiting if needed
+- [ ] Consider implementing token/usage tracking per user
 
