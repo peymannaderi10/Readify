@@ -1282,6 +1282,7 @@ let realtimeIsPlaying = false;   // Is AI currently speaking?
 let realtimeNextPlayTime = 0;    // For gapless playback
 let realtimeActiveSources = [];  // Track scheduled audio sources for stopping
 let realtimeResponseActive = false; // Track if API has an active response
+let realtimeAssistantBuffer = ''; // Buffer assistant text for display
 
 // Initialize chat panel listeners
 document.addEventListener('DOMContentLoaded', function() {
@@ -1517,7 +1518,7 @@ function parseMarkdown(text) {
 
 function addChatMessage(content, role) {
     const messagesContainer = document.getElementById('chatMessages');
-    if (!messagesContainer) return;
+    if (!messagesContainer) return null;
     
     // Remove welcome
     const welcome = document.getElementById('chatWelcome');
@@ -1535,7 +1536,12 @@ function addChatMessage(content, role) {
     messagesContainer.appendChild(messageEl);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     
-    chatMessages.push({ role, content });
+    // Only add to history if not a placeholder (content is not just '...')
+    if (content !== '...') {
+        chatMessages.push({ role, content });
+    }
+    
+    return messageEl;
 }
 
 function showTypingIndicator() {
@@ -1622,8 +1628,13 @@ function stopRealtimeVoice() {
     // Stop all audio playback first
     stopRealtimePlayback();
     
-    // Reset state flags
+    // Reset state flags and clear buffers
     realtimeResponseActive = false;
+    realtimeAssistantBuffer = '';
+    
+    // Remove pending user message placeholder if exists
+    const pendingMsg = document.getElementById('pendingUserMessage');
+    if (pendingMsg) pendingMsg.remove();
     
     // Close WebSocket
     if (realtimeWs) {
@@ -1867,36 +1878,58 @@ function handleRealtimeMessage(message) {
         case 'input_audio_buffer.speech_stopped':
             console.log('[Realtime] User stopped speaking');
             if (voiceLabel) voiceLabel.textContent = 'Processing...';
+            // Add placeholder for user message immediately (will be updated with transcript)
+            const placeholder = document.createElement('div');
+            placeholder.className = 'chat-message user';
+            placeholder.textContent = '...';
+            placeholder.id = 'pendingUserMessage';
+            const messagesContainer = document.getElementById('chatMessages');
+            if (messagesContainer) {
+                const welcome = document.getElementById('chatWelcome');
+                if (welcome) welcome.remove();
+                messagesContainer.appendChild(placeholder);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
             // Mark that we're expecting a response
             realtimeResponseActive = true;
             break;
             
         case 'conversation.item.input_audio_transcription.completed':
-            // User's speech was transcribed
+            // User's speech was transcribed - update the placeholder
             const userTranscript = message.transcript;
             if (userTranscript && userTranscript.trim()) {
                 console.log('[Realtime] User said:', userTranscript);
-                addChatMessage(userTranscript.trim(), 'user');
-            }
-            break;
-            
-        case 'response.audio_transcript.delta':
-            // AI response text (streaming)
-            // We could accumulate this for display
-            break;
-            
-        case 'response.audio_transcript.done':
-            // AI finished speaking - add to chat
-            const aiTranscript = message.transcript;
-            if (aiTranscript && aiTranscript.trim()) {
-                console.log('[Realtime] AI said:', aiTranscript);
-                addChatMessage(aiTranscript.trim(), 'assistant');
+                const pendingMsg = document.getElementById('pendingUserMessage');
+                if (pendingMsg) {
+                    pendingMsg.textContent = userTranscript.trim();
+                    pendingMsg.removeAttribute('id');
+                    // Also add to chat history
+                    chatMessages.push({ role: 'user', content: userTranscript.trim() });
+                }
             }
             break;
             
         case 'response.created':
             console.log('[Realtime] Response created');
             realtimeResponseActive = true;
+            realtimeAssistantBuffer = '';
+            break;
+            
+        case 'response.audio_transcript.delta':
+            // AI response text (streaming) - accumulate it
+            if (message.delta) {
+                realtimeAssistantBuffer += message.delta;
+            }
+            break;
+            
+        case 'response.audio_transcript.done':
+            // AI finished speaking - add complete message to chat
+            const aiTranscript = realtimeAssistantBuffer || message.transcript;
+            if (aiTranscript && aiTranscript.trim()) {
+                console.log('[Realtime] AI said:', aiTranscript.trim());
+                addChatMessage(aiTranscript.trim(), 'assistant');
+            }
+            realtimeAssistantBuffer = '';
             break;
             
         case 'response.audio.delta':
@@ -1928,6 +1961,7 @@ function handleRealtimeMessage(message) {
         case 'response.cancelled':
             console.log('[Realtime] Response cancelled');
             realtimeResponseActive = false;
+            realtimeAssistantBuffer = '';
             break;
             
         case 'error':
@@ -2063,7 +2097,6 @@ async function handleAssistantReply(message) {
     const sendBtn = document.getElementById('chatSendBtn');
     chatIsLoading = true;
     if (sendBtn) sendBtn.disabled = true;
-    showTypingIndicator();
 
     try {
         // Ensure page content is loaded
@@ -2076,8 +2109,11 @@ async function handleAssistantReply(message) {
         console.log('[Readify] Page content status:', currentPageContent ? 
             `Loaded (${currentPageContent.content?.length || 0} chars)` : 'Not loaded');
 
-        // Add user message
+        // Add user message FIRST
         addChatMessage(message, 'user');
+        
+        // THEN show typing indicator
+        showTypingIndicator();
 
         // Build system prompt - ONLY answer from page content
         let systemPrompt = 'You can only answer questions using the provided webpage content. Do not use outside knowledge.';
