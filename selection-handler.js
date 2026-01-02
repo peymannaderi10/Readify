@@ -22,7 +22,7 @@ function safeGetURL(path) {
 
 function removeSelectionBox() {
     if (selectionBox) {
-        selectionBox.remove();
+        removeElementWithCleanup(selectionBox);
         selectionBox = null;
     }
 }
@@ -242,10 +242,13 @@ function showSelectionBox(evt) {
     }
 }
 
+// Debounced version of showSelectionBox to prevent rapid firing
+const debouncedShowSelectionBox = debounce(showSelectionBox, 150);
+
 function handleMouseUp(evt) {
     if (extensionEnabled) {
-        // Check the global variable
-        showSelectionBox(evt);
+        // Check the global variable - use debounced version for performance
+        debouncedShowSelectionBox(evt);
     }
 }
 

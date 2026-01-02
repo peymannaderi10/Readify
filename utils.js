@@ -117,38 +117,113 @@ transition: background-color 0.2s ease !important;
 `;
 
 // Utility Functions
+
+// Debounce function - delays execution until after wait milliseconds have elapsed
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Cleanup registry for proper memory management
+const cleanupRegistry = new WeakMap();
+
+function registerCleanup(element, cleanupFn) {
+    const existing = cleanupRegistry.get(element) || [];
+    existing.push(cleanupFn);
+    cleanupRegistry.set(element, existing);
+}
+
+function runCleanup(element) {
+    const cleanups = cleanupRegistry.get(element);
+    if (cleanups) {
+        cleanups.forEach(fn => {
+            try {
+                fn();
+            } catch (e) {
+                console.error("Cleanup error:", e);
+            }
+        });
+        cleanupRegistry.delete(element);
+    }
+}
+
+function removeElementWithCleanup(element) {
+    if (!element) return;
+    runCleanup(element);
+    if (element.parentNode) {
+        element.parentNode.removeChild(element);
+    }
+}
+
 function makeDraggable(elem) {
-    elem.onmousedown = function (event) {
+    let localIsDragging = false;
+    let localOffsetX, localOffsetY;
+    
+    function handleMouseDown(event) {
         if (event.target.tagName.toLowerCase() === "textarea") {
             return;
         }
 
-        isDragging = true;
-        offsetX = event.clientX - elem.getBoundingClientRect().left;
-        offsetY = event.clientY - elem.getBoundingClientRect().top;
+        localIsDragging = true;
+        localOffsetX = event.clientX - elem.getBoundingClientRect().left;
+        localOffsetY = event.clientY - elem.getBoundingClientRect().top;
 
-        document.onmousemove = function (event) {
-            if (isDragging) {
-                elem.style.left = event.clientX - offsetX + "px";
-                elem.style.top = event.clientY - offsetY + "px";
-            }
-        };
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    function handleMouseMove(event) {
+        if (localIsDragging) {
+            elem.style.left = event.clientX - localOffsetX + "px";
+            elem.style.top = event.clientY - localOffsetY + "px";
+        }
+    }
+    
+    function handleMouseUp() {
+        localIsDragging = false;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+    }
 
-        document.onmouseup = function () {
-            isDragging = false;
-            document.onmousemove = null;
-            document.onmouseup = null;
-        };
-    };
+    elem.addEventListener('mousedown', handleMouseDown);
+    
+    // Register cleanup to remove event listeners when element is removed
+    registerCleanup(elem, () => {
+        elem.removeEventListener('mousedown', handleMouseDown);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+    });
 }
 
-function copyToClipboard(text) {
-    const tempTextArea = document.createElement("textarea");
-    tempTextArea.value = text;
-    containerRoot.appendChild(tempTextArea);
-    tempTextArea.select();
-    document.execCommand("copy");
-    containerRoot.removeChild(tempTextArea);
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch (err) {
+        // Fallback for older browsers or when Clipboard API is unavailable
+        const tempTextArea = document.createElement("textarea");
+        tempTextArea.value = text;
+        tempTextArea.style.position = "fixed";
+        tempTextArea.style.opacity = "0";
+        tempTextArea.style.pointerEvents = "none";
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        try {
+            document.execCommand("copy");
+        } catch (e) {
+            console.error("Fallback copy failed:", e);
+            return false;
+        }
+        document.body.removeChild(tempTextArea);
+        return true;
+    }
 }
 
 function createTooltip(button, tooltipText) {
@@ -447,6 +522,9 @@ if (typeof module !== 'undefined' && module.exports) {
         // Functions
         makeDraggable, copyToClipboard, createTooltip, saveSelection,
         restoreSelection, showLoadingOverlay, calculatePopupPosition,
-        getURLDigest, serializeSelection
+        getURLDigest, serializeSelection,
+        
+        // New utility functions
+        debounce, registerCleanup, runCleanup, removeElementWithCleanup
     };
 } 

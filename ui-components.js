@@ -68,8 +68,9 @@ function pauseSpeech() {
 
 function removeTTS() {
     if (ttsBox) {
+        speechSynthesis.cancel(); // Stop any ongoing speech completely
         pauseSpeech();
-        document.body.removeChild(ttsBox);
+        removeElementWithCleanup(ttsBox);
         ttsBox = null;
     }
     document.removeEventListener('mousedown', handleDocumentClick);
@@ -606,7 +607,7 @@ function showComingSoonPopup(featureName = "summarizer") {
     });
 
     closeButton.addEventListener("click", function() {
-        popup.remove();
+        removeElementWithCleanup(popup);
     });
 
     // Assemble popup
@@ -646,7 +647,7 @@ function showComingSoonPopup(featureName = "summarizer") {
             popup.style.opacity = "0";
             popup.style.transform = "translateY(-10px)";
             popup.style.transition = "opacity 0.3s ease, transform 0.3s ease";
-            setTimeout(() => popup.remove(), 300);
+            setTimeout(() => removeElementWithCleanup(popup), 300);
         }
     }, 5000);
 
@@ -655,7 +656,10 @@ function showComingSoonPopup(featureName = "summarizer") {
 
 // Summary popup functionality
 function showSummary(summary, text) {
-    if (summaryBox) summaryBox.remove();
+    if (summaryBox) {
+        removeElementWithCleanup(summaryBox);
+        summaryBox = null;
+    }
 
     summaryBox = document.createElement("div");
     summaryBox.style.position = "fixed";
@@ -971,7 +975,8 @@ function showSummary(summary, text) {
     `;
     
     closeButton.addEventListener('click', function() {
-        summaryBox.remove();
+        removeElementWithCleanup(summaryBox);
+        summaryBox = null;
     });
     
     closeButton.addEventListener('mouseenter', function() {
@@ -1021,7 +1026,10 @@ function showSummary(summary, text) {
 function showNoteInput(initialText, anchorElement) {
     saveSelection();
 
-    if (summaryBox) summaryBox.remove();
+    if (summaryBox) {
+        removeElementWithCleanup(summaryBox);
+        summaryBox = null;
+    }
 
     summaryBox = document.createElement("div");
     summaryBox.style.position = "fixed";
@@ -1103,7 +1111,8 @@ function showNoteInput(initialText, anchorElement) {
     let cancelButton = document.createElement("button");
     cancelButton.innerText = "Cancel";
     cancelButton.onclick = function () {
-        summaryBox.remove();
+        removeElementWithCleanup(summaryBox);
+        summaryBox = null;
     };
     
     // Modern button styling for cancel
@@ -1147,7 +1156,8 @@ function showNoteInput(initialText, anchorElement) {
                 localStorage.setItem(anchorElement.textContent, noteText);
             }
         }
-        summaryBox.remove();
+        removeElementWithCleanup(summaryBox);
+        summaryBox = null;
     };
     
     // Modern primary button styling for done
@@ -1207,7 +1217,8 @@ function showNoteInput(initialText, anchorElement) {
         
             // Save the deletion to disk
             saveChangeToDisk("note", initialText, true);
-            summaryBox.remove();
+            removeElementWithCleanup(summaryBox);
+            summaryBox = null;
         };
         
         // Modern danger button styling for delete
@@ -1273,7 +1284,7 @@ function showNoteInput(initialText, anchorElement) {
 // Color picker functionality
 function removeColorPicker() {
     if (colorPickerDialog) {
-        containerRoot.removeChild(colorPickerDialog);
+        removeElementWithCleanup(colorPickerDialog);
         colorPickerDialog = null;
     }
     document.removeEventListener("mousedown", handleDocumentClick);
