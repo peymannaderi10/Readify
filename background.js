@@ -109,7 +109,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // Utility function for DOM modification (used by sidepanel)
 function modifyDOM(action, boldPercent, skipWords, opacityLevel, color) {
-    var elements = document.querySelectorAll("p,h1,h2,h3,h4,h5,h6,span.wrapped-text");
+    var elements = document.querySelectorAll("p,h1,h2,h3,h4,h5,h6,li,span.wrapped-text");
     elements.forEach(function (elem) {
         if (!elem.classList.contains("note-anchor")) {
             if (action === "increase") {
