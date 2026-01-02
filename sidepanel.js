@@ -1268,6 +1268,16 @@ window.fixSiteTracking = function() {
 let chatMessages = [];
 let chatIsLoading = false;
 let currentPageContent = null;
+let voiceActive = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let voiceLoopActive = false;
+let voiceCurrentAudio = null;
+let voiceStream = null;
+let voiceAudioContext = null;
+let voiceAnalyser = null;
+let voiceSilenceInterval = null;
+let voiceSilenceMs = 0;
 
 // Initialize chat panel listeners
 document.addEventListener('DOMContentLoaded', function() {
@@ -1280,6 +1290,10 @@ function setupChatListeners() {
     const chatSendBtn = document.getElementById('chatSendBtn');
     const chatInput = document.getElementById('chatInput');
     const chatMessages = document.getElementById('chatMessages');
+    const chatVoiceBtn = document.getElementById('chatVoiceBtn');
+    const voiceOverlay = document.getElementById('voiceOverlay');
+    const voiceStopBtn = document.getElementById('voiceStopBtn');
+    const voiceText = document.getElementById('voiceText');
     
     if (openChatBtn) {
         openChatBtn.addEventListener('click', openChatPanel);
@@ -1291,6 +1305,21 @@ function setupChatListeners() {
     
     if (chatSendBtn) {
         chatSendBtn.addEventListener('click', sendChatMessage);
+    }
+
+    if (chatVoiceBtn) {
+        chatVoiceBtn.addEventListener('click', toggleVoiceMode);
+    }
+
+    if (voiceOverlay) {
+        voiceOverlay.addEventListener('click', stopVoiceMode);
+    }
+
+    if (voiceStopBtn) {
+        voiceStopBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            stopVoiceMode();
+        });
     }
     
     if (chatInput) {
@@ -1357,6 +1386,7 @@ function closeChatPanel() {
     if (chatPanel) {
         chatPanel.classList.remove('open');
     }
+    stopVoiceMode();
 }
 
 async function extractCurrentPageContent() {
@@ -1397,9 +1427,9 @@ async function extractCurrentPageContent() {
                 
                 let text = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
                 
-                // Limit content (increased to capture more of the page)
-                if (text.length > 24000) {
-                    text = text.substring(0, 24000) + '... [truncated]';
+                // Limit content (very large for long articles like Wikipedia)
+                if (text.length > 120000) {
+                    text = text.substring(0, 120000) + '... [truncated]';
                 }
                 
                 return { title, url: window.location.href, content: text };
@@ -1408,13 +1438,21 @@ async function extractCurrentPageContent() {
         
         if (results && results[0] && results[0].result) {
             currentPageContent = results[0].result;
+            console.log('[Readify] Page content extracted:', {
+                title: currentPageContent.title,
+                url: currentPageContent.url,
+                contentLength: currentPageContent.content?.length || 0,
+                contentPreview: currentPageContent.content?.substring(0, 200) + '...'
+            });
             const shortTitle = currentPageContent.title.length > 40 
                 ? currentPageContent.title.substring(0, 40) + '...' 
                 : currentPageContent.title;
             updateWelcomeMessage(`I've read "${shortTitle}"`, 'Ask me anything about it!');
+        } else {
+            console.warn('[Readify] Page content extraction returned empty result');
         }
     } catch (error) {
-        console.error('Error extracting page content:', error);
+        console.error('[Readify] Error extracting page content:', error);
         updateWelcomeMessage('Unable to read page content', 'The page may be restricted.');
     }
 }
@@ -1518,6 +1556,397 @@ function hideTypingIndicator() {
     if (typing) typing.remove();
 }
 
+function toggleVoiceMode() {
+    if (voiceActive) {
+        stopVoiceMode();
+    } else {
+        voiceLoopActive = true;
+        startVoiceTurn();
+    }
+}
+
+function startVoiceTurn() {
+    const overlay = document.getElementById('voiceOverlay');
+    const voiceLabel = document.getElementById('voiceText');
+    if (!overlay) return;
+    voiceActive = true;
+    stopVoicePlayback(); // avoid picking up our own TTS
+    overlay.classList.add('active');
+    if (voiceLabel) voiceLabel.textContent = 'Requesting microphone...';
+
+    // Start recording with MediaRecorder (simple client-side Whisper capture)
+    recordedChunks = [];
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            if (voiceLabel) voiceLabel.textContent = 'Listening...';
+            voiceStream = stream;
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+            mediaRecorder.onstop = () => {
+                console.log('[Readify] mediaRecorder.onstop fired, voiceLoopActive:', voiceLoopActive);
+                cleanupVoiceStream();
+                if (recordedChunks.length === 0) {
+                    console.log('[Readify] No recorded chunks, skipping transcription');
+                    return;
+                }
+                const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+                console.log('[Readify] Audio blob created, size:', audioBlob.size);
+                transcribeAndSend(audioBlob);
+            };
+            mediaRecorder.start(100);
+
+            // Start silence detection (simple RMS-based VAD)
+            setupSilenceDetection(stream);
+        })
+        .catch(err => {
+            console.error('Mic error:', err);
+            stopVoiceMode();
+            addChatMessage(
+                'Microphone access was blocked. Please allow mic permissions:\n' +
+                '- In Chrome: Settings > Privacy and security > Site settings > Microphone > Allow\n' +
+                '- For this extension: chrome://settings/content/siteDetails?site=chrome-extension://' + chrome.runtime.id + '\n' +
+                'Then click the mic again.',
+                'system'
+            );
+        });
+}
+
+function stopVoiceMode() {
+    const overlay = document.getElementById('voiceOverlay');
+    if (!overlay) return;
+    voiceActive = false;
+    voiceLoopActive = false;
+    overlay.classList.remove('active');
+    // Stop recorder if active
+    try {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+    } catch (e) {
+        console.warn('Recorder stop error:', e);
+    }
+    stopVoicePlayback();
+    cleanupVoiceStream();
+}
+
+async function transcribeAndSend(audioBlob) {
+    const voiceLabel = document.getElementById('voiceText');
+    console.log('[Readify] transcribeAndSend called, voiceLoopActive:', voiceLoopActive);
+    if (voiceLabel) voiceLabel.textContent = 'Transcribing...';
+
+    try {
+        const transcript = await transcribeWithWhisper(audioBlob);
+        const cleanedTranscript = transcript?.trim() || '';
+        
+        // Filter out common Whisper hallucinations from background noise
+        const noisePatterns = [
+            /^thanks for watching[.!]?$/i,
+            /^thank you for watching[.!]?$/i,
+            /^please subscribe[.!]?$/i,
+            /^like and subscribe[.!]?$/i,
+            /^don't forget to subscribe[.!]?$/i,
+            /^see you next time[.!]?$/i,
+            /^bye[.!]?$/i,
+            /^\.+$/,
+            /^,+$/,
+        ];
+        
+        const isNoise = noisePatterns.some(pattern => pattern.test(cleanedTranscript));
+        
+        if (cleanedTranscript.length > 0 && !isNoise) {
+            console.log('[Readify] Valid transcript:', cleanedTranscript);
+            await handleAssistantReply(cleanedTranscript);
+        } else if (isNoise) {
+            console.log('[Readify] Filtered noise:', cleanedTranscript);
+            // Silently skip noise - don't show error, just continue listening
+            if (voiceLoopActive) {
+                startVoiceTurn();
+            }
+        } else {
+            addChatMessage('No speech detected. Please try again.', 'system');
+        }
+    } catch (err) {
+        console.error('Transcription error:', err);
+        addChatMessage('Transcription failed. Please try again.', 'system');
+    } finally {
+        if (voiceLabel) voiceLabel.textContent = 'Listening...';
+    }
+}
+
+function cleanupVoiceStream() {
+    if (voiceSilenceInterval) {
+        clearInterval(voiceSilenceInterval);
+        voiceSilenceInterval = null;
+    }
+    voiceSilenceMs = 0;
+    if (voiceAudioContext) {
+        voiceAudioContext.close().catch(() => {});
+        voiceAudioContext = null;
+    }
+    if (voiceStream) {
+        voiceStream.getTracks().forEach(t => t.stop());
+        voiceStream = null;
+    }
+    voiceAnalyser = null;
+}
+
+function setupSilenceDetection(stream) {
+    try {
+        voiceAudioContext = new AudioContext({ sampleRate: 24000 });
+        const source = voiceAudioContext.createMediaStreamSource(stream);
+        voiceAnalyser = voiceAudioContext.createAnalyser();
+        voiceAnalyser.fftSize = 2048;
+        source.connect(voiceAnalyser);
+
+        const data = new Uint8Array(voiceAnalyser.fftSize);
+        const SILENCE_THRESHOLD = 10;   // more strict: ignore background
+        const SILENCE_HANG_MS = 800;    // need this much silence to end a turn
+        const MIN_SPEECH_MS = 250;      // require at least this much speech before stopping
+        const CHECK_MS = 120;
+        let speechMs = 0;
+        let hadSpeech = false;
+
+        voiceSilenceInterval = setInterval(() => {
+            if (!voiceAnalyser) return;
+            voiceAnalyser.getByteTimeDomainData(data);
+            let sum = 0;
+            for (let i = 0; i < data.length; i++) {
+                const v = (data[i] - 128) / 128;
+                sum += v * v;
+            }
+            const rms = Math.sqrt(sum / data.length);
+            const level = rms * 1000; // simple scaled level
+
+            if (level < SILENCE_THRESHOLD) {
+                voiceSilenceMs += CHECK_MS;
+            } else {
+                voiceSilenceMs = 0;
+                speechMs += CHECK_MS;
+                hadSpeech = true;
+            }
+
+            // Auto-stop when enough speech happened AND then silence
+            if (hadSpeech && speechMs >= MIN_SPEECH_MS && voiceSilenceMs >= SILENCE_HANG_MS) {
+                console.log('[Readify] Silence detected, stopping recording. voiceLoopActive:', voiceLoopActive);
+                voiceSilenceMs = 0;
+                speechMs = 0;
+                hadSpeech = false;
+                try {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                    }
+                } catch (e) {
+                    console.warn('Stop on silence error:', e);
+                }
+            }
+        }, CHECK_MS);
+    } catch (e) {
+        console.warn('Silence detection setup failed:', e);
+    }
+}
+
+// Track current TTS source for stopping
+let currentTtsSource = null;
+
+function stopVoicePlayback() {
+    try {
+        // Stop Web Audio API source
+        if (currentTtsSource) {
+            currentTtsSource.stop();
+            currentTtsSource = null;
+        }
+        // Also stop any HTML5 audio (legacy)
+        if (voiceCurrentAudio) {
+            voiceCurrentAudio.pause();
+            URL.revokeObjectURL(voiceCurrentAudio.src);
+            voiceCurrentAudio = null;
+        }
+    } catch (e) {
+        console.warn('Audio stop error:', e);
+    }
+}
+
+// Global audio context for TTS playback (created on first user interaction)
+let ttsAudioContext = null;
+let ttsInterrupted = false;
+let bargeInStream = null;
+let bargeInInterval = null;
+
+async function speakAssistant(text) {
+    const voiceLabel = document.getElementById('voiceText');
+    ttsInterrupted = false;
+    
+    try {
+        console.log('[Readify] Speaking assistant response:', text.substring(0, 100) + '...');
+        if (voiceLabel) voiceLabel.textContent = 'Generating speech...';
+        
+        // Check if textToSpeechOpenAI is available
+        if (typeof textToSpeechOpenAI !== 'function') {
+            console.error('[Readify] textToSpeechOpenAI function not found!');
+            return;
+        }
+        
+        const audioBlob = await textToSpeechOpenAI(text, {});
+        console.log('[Readify] TTS audio generated, size:', audioBlob?.size);
+        
+        if (!audioBlob || audioBlob.size === 0) {
+            console.error('[Readify] TTS returned empty audio');
+            return;
+        }
+        
+        // Use Web Audio API for better autoplay support in extensions
+        if (!ttsAudioContext) {
+            ttsAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Resume audio context if suspended (autoplay policy)
+        if (ttsAudioContext.state === 'suspended') {
+            console.log('[Readify] Resuming suspended audio context');
+            await ttsAudioContext.resume();
+        }
+        
+        if (voiceLabel) voiceLabel.textContent = 'AI is speaking... (speak to interrupt)';
+        
+        // Decode and play audio
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const audioBuffer = await ttsAudioContext.decodeAudioData(arrayBuffer);
+        
+        const source = ttsAudioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ttsAudioContext.destination);
+        currentTtsSource = source;
+        
+        // Start barge-in detection (listen for user speech while TTS plays)
+        startBargeInDetection();
+        
+        return new Promise((resolve) => {
+            source.onended = () => {
+                console.log('[Readify] TTS playback ended, interrupted:', ttsInterrupted);
+                stopBargeInDetection();
+                currentTtsSource = null;
+                if (!ttsInterrupted && voiceLabel) {
+                    voiceLabel.textContent = 'Listening...';
+                }
+                resolve({ interrupted: ttsInterrupted });
+            };
+            
+            source.start(0);
+            console.log('[Readify] TTS playback started via Web Audio API');
+        });
+        
+    } catch (e) {
+        console.error('[Readify] TTS error:', e);
+        stopBargeInDetection();
+        if (voiceLabel) voiceLabel.textContent = 'Listening...';
+        return { interrupted: false };
+    }
+}
+
+// Barge-in detection: listen for user speech while TTS is playing
+async function startBargeInDetection() {
+    try {
+        bargeInStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(bargeInStream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        const INTERRUPT_THRESHOLD = 25; // Higher threshold to avoid self-triggering
+        let consecutiveSpeechFrames = 0;
+        const FRAMES_TO_INTERRUPT = 3; // Need sustained speech to interrupt
+        
+        bargeInInterval = setInterval(() => {
+            if (!currentTtsSource) {
+                stopBargeInDetection();
+                return;
+            }
+            
+            analyser.getByteTimeDomainData(data);
+            let sum = 0;
+            for (let i = 0; i < data.length; i++) {
+                const v = (data[i] - 128) / 128;
+                sum += v * v;
+            }
+            const rms = Math.sqrt(sum / data.length);
+            const level = rms * 1000;
+            
+            if (level > INTERRUPT_THRESHOLD) {
+                consecutiveSpeechFrames++;
+                if (consecutiveSpeechFrames >= FRAMES_TO_INTERRUPT) {
+                    console.log('[Readify] User speech detected, interrupting TTS');
+                    ttsInterrupted = true;
+                    stopVoicePlayback();
+                    stopBargeInDetection();
+                    
+                    // Immediately start new voice turn
+                    const voiceLabel = document.getElementById('voiceText');
+                    if (voiceLabel) voiceLabel.textContent = 'Listening...';
+                    
+                    // Small delay to let TTS fully stop, then start new turn
+                    setTimeout(() => {
+                        if (voiceLoopActive) {
+                            startVoiceTurn();
+                        }
+                    }, 100);
+                }
+            } else {
+                consecutiveSpeechFrames = 0;
+            }
+        }, 50);
+        
+    } catch (e) {
+        console.warn('[Readify] Barge-in detection failed:', e);
+    }
+}
+
+function stopBargeInDetection() {
+    if (bargeInInterval) {
+        clearInterval(bargeInInterval);
+        bargeInInterval = null;
+    }
+    if (bargeInStream) {
+        bargeInStream.getTracks().forEach(t => t.stop());
+        bargeInStream = null;
+    }
+}
+
+async function transcribeWithWhisper(audioBlob) {
+    const config = window.READIFY_CONFIG || {};
+    const apiKey = config.OPENAI_API_KEY;
+    if (!apiKey || apiKey.startsWith('YOUR_')) {
+        throw new Error('OpenAI API key missing');
+    }
+
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.webm');
+    formData.append('model', 'whisper-1');
+    formData.append('response_format', 'text');
+    // Default to English to avoid picking up background noise in other languages
+    const language = config.AI_WHISPER_LANGUAGE || 'en';
+    formData.append('language', language);
+
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: formData
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || 'Transcription request failed');
+    }
+
+    return await response.text();
+}
+
 async function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const sendBtn = document.getElementById('chatSendBtn');
@@ -1525,30 +1954,44 @@ async function sendChatMessage() {
     const message = input.value.trim();
     if (!message || chatIsLoading) return;
     
-    // Add user message
-    addChatMessage(message, 'user');
     input.value = '';
     input.style.height = 'auto';
-    
+    await handleAssistantReply(message);
+} 
+
+async function handleAssistantReply(message) {
+    const sendBtn = document.getElementById('chatSendBtn');
     chatIsLoading = true;
-    sendBtn.disabled = true;
-    
+    if (sendBtn) sendBtn.disabled = true;
     showTypingIndicator();
-    
+    stopVoicePlayback();
+
     try {
+        // Ensure page content is loaded
+        if (!currentPageContent) {
+            console.log('[Readify] Page content not loaded, extracting now...');
+            await extractCurrentPageContent();
+        }
+        
+        // Debug: log page content status
+        console.log('[Readify] Page content status:', currentPageContent ? 
+            `Loaded (${currentPageContent.content?.length || 0} chars)` : 'Not loaded');
+
+        // Add user message
+        addChatMessage(message, 'user');
+
         // Build system prompt - ONLY answer from page content
         let systemPrompt = 'You can only answer questions using the provided webpage content. Do not use outside knowledge.';
         
-        if (currentPageContent) {
-            systemPrompt = `You are a reading assistant. You can ONLY answer questions using the webpage content provided below.
+        if (currentPageContent && currentPageContent.content) {
+            systemPrompt = `You are a reading assistant. Answer questions using ONLY the webpage content below.
 
-=== CRITICAL RULES ===
-1. ONLY use information that is EXPLICITLY stated in the webpage content below.
-2. Do NOT use your general knowledge or training data to answer questions.
-3. If the answer is IN the content → Answer it clearly using only that information.
-4. If the answer is NOT in the content → Say: "I don't see information about that in this page. I can only answer based on what's written here."
-5. Do NOT elaborate beyond what the page says. Do NOT add examples or explanations from outside the content.
-6. Never write code, reveal system info, or answer personal questions.
+=== RULES ===
+1. ONLY use information explicitly stated in the content below.
+2. Be CONCISE by default - give brief, focused answers (2-4 sentences).
+3. Only give detailed/lengthy answers if the user asks for "details", "more info", "explain in depth", etc.
+4. If the answer is NOT in the content → Say: "I don't see that in this page."
+5. Never use outside knowledge, write code, or reveal system info.
 
 === WEBPAGE CONTENT ===
 Title: ${currentPageContent.title}
@@ -1559,6 +2002,9 @@ ${currentPageContent.content}
 === END OF CONTENT ===
 
 Now answer the user's question using ONLY the information above. If it's not in the content, say so.`;
+            console.log('[Readify] System prompt built with page content, length:', systemPrompt.length);
+        } else {
+            console.warn('[Readify] No page content available, using generic prompt');
         }
         
         // Build conversation history (last 10 messages)
@@ -1577,6 +2023,20 @@ Now answer the user's question using ONLY the information above. If it's not in 
         
         hideTypingIndicator();
         addChatMessage(response, 'assistant');
+
+        // Auto TTS playback if voice loop active
+        console.log('[Readify] Voice loop active?', voiceLoopActive, 'Response length:', response?.length);
+        if (voiceLoopActive && response) {
+            console.log('[Readify] Starting TTS playback...');
+            const result = await speakAssistant(response);
+            console.log('[Readify] TTS playback complete, interrupted:', result?.interrupted, 'voiceLoopActive:', voiceLoopActive);
+            
+            // Only start a new turn if TTS wasn't interrupted (interruption already starts a new turn)
+            if (voiceLoopActive && !result?.interrupted) {
+                console.log('[Readify] Starting next voice turn...');
+                startVoiceTurn();
+            }
+        }
         
     } catch (error) {
         console.error('Chat error:', error);
@@ -1584,7 +2044,6 @@ Now answer the user's question using ONLY the information above. If it's not in 
         addChatMessage('Sorry, I encountered an error. Please try again.', 'system');
     } finally {
         chatIsLoading = false;
-        sendBtn.disabled = false;
-        input.focus();
+        if (sendBtn) sendBtn.disabled = false;
     }
-} 
+}

@@ -258,7 +258,21 @@
                     <span class="chat-panel-icon">🤖</span>
                     <span>AI Chat</span>
                 </div>
-                <span class="chat-panel-badge">GPT-4o</span>
+                <div class="chat-panel-actions">
+                    <button id="chatVoiceBtn" class="chat-voice-btn" title="Voice Chat">🎤</button>
+                    <span class="chat-panel-badge">GPT-4o</span>
+                </div>
+            </div>
+            
+            <div id="voiceOverlay" class="voice-overlay">
+                <div class="voice-circle">
+                    <div class="voice-pulse voice-pulse-1"></div>
+                    <div class="voice-pulse voice-pulse-2"></div>
+                    <div class="voice-dot"></div>
+                </div>
+                <div class="voice-text" id="voiceText">Listening...</div>
+                <div class="voice-subtext">Speak naturally. Tap to stop.</div>
+                <button id="voiceStopBtn" class="voice-stop-btn">✕</button>
             </div>
             
             <div id="chatMessages" class="chat-messages">
