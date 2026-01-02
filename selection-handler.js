@@ -1,6 +1,25 @@
 // Readify Extension - Selection Handler
 // Handles text selection and toolbar display
 
+// Check if extension context is still valid
+function isExtensionContextValid() {
+    try {
+        return !!chrome.runtime?.id;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Safely get extension URL, returns empty string if context is invalid
+function safeGetURL(path) {
+    try {
+        if (!isExtensionContextValid()) return '';
+        return chrome.runtime.getURL(path);
+    } catch (e) {
+        return '';
+    }
+}
+
 function removeSelectionBox() {
     if (selectionBox) {
         selectionBox.remove();
@@ -10,6 +29,11 @@ function removeSelectionBox() {
 
 // Function to show selection box
 function showSelectionBox(evt) {
+    // Bail out if extension context is invalid (e.g., extension was reloaded)
+    if (!isExtensionContextValid()) {
+        return;
+    }
+    
     if (selectionBox && container.contains(evt.target)) {
         return;
     }
@@ -62,7 +86,7 @@ function showSelectionBox(evt) {
         colorPickerButton.style.height = "25px !important";
         colorPickerButton.style.backgroundColor = "transparent";
         colorPickerButton.innerHTML =
-        "<img src='" + chrome.runtime.getURL('images/highlight.png') + "' alt='highlight' style='height: 24px; width: 24px' />";;
+        "<img src='" + safeGetURL('images/highlight.png') + "' alt='highlight' style='height: 24px; width: 24px' />";;
         colorPickerButton.style.border = "transparent";
         colorPickerButton.addEventListener("click", function () {
             // Check if selection is safe before showing color picker
@@ -82,10 +106,10 @@ function showSelectionBox(evt) {
         underlineButton.style.width = "25px !important";
         underlineButton.style.height = "25px !important";
         if (isExactUnderlineSelection()) {
-            underlineButton.innerHTML = "<img src='" + chrome.runtime.getURL('images/underlineCancel.png') + "' alt='underlineCancel' style='height: 24px; width: 24px' />";
+            underlineButton.innerHTML = "<img src='" + safeGetURL('images/underlineCancel.png') + "' alt='underlineCancel' style='height: 24px; width: 24px' />";
         } else {
             underlineButton.innerHTML =
-            "<img src='" + chrome.runtime.getURL('images/underline.png') + "' alt='underline' style='height: 24px; width: 24px' />";
+            "<img src='" + safeGetURL('images/underline.png') + "' alt='underline' style='height: 24px; width: 24px' />";
         }
 
         
@@ -122,7 +146,7 @@ function showSelectionBox(evt) {
         summaryBtn.style.width = '25px !important';
         summaryBtn.style.height = '25px !important';
         summaryBtn.style.backgroundColor = 'transparent';
-        summaryBtn.innerHTML = "<img src='" + chrome.runtime.getURL('images/summarize.png') + "' alt='summarize' style='height: 24px; width: 24px' />";
+        summaryBtn.innerHTML = "<img src='" + safeGetURL('images/summarize.png') + "' alt='summarize' style='height: 24px; width: 24px' />";
         summaryBtn.style.border = 'transparent';
         
         summaryBtn.addEventListener("click", async function () {
@@ -180,7 +204,7 @@ function showSelectionBox(evt) {
         ttsButton.style.width = "25px !important";
         ttsButton.style.height = "25px !important";
 
-        ttsButton.innerHTML ="<img src='" + chrome.runtime.getURL('images/tts.png') + "' alt='tts' style='height: 28px; width: 28px' />";
+        ttsButton.innerHTML ="<img src='" + safeGetURL('images/tts.png') + "' alt='tts' style='height: 28px; width: 28px' />";
         ttsButton.style.border = "transparent";
 
         ttsButton.addEventListener("click", async function () {
@@ -204,7 +228,7 @@ function showSelectionBox(evt) {
         noteButton.style.width = "25px !important";
         noteButton.style.height = "25px !important";
 
-        noteButton.innerHTML = "<img src='" + chrome.runtime.getURL('images/notes.png') + "' alt='notes' style='height: 24px; width: 24px' />";
+        noteButton.innerHTML = "<img src='" + safeGetURL('images/notes.png') + "' alt='notes' style='height: 24px; width: 24px' />";
         noteButton.style.border = "transparent";
 
         noteButton.addEventListener("click", function () {
