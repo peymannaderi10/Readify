@@ -9,7 +9,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Initialize Study Mode state
     chrome.storage.sync.get(["extensionEnabled"], function(result) {
         const enableCheckbox = document.getElementById("enableCheckbox");
-        const deleteButton = document.getElementById("deleteChangesButton");
         const toggleLabel = enableCheckbox.closest('.modern-toggle');
         const toggleText = toggleLabel.querySelector('.toggle-text');
         
@@ -22,7 +21,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
         
         enableCheckbox.checked = enabled;
-        deleteButton.disabled = !enabled;
         toggleText.textContent = enabled ? 'Disable Study Mode' : 'Enable Study Mode';
     });
 
@@ -164,7 +162,6 @@ async function updateSubscriptionUI() {
             }
             
             if (premiumBanner) premiumBanner.style.display = 'none';
-            if (limitCounter) limitCounter.textContent = '(Unlimited)';
         } else {
             // Free user
             if (userPlan) {
@@ -692,6 +689,7 @@ async function loadMySites() {
 
 function displaySites(sites) {
     const sitesList = document.getElementById('sitesList');
+    const deleteChangesSection = document.getElementById('deleteChangesSection');
     
     // Remove existing event listener to prevent duplicates
     sitesList.removeEventListener('click', handleSiteClick);
@@ -703,8 +701,13 @@ function displaySites(sites) {
                 <small>Your highlighted and noted websites will appear here</small>
             </div>
         `;
+        // Hide delete changes section when no sites
+        if (deleteChangesSection) deleteChangesSection.style.display = 'none';
         return;
     }
+    
+    // Show delete changes section when there are sites
+    if (deleteChangesSection) deleteChangesSection.style.display = 'block';
 
     sitesList.innerHTML = sites.map(site => `
         <div class="site-item">
@@ -1001,10 +1004,6 @@ document.getElementById("enableCheckbox").addEventListener("change", async funct
             enabled: event.target.checked
         });
     });
-    
-    // Update delete button state
-    const deleteButton = document.getElementById("deleteChangesButton");
-    deleteButton.disabled = !event.target.checked;
 });
 
 // Delete Changes Button

@@ -110,16 +110,6 @@
                 </div>
             </section>
 
-            <!-- Delete Changes -->
-            <section class="control-section">
-                <div class="danger-zone">
-                    <button id="deleteChangesButton" class="control-button danger" disabled>
-                        <span class="button-icon">🗑️</span>
-                        <span class="button-label">Delete All Changes</span>
-                    </button>
-                </div>
-            </section>
-
             <!-- My Sites -->
             <section class="control-section">
                 <div class="section-header">
@@ -132,6 +122,16 @@
                             <small>Your highlighted and noted websites will appear here</small>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <!-- Delete Changes (shown only when there are sites) -->
+            <section class="control-section" id="deleteChangesSection" style="display: none;">
+                <div class="danger-zone">
+                    <button id="deleteChangesButton" class="control-button danger">
+                        <span class="button-icon">🗑️</span>
+                        <span class="button-label">Delete All Changes</span>
+                    </button>
                 </div>
             </section>
 

@@ -122,7 +122,7 @@ function initSupabase() {
     }
     
     if (!isContextValid()) {
-        console.warn('Extension context invalidated, cannot initialize Supabase');
+        // Silently return - context invalidation is expected on external pages like Stripe
         return null;
     }
     
