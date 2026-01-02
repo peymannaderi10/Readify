@@ -9,10 +9,19 @@ containerRoot = container.attachShadow({ mode: "open" });
 
 document.body.appendChild(container);
 
+// Inject shadow DOM styles (isolated from the page)
 const styleSheet = document.createElement("style");
 styleSheet.type = "text/css";
 styleSheet.innerText = styles;
 containerRoot.appendChild(styleSheet);
+
+// Inject page-level styles for elements added to the actual webpage (like underlines)
+// These are scoped with specific class names to avoid conflicts
+const pageStyleSheet = document.createElement("style");
+pageStyleSheet.type = "text/css";
+pageStyleSheet.id = "readify-page-styles";
+pageStyleSheet.innerText = pageStyles;
+document.head.appendChild(pageStyleSheet);
 
 // Initialize extension when DOM is ready
 if (document.readyState === "loading") {

@@ -35,6 +35,16 @@ const spinnerCss = `
   }
 `;
 
+// Page-level styles (injected into the document, not shadow DOM)
+// These styles affect elements added to the actual webpage
+const pageStyles = `
+.thicker-underline {
+    text-decoration: none !important;
+    border-bottom: 2px solid black !important;
+    display: inline !important;
+}
+`;
+
 const styles = `
 ${spinnerCss}
 .dropdown-container {
