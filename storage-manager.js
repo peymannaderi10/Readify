@@ -724,9 +724,9 @@ async function restoreChangesFromDisk(i = 0) {
         if (siteData && siteData.changes && siteData.changes.length > 0) {
             for (const changeData of siteData.changes) {
                 try {
-                    // Check if this is new format (has segments) or legacy format (has range)
-                    if (changeData.segments && changeData.text) {
-                        // New mark-based format - use text restoration
+                    // Check if this is new format (has text) or legacy format (has range)
+                    if (changeData.text) {
+                        // New mark-based format - use text-anchored restoration
                         restoreHighlight(changeData);
                     } else if (changeData.range) {
                         // Legacy format - use DOM path restoration

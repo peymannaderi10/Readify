@@ -163,11 +163,15 @@ function highlightSelectedText(color, noteText = null) {
 
         parent.replaceChild(fragment, node);
 
-        // Store segment info for storage
+        // Store segment info for storage with position data
         markData.segments.push({
             splitType,
             parentTagName: parent.tagName,
-            text: highlightText
+            parentIndex: getElementIndex(parent),
+            text: highlightText,
+            textOffset: startOffset,
+            // Store path for more reliable restoration
+            path: getNodePath(parent)
         });
 
         // Attach click handler for notes
@@ -361,7 +365,10 @@ function underlineSelectedText(action = "add") {
         markData.segments.push({
             splitType,
             parentTagName: parent.tagName,
-            text: underlineText
+            parentIndex: getElementIndex(parent),
+            text: underlineText,
+            textOffset: startOffset,
+            path: getNodePath(parent)
         });
     });
 
@@ -468,6 +475,40 @@ function parseRgb(rgbString) {
     return null;
 }
 
+// Get the index of an element among siblings of the same tag
+function getElementIndex(element) {
+    if (!element || !element.parentNode) return 0;
+    const siblings = Array.from(element.parentNode.children).filter(
+        el => el.tagName === element.tagName
+    );
+    return siblings.indexOf(element);
+}
+
+// Get a path to a node from body
+function getNodePath(node) {
+    const path = [];
+    let current = node;
+    while (current && current !== document.body && current.parentNode) {
+        const parent = current.parentNode;
+        const index = Array.from(parent.childNodes).indexOf(current);
+        path.unshift(index);
+        current = parent;
+    }
+    return path;
+}
+
+// Get a node from a path
+function getNodeFromPath(path) {
+    let current = document.body;
+    for (const index of path) {
+        if (!current || !current.childNodes || !current.childNodes[index]) {
+            return null;
+        }
+        current = current.childNodes[index];
+    }
+    return current;
+}
+
 // ============================================
 // RESTORATION SYSTEM
 // ============================================
@@ -475,37 +516,55 @@ function parseRgb(rgbString) {
 function restoreHighlight(changeData) {
     const { type, data, markId, highlightId, segments, text, noteText } = changeData;
     
-    if (!text || !segments || segments.length === 0) {
-        console.warn('Cannot restore highlight: missing data');
+    if (!text) {
+        console.warn('Cannot restore highlight: missing text');
         return false;
     }
 
-    // Try to find the text in the page
-    const textToFind = text;
-    const textNodes = findTextInPage(textToFind);
+    // Find all text nodes that contain our full highlight text
+    const textNodes = findAllTextNodesForText(text);
     
     if (textNodes.length === 0) {
-        console.warn('Could not find text to restore:', textToFind.substring(0, 50));
+        console.warn('Could not find text to restore:', text.substring(0, 50));
         return false;
     }
 
-    // Restore the highlight
-    segments.forEach((segment, index) => {
-        // Find matching text node
-        if (index < textNodes.length) {
-            const nodeInfo = textNodes[index];
+    // Restore in reverse order to prevent DOM position shifts
+    const nodesToProcess = [...textNodes].reverse();
+    let restoredCount = 0;
+    
+    for (let i = 0; i < nodesToProcess.length; i++) {
+        const nodeInfo = nodesToProcess[i];
+        const originalIndex = textNodes.length - 1 - i; // Original forward index
+        
+        try {
+            // Determine split type based on position
+            let splitType = 'none';
+            if (textNodes.length > 1) {
+                if (originalIndex === 0) splitType = 'head';
+                else if (originalIndex === textNodes.length - 1) splitType = 'tail';
+                else splitType = 'both';
+            }
+            
+            // Create the mark element
             const mark = createMarkElement({
                 highlightId: highlightId || generateHighlightId(),
                 markId: markId || generateMarkId(),
                 color: data,
                 hasNotes: !!noteText,
-                splitType: segment.splitType,
+                splitType: splitType,
                 isUnderline: type === 'underline'
             });
-
-            // Wrap the text
+            
+            // Apply the highlight
             const { node, startOffset, endOffset } = nodeInfo;
             const parent = node.parentNode;
+            
+            // Skip if parent is already a readify-mark (avoid double-wrapping)
+            if (parent.tagName === 'READIFY-MARK') {
+                continue;
+            }
+            
             const textContent = node.textContent;
             const fragment = document.createDocumentFragment();
 
@@ -526,66 +585,132 @@ function restoreHighlight(changeData) {
             if (noteText) {
                 mark.addEventListener('click', () => showNoteForMark(markId));
             }
+            
+            restoredCount++;
+        } catch (e) {
+            console.warn('Error restoring segment:', e.message);
         }
-    });
+    }
 
-    return true;
+    return restoredCount > 0;
 }
 
-// Find text in the page (returns text nodes with offsets)
-function findTextInPage(searchText) {
+// Find all text nodes that together contain the full search text
+// This handles text that spans across multiple inline elements (a, i, span, etc.)
+function findAllTextNodesForText(searchText) {
     const results = [];
-    const normalizedSearch = searchText.replace(/\s+/g, ' ').trim();
+    if (!searchText) return results;
     
-    // Get all text nodes
+    // Build a map of all text nodes with their positions in the full text stream
     const walker = document.createTreeWalker(
         document.body,
         NodeFilter.SHOW_TEXT,
-        null
+        {
+            acceptNode: (node) => {
+                // Skip script, style, and our own marks
+                const parent = node.parentNode;
+                if (!parent) return NodeFilter.FILTER_REJECT;
+                const tagName = parent.tagName;
+                if (tagName === 'SCRIPT' || tagName === 'STYLE' || tagName === 'NOSCRIPT') {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                // Skip hidden elements
+                if (parent.offsetParent === null && tagName !== 'BODY') {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
     );
 
-    let fullText = '';
     const nodeMap = [];
+    let fullText = '';
     let node;
 
     while (node = walker.nextNode()) {
         const text = node.textContent;
-        nodeMap.push({
-            node,
-            start: fullText.length,
-            end: fullText.length + text.length
-        });
-        fullText += text;
+        if (text.length > 0) {
+            nodeMap.push({
+                node,
+                start: fullText.length,
+                end: fullText.length + text.length,
+                text: text
+            });
+            fullText += text;
+        }
     }
 
-    // Find the search text
-    const normalizedFull = fullText.replace(/\s+/g, ' ');
-    const searchIndex = normalizedFull.indexOf(normalizedSearch);
+    // Try to find the search text - first exact match
+    let searchIndex = fullText.indexOf(searchText);
+    
+    // If exact match fails, try with normalized whitespace
+    if (searchIndex === -1) {
+        const normalizedSearch = searchText.replace(/\s+/g, ' ');
+        const normalizedFull = fullText.replace(/\s+/g, ' ');
+        const normalizedIndex = normalizedFull.indexOf(normalizedSearch);
+        
+        if (normalizedIndex !== -1) {
+            // Map normalized position back to original
+            // Count characters in original that correspond to normalized position
+            let origPos = 0;
+            let normPos = 0;
+            while (normPos < normalizedIndex && origPos < fullText.length) {
+                if (/\s/.test(fullText[origPos])) {
+                    // Skip extra whitespace
+                    while (origPos + 1 < fullText.length && /\s/.test(fullText[origPos + 1])) {
+                        origPos++;
+                    }
+                }
+                origPos++;
+                normPos++;
+            }
+            searchIndex = origPos;
+        }
+    }
+    
+    if (searchIndex === -1) {
+        // Try fuzzy match with first 30 chars and last 30 chars
+        const prefix = searchText.substring(0, Math.min(30, searchText.length));
+        const suffix = searchText.substring(Math.max(0, searchText.length - 30));
+        
+        const prefixIndex = fullText.indexOf(prefix);
+        const suffixIndex = fullText.indexOf(suffix, prefixIndex);
+        
+        if (prefixIndex !== -1 && suffixIndex !== -1 && suffixIndex >= prefixIndex) {
+            searchIndex = prefixIndex;
+        }
+    }
     
     if (searchIndex === -1) return results;
 
-    // Map back to original positions
-    let currentPos = 0;
-    let matchStart = searchIndex;
-    let matchEnd = searchIndex + normalizedSearch.length;
+    const matchStart = searchIndex;
+    const matchEnd = searchIndex + searchText.length;
 
-    for (const { node, start, end } of nodeMap) {
-        if (end <= matchStart) continue;
-        if (start >= matchEnd) break;
+    // Find all text nodes that overlap with our match
+    for (const entry of nodeMap) {
+        // Skip nodes that don't overlap with our match range
+        if (entry.end <= matchStart) continue;
+        if (entry.start >= matchEnd) break;
 
-        const nodeStart = Math.max(0, matchStart - start);
-        const nodeEnd = Math.min(node.textContent.length, matchEnd - start);
+        // Calculate the portion of this node that's in our match
+        const nodeMatchStart = Math.max(0, matchStart - entry.start);
+        const nodeMatchEnd = Math.min(entry.text.length, matchEnd - entry.start);
 
-        if (nodeEnd > nodeStart) {
+        if (nodeMatchEnd > nodeMatchStart) {
             results.push({
-                node,
-                startOffset: nodeStart,
-                endOffset: nodeEnd
+                node: entry.node,
+                startOffset: nodeMatchStart,
+                endOffset: nodeMatchEnd
             });
         }
     }
 
     return results;
+}
+
+// Find text in the page (returns text nodes with offsets) - simplified version
+function findTextInPage(searchText) {
+    return findAllTextNodesForText(searchText);
 }
 
 // ============================================
