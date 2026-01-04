@@ -30,8 +30,21 @@ if (document.readyState === "loading") {
     afterDOMLoaded();
 }
 
-function afterDOMLoaded() {
+async function afterDOMLoaded() {
     wrapDivTextNodesInP();
+    
+    // Initialize auth service and wait for session to load
+    // This restores the auth state from chrome.storage.local
+    try {
+        if (window.ReadifySupabase) {
+            await window.ReadifySupabase.refreshSession();
+            console.log('Readify: Auth state loaded, authenticated:', window.ReadifySupabase.isAuthenticated());
+        }
+    } catch (e) {
+        console.log('Readify: Could not load auth state:', e.message);
+    }
+    
+    // Now restore changes (will check auth state)
     restoreChangesFromDisk();
     attachNoteEvents();
 }

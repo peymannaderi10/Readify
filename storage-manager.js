@@ -20,19 +20,21 @@ function calculateStorageSize(data) {
 }
 
 // Get or initialize global stats
+// NOTE: siteCount in stats is for display/caching only - NOT for limit enforcement
+// Always use calculateActualSiteCount() for limit checks to prevent tampering
 async function getGlobalStats() {
     try {
         const result = await chrome.storage.local.get(GLOBAL_STATS_KEY);
         return result[GLOBAL_STATS_KEY] || {
             totalSizeBytes: 0,
-            siteCount: 0,
+            siteCount: 0, // Display only - use calculateActualSiteCount() for limits
             sites: []
         };
     } catch (e) {
         console.error('Failed to get global stats:', e);
         return {
             totalSizeBytes: 0,
-            siteCount: 0,
+            siteCount: 0, // Display only - use calculateActualSiteCount() for limits
             sites: []
         };
     }
@@ -47,12 +49,67 @@ async function updateGlobalStats(stats) {
     }
 }
 
+// Calculate actual site count by scanning storage (tamper-proof)
+// This is the source of truth - never trust stored siteCount
+async function calculateActualSiteCount() {
+    try {
+        const allData = await chrome.storage.local.get(null);
+        let count = 0;
+        
+        for (const [key, value] of Object.entries(allData)) {
+            // Only count keys that are actual site data with content
+            if (key.startsWith('readify-site-') && value.info) {
+                const changesCount = value.changes?.length || 0;
+                const notesCount = Object.keys(value.notes || {}).length;
+                // Only count sites that have actual content
+                if (changesCount > 0 || notesCount > 0) {
+                    count++;
+                }
+            }
+        }
+        
+        return count;
+    } catch (e) {
+        console.error('Failed to calculate actual site count:', e);
+        return 0;
+    }
+}
+
+// Check if a site already exists in storage (tamper-proof check)
+async function siteExistsInStorage(urlDigest) {
+    try {
+        const key = `readify-site-${urlDigest}`;
+        const result = await chrome.storage.local.get(key);
+        const siteData = result[key];
+        
+        if (!siteData || !siteData.info) return false;
+        
+        // Verify site has actual content
+        const changesCount = siteData.changes?.length || 0;
+        const notesCount = Object.keys(siteData.notes || {}).length;
+        return changesCount > 0 || notesCount > 0;
+    } catch (e) {
+        console.error('Failed to check if site exists:', e);
+        return false;
+    }
+}
+
 // ============================================
 // LIMIT CHECKING FUNCTIONS
 // ============================================
 
 // Check if user can add a new change
+// Note: For logged-in users, the actual limit enforcement happens server-side in the edge function
+// This is kept for client-side pre-checks and session-only users
 async function canAddChange(urlDigest, estimatedChangeSize = 0) {
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (!isAuthenticated) {
+        // Not logged in - session only mode, always allow (changes won't persist anyway)
+        return { canAdd: true, sessionOnly: true };
+    }
+    
     // Premium users have no limits
     if (window.ReadifySubscription) {
         const isPremium = await window.ReadifySubscription.isPremium();
@@ -61,23 +118,28 @@ async function canAddChange(urlDigest, estimatedChangeSize = 0) {
         }
     }
     
-    const stats = await getGlobalStats();
-    
-    // Check website limit for new sites
-    if (!stats.sites.includes(urlDigest) && stats.siteCount >= DEFAULT_WEBSITE_LIMIT) {
-        return { canAdd: false, reason: 'website_limit' };
-    }
-    
-    // Check storage limit
-    if (stats.totalSizeBytes + estimatedChangeSize > DEFAULT_STORAGE_LIMIT_BYTES) {
-        return { canAdd: false, reason: 'storage_limit' };
-    }
-    
+    // Free logged-in users - server will enforce limits, but we can do a quick pre-check
+    // The actual enforcement happens in the save-site edge function
     return { canAdd: true };
 }
 
 // Get website limit info for display
 async function getWebsiteLimitInfo() {
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (!isAuthenticated) {
+        // Not logged in - session only mode
+        return {
+            used: 0,
+            max: 0,
+            isPremium: false,
+            isSessionOnly: true,
+            display: 'Session only (sign in to save)'
+        };
+    }
+    
+    // Check if premium
     if (window.ReadifySubscription) {
         const isPremium = await window.ReadifySubscription.isPremium();
         if (isPremium) {
@@ -91,16 +153,13 @@ async function getWebsiteLimitInfo() {
         }
     }
     
-    const stats = await getGlobalStats();
-    const storageUsedMB = Math.round((stats.totalSizeBytes / (1024 * 1024)) * 100) / 100;
-    
+    // Free logged-in user - get count from Supabase (server-side enforced)
+    const count = await getSiteCount();
     return {
-        used: stats.siteCount,
+        used: count,
         max: DEFAULT_WEBSITE_LIMIT,
         isPremium: false,
-        storageUsedMB: storageUsedMB,
-        storageMaxMB: DEFAULT_STORAGE_LIMIT_MB,
-        display: `${stats.siteCount}/${DEFAULT_WEBSITE_LIMIT} sites (${storageUsedMB}/${DEFAULT_STORAGE_LIMIT_MB}MB)`
+        display: `${count}/${DEFAULT_WEBSITE_LIMIT} sites`
     };
 }
 
@@ -178,39 +237,94 @@ async function getAllSitesFromLocal() {
 
 // Get site count
 async function getSiteCount() {
-    // For premium users, get from Supabase
-    if (window.ReadifySubscription) {
-        const isPremium = await window.ReadifySubscription.isPremium();
-        if (isPremium) {
-            const client = window.ReadifySupabase?.getClient();
-            const user = window.ReadifyAuth?.getCurrentUser();
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (!isAuthenticated) {
+        // Not logged in - no saved sites
+        return 0;
+    }
+    
+    // For all logged-in users, get count from Supabase
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (client && user) {
+        try {
+            const { count, error } = await client
+                .from('user_sites')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id);
             
-            if (client && user) {
-                try {
-                    const { count, error } = await client
-                        .from('user_sites')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('user_id', user.id);
-                    
-                    return count || 0;
-                } catch (e) {
-                    console.error('Failed to get site count from Supabase:', e);
-                }
-            }
+            return count || 0;
+        } catch (e) {
+            console.error('Failed to get site count from Supabase:', e);
         }
     }
     
-    // For free users, get from local storage
-    const stats = await getGlobalStats();
-    return stats.siteCount;
+    return 0;
 }
 
 // ============================================
-// SUPABASE OPERATIONS (for premium users)
+// SUPABASE OPERATIONS (for all logged-in users)
 // ============================================
 
-// Save to Supabase for premium users
+// Save to Supabase via Edge Function (server-side limit enforcement)
 async function saveToSupabase(urlDigest, changes, siteInfo, notes = {}) {
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (!client || !user) {
+        return { error: { message: 'Not authenticated' } };
+    }
+    
+    try {
+        // Get the current session for auth token
+        const { data: { session } } = await client.auth.getSession();
+        if (!session?.access_token) {
+            return { error: { message: 'No valid session' } };
+        }
+        
+        // Use Edge Function for server-side limit enforcement
+        const supabaseUrl = window.READIFY_CONFIG?.SUPABASE_URL;
+        const response = await fetch(`${supabaseUrl}/functions/v1/save-site`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+                'apikey': window.READIFY_CONFIG?.SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({
+                url_digest: urlDigest,
+                url: siteInfo?.url || '',
+                title: siteInfo?.title || '',
+                hostname: siteInfo?.hostname || '',
+                changes: changes,
+                notes: notes
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            // Handle limit reached error
+            if (result.code === 'LIMIT_REACHED') {
+                showUpgradePrompt('website_limit');
+                return { error: result, limitReached: true };
+            }
+            console.error('Save to Supabase error:', result);
+            return { error: result };
+        }
+        
+        return { data: result.data, error: null, siteCount: result.site_count };
+    } catch (e) {
+        console.error('Save to Supabase exception:', e);
+        return { error: { message: e.message } };
+    }
+}
+
+// Direct Supabase upsert (fallback, no limit checking - use with caution)
+async function saveToSupabaseDirect(urlDigest, changes, siteInfo, notes = {}) {
     const client = window.ReadifySupabase?.getClient();
     const user = window.ReadifyAuth?.getCurrentUser();
     
@@ -455,16 +569,31 @@ async function autoMigrateIfNeeded() {
 async function saveChangeToDisk(type, data, isDelete = false, markData = null) {
     const urlDigest = await getURLDigest();
     
-    // Check if premium user
-    const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    const supabaseAuth = window.ReadifySupabase?.isAuthenticated() || false;
     
-    if (isPremium) {
-        // Use Supabase for premium users
-        return await saveChangeToSupabase(urlDigest, type, data, isDelete, markData);
-    } else {
-        // Use local storage for free users
-        return await saveChangeToLocal(urlDigest, type, data, isDelete, markData);
+    console.log('Readify saveChangeToDisk:', { 
+        type, 
+        isDelete, 
+        isAuthenticated, 
+        supabaseAuth,
+        hasReadifyAuth: !!window.ReadifyAuth,
+        hasReadifySupabase: !!window.ReadifySupabase,
+        currentUser: window.ReadifySupabase?.getCurrentUser()?.email
+    });
+    
+    if (!isAuthenticated) {
+        // Not logged in - session only, no persistence
+        // The visual changes work but won't survive refresh
+        console.log('Readify: Changes are session-only (sign in to save permanently)');
+        showSessionOnlyNotice();
+        return { sessionOnly: true };
     }
+    
+    // User is logged in - always use Supabase with server-side limit enforcement
+    console.log('Readify: Saving to Supabase...');
+    return await saveChangeToSupabase(urlDigest, type, data, isDelete, markData);
 }
 
 // Save change to local storage (free users)
@@ -577,7 +706,8 @@ async function saveChangeToLocal(urlDigest, type, data, isDelete = false, markDa
     }
 }
 
-// Save change to Supabase (premium users)
+// Save change to Supabase (all logged-in users - free and premium)
+// Uses edge function for server-side limit enforcement
 async function saveChangeToSupabase(urlDigest, type, data, isDelete = false, markData = null) {
     try {
         // Load existing site data
@@ -688,37 +818,36 @@ async function updateGlobalStatsAfterDelete(urlDigest) {
 
 async function restoreChangesFromDisk(i = 0) {
     try {
-        const urlDigest = await getURLDigest();
-        let siteData = null;
-        
         // Wait a bit for services to initialize on first attempt
         if (i === 0) {
             await new Promise(resolve => setTimeout(resolve, 500));
-            // Auto-migrate if needed
-            await autoMigrateIfNeeded();
         }
         
-        // Check if user is premium and should load from Supabase
-        if (window.ReadifySubscription && window.ReadifyAuth?.isAuthenticated()) {
-            try {
-                const isPremium = await window.ReadifySubscription.isPremium();
-                if (isPremium) {
-                    siteData = await loadFromSupabase(urlDigest);
-                    if (siteData) {
-                        console.log('Restored changes from Supabase');
-                    }
-                }
-            } catch (e) {
-                console.log('Could not load from Supabase, trying local storage:', e.message);
+        // Check if user is logged in - only logged-in users have persistent storage
+        const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+        
+        if (!isAuthenticated) {
+            // Not logged in - session only mode, nothing to restore
+            console.log('Readify: Session-only mode (sign in to restore saved highlights)');
+            
+            // Run migration for legacy local data one last time to help with transition
+            if (i === 0) {
+                await autoMigrateIfNeeded();
             }
+            return;
         }
         
-        // Fallback to local storage if not loaded from Supabase
-        if (!siteData) {
-            siteData = await loadSiteFromLocal(urlDigest);
+        const urlDigest = await getURLDigest();
+        let siteData = null;
+        
+        // User is logged in - load from Supabase (works for both free and premium)
+        try {
+            siteData = await loadFromSupabase(urlDigest);
             if (siteData) {
-                console.log('Restored changes from local storage');
+                console.log('Restored changes from Supabase');
             }
+        } catch (e) {
+            console.log('Could not load from Supabase:', e.message);
         }
 
         if (siteData && siteData.changes && siteData.changes.length > 0) {
@@ -738,13 +867,21 @@ async function restoreChangesFromDisk(i = 0) {
             }
         }
         
-        // Restore notes - attach click handlers to restored marks
+        // Restore notes - add visual styling and data attributes
         if (siteData && siteData.notes) {
             for (const [markId, noteText] of Object.entries(siteData.notes)) {
                 const marks = document.querySelectorAll(`readify-mark[data-mark-id="${markId}"]`);
                 marks.forEach(mark => {
                     mark.classList.add('readify-with-notes');
-                    mark.addEventListener('click', () => showNoteForMark(markId));
+                    mark.setAttribute('data-note-text', noteText);
+                    // Add border indicator for notes
+                    const color = mark.style.backgroundColor;
+                    if (color) {
+                        const rgb = hexToRgb(color) || parseRgb(color);
+                        if (rgb) {
+                            mark.style.borderBottomColor = `rgb(${Math.max(0, rgb.r - 51)}, ${Math.max(0, rgb.g - 51)}, ${Math.max(0, rgb.b - 51)})`;
+                        }
+                    }
                 });
             }
         }
@@ -803,77 +940,154 @@ function restoreLegacyChange(changeData) {
 async function deleteChangesFromDisk() {
     const urlDigest = await getURLDigest();
     
-    // Check if premium user
-    const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
     
-    if (isPremium) {
+    if (isAuthenticated) {
+        // Delete from Supabase for logged-in users
         await deleteFromSupabase(urlDigest);
-    } else {
-        await deleteSiteFromLocal(urlDigest);
-        await updateGlobalStatsAfterDelete(urlDigest);
+        notifyMySitesUpdate('removed');
     }
+    // For non-logged-in users, just reload (changes were session-only anyway)
     
-    notifyMySitesUpdate('removed');
     window.location.reload();
 }
 
 async function getAllSavedSites() {
-    // Check if premium user
-    const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
     
-    if (isPremium) {
-        // Get sites from Supabase
-        const client = window.ReadifySupabase?.getClient();
-        const user = window.ReadifyAuth?.getCurrentUser();
+    if (!isAuthenticated) {
+        // Not logged in - no saved sites
+        return [];
+    }
+    
+    // Get sites from Supabase for logged-in users (free or premium)
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (!client || !user) {
+        return [];
+    }
+    
+    try {
+        const { data, error } = await client
+            .from('user_sites')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('last_modified', { ascending: false });
         
-        if (!client || !user) {
+        if (error) {
+            console.error('Get all sites from Supabase error:', error);
             return [];
         }
         
-        try {
-            const { data, error } = await client
-                .from('user_sites')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('last_modified', { ascending: false });
-            
-            if (error) {
-                console.error('Get all sites from Supabase error:', error);
-                return [];
-            }
-            
-            return (data || []).map(site => ({
-                digest: site.url_digest,
-                info: {
-                    url: site.url,
-                    title: site.title,
-                    hostname: site.hostname,
-                    lastModified: new Date(site.last_modified).getTime()
-                },
-                changeCount: (site.changes?.length || 0) + (Object.keys(site.notes || {}).length),
-                changes: site.changes || [],
-                notes: site.notes || {}
-            }));
-        } catch (e) {
-            console.error('Get all sites from Supabase exception:', e);
-            return [];
-        }
-    } else {
-        // Get sites from local storage
-        return await getAllSitesFromLocal();
+        return (data || []).map(site => ({
+            digest: site.url_digest,
+            info: {
+                url: site.url,
+                title: site.title,
+                hostname: site.hostname,
+                lastModified: new Date(site.last_modified).getTime()
+            },
+            changeCount: (site.changes?.length || 0) + (Object.keys(site.notes || {}).length),
+            changes: site.changes || [],
+            notes: site.notes || {}
+        }));
+    } catch (e) {
+        console.error('Get all sites from Supabase exception:', e);
+        return [];
     }
 }
 
 async function deleteSiteData(digest) {
-    // Check if premium user
-    const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
     
-    if (isPremium) {
+    if (isAuthenticated) {
         await deleteFromSupabase(digest);
-    } else {
-        await deleteSiteFromLocal(digest);
-        await updateGlobalStatsAfterDelete(digest);
     }
+    // For non-logged-in users, nothing to delete (session-only)
+}
+
+// Show session-only notice for non-logged-in users
+let sessionNoticeShown = false;
+function showSessionOnlyNotice() {
+    // Only show once per session
+    if (sessionNoticeShown) return;
+    sessionNoticeShown = true;
+    
+    const existingNotice = document.querySelector('#readify-session-notice');
+    if (existingNotice) return;
+    
+    const notice = document.createElement('div');
+    notice.id = 'readify-session-notice';
+    notice.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        z-index: 10001;
+        max-width: 320px;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        animation: slideIn 0.3s ease-out;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    `;
+    
+    notice.innerHTML = `
+        <style>
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        </style>
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <div style="font-size: 24px;">💡</div>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px;">Session Only Mode</div>
+                <div style="font-size: 12px; opacity: 0.85; line-height: 1.4;">
+                    Your changes won't be saved after refresh. 
+                    Sign in to save your highlights permanently.
+                </div>
+            </div>
+            <button id="readify-dismiss-notice" style="
+                background: transparent;
+                border: none;
+                color: rgba(255,255,255,0.5);
+                cursor: pointer;
+                font-size: 18px;
+                padding: 0;
+                line-height: 1;
+            ">×</button>
+        </div>
+    `;
+    
+    document.body.appendChild(notice);
+    
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => {
+        if (notice.parentNode) {
+            notice.style.animation = 'slideIn 0.3s ease-out reverse';
+            setTimeout(() => notice.remove(), 300);
+        }
+    }, 8000);
+    
+    // Manual dismiss
+    document.getElementById('readify-dismiss-notice')?.addEventListener('click', () => {
+        notice.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => notice.remove(), 300);
+    });
+    
+    // Sign in link
+    document.getElementById('readify-signin-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        notice.remove();
+        chrome.runtime.sendMessage({ type: 'openSidepanel' }).catch(() => {});
+    });
 }
 
 // Show upgrade prompt for premium features

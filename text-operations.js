@@ -447,6 +447,8 @@ function addNoteToHighlight(markId, noteText) {
     marks.forEach(mark => {
         if (noteText && noteText.trim()) {
             mark.classList.add('readify-with-notes');
+            // Store note text as data attribute for session-only mode
+            mark.setAttribute('data-note-text', noteText);
             // Add border indicator
             const color = mark.style.backgroundColor;
             if (color) {
@@ -457,6 +459,7 @@ function addNoteToHighlight(markId, noteText) {
             }
         } else {
             mark.classList.remove('readify-with-notes');
+            mark.removeAttribute('data-note-text');
             mark.style.borderBottomColor = '';
         }
     });

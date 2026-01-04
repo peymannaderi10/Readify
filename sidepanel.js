@@ -664,14 +664,10 @@ async function handleMySitesUpdate(message) {
 
 async function loadMySites() {
     try {
-        // Sync site tracking first to ensure all sites are properly listed
-        await syncSiteTracking();
-        
-        // Small delay to ensure sync completes
-        setTimeout(async () => {
-            const sites = await getAllSavedSites();
-            displaySites(sites);
-        }, 100);
+        console.log('Loading My Sites...');
+        const sites = await getAllSavedSites();
+        console.log('Got sites:', sites.length);
+        displaySites(sites);
     } catch (error) {
         console.error('Error loading sites:', error);
     }
@@ -770,24 +766,18 @@ function escapeHtml(unsafe) {
 
 // Helper function to get all saved sites
 async function getAllSavedSites() {
-    // Use the centralized function from storage-manager.js
-    if (typeof window.getAllSavedSites === 'function') {
-        return await window.getAllSavedSites();
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (!isAuthenticated) {
+        // Not logged in - no saved sites (session-only mode)
+        console.log('Not logged in - no saved sites');
+        return [];
     }
     
-    // Fallback if storage-manager function not available
-    console.warn('getAllSavedSites not available from storage-manager.js, using fallback');
-    
-    // Check if user is premium - use Supabase
-    if (window.ReadifySubscription) {
-        const subscription = await window.ReadifySubscription.getStatus();
-        if (subscription.isPremium) {
-            return await getAllSitesFromSupabase();
-        }
-    }
-    
-    // Free users - use new Chrome local storage format
-    return await getAllSitesFromChromeLocal();
+    // All logged-in users (free and premium) use Supabase
+    console.log('Loading sites from Supabase');
+    return await getAllSitesFromSupabase();
 }
 
 async function getAllSitesFromSupabase() {
@@ -838,14 +828,22 @@ async function getAllSitesFromChromeLocal() {
             }
             
             const sites = [];
+            const allKeys = Object.keys(allData);
+            const siteKeys = allKeys.filter(k => k.startsWith('readify-site-'));
+            
+            console.log('Chrome storage keys:', allKeys.length, 'total,', siteKeys.length, 'site keys');
             
             // Look for new format keys
             for (const [key, value] of Object.entries(allData)) {
-                if (key.startsWith('readify-site-') && value.info) {
+                if (key.startsWith('readify-site-')) {
                     const digest = key.replace('readify-site-', '');
-                    const totalChanges = (value.changes?.length || 0) + (Object.keys(value.notes || {}).length);
+                    const changesCount = value.changes?.length || 0;
+                    const notesCount = Object.keys(value.notes || {}).length;
+                    const totalChanges = changesCount + notesCount;
                     
-                    if (totalChanges > 0) {
+                    console.log(`Site ${digest}: ${changesCount} changes, ${notesCount} notes, info:`, value.info ? 'yes' : 'no');
+                    
+                    if (value.info && totalChanges > 0) {
                         sites.push({
                             digest: digest,
                             info: value.info,
@@ -858,6 +856,8 @@ async function getAllSitesFromChromeLocal() {
                 }
             }
             
+            console.log('Found', sites.length, 'sites with changes');
+            
             // Sort by last modified
             sites.sort((a, b) => (b.info?.lastModified || 0) - (a.info?.lastModified || 0));
             resolve(sites);
@@ -867,25 +867,17 @@ async function getAllSitesFromChromeLocal() {
 
 // Helper function to delete site data
 async function deleteSiteData(digest) {
-    // Use the centralized function from storage-manager.js
-    if (typeof window.deleteSiteData === 'function') {
-        return await window.deleteSiteData(digest);
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (!isAuthenticated) {
+        // Not logged in - nothing to delete (session-only mode)
+        console.log('Not logged in - nothing to delete');
+        return;
     }
     
-    // Fallback if storage-manager function not available
-    console.warn('deleteSiteData not available from storage-manager.js, using fallback');
-    
-    // Check if user is premium - delete from Supabase
-    if (window.ReadifySubscription) {
-        const subscription = await window.ReadifySubscription.getStatus();
-        if (subscription.isPremium) {
-            await deleteSiteFromSupabase(digest);
-            return;
-        }
-    }
-    
-    // Free users - delete from new Chrome local storage
-    await deleteSiteFromChromeLocal(digest);
+    // All logged-in users delete from Supabase
+    await deleteSiteFromSupabase(digest);
 }
 
 async function deleteSiteFromSupabase(digest) {
@@ -1006,7 +998,13 @@ document.getElementById("enableCheckbox").addEventListener("change", async funct
         if (!allowed) {
             // Revert the checkbox and show warning
             event.target.checked = false;
-            alert('You have reached the maximum limit of 5 websites. Please delete some sites to continue using Study Mode.');
+            
+            const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+            if (!isAuthenticated) {
+                alert('Please sign in to save your highlights. You can still use Study Mode, but changes won\'t be saved.');
+            } else {
+                alert('You have reached the maximum limit of 5 websites. Please delete some sites or upgrade to Premium for unlimited sites.');
+            }
             return;
         }
     }
@@ -1108,23 +1106,80 @@ document.getElementById("confirmationModal").addEventListener("click", function(
 
 // Website limit functions
 async function getWebsiteLimit() {
-    // Use the centralized function from storage-manager.js
-    if (typeof window.getWebsiteLimitInfo === 'function') {
-        return await window.getWebsiteLimitInfo();
+    // Check if user is logged in
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (!isAuthenticated) {
+        // Not logged in - session only mode
+        return { used: 0, max: 0, isPremium: false, isSessionOnly: true };
     }
     
-    // Fallback for backward compatibility
-    console.warn('getWebsiteLimitInfo not available from storage-manager.js');
+    // All logged-in users get count from Supabase
+    const siteCount = await getSiteCountFromSupabase();
+    
+    // Check if premium
     if (window.ReadifySubscription) {
-        const subscription = await window.ReadifySubscription.getStatus();
-        if (subscription.isPremium) {
-            const siteCount = await getSiteCountForPremium();
-            return { used: siteCount, max: Infinity, isPremium: true };
+        try {
+            const subscription = await window.ReadifySubscription.getStatus();
+            if (subscription.isPremium) {
+                return { used: siteCount, max: Infinity, isPremium: true };
+            }
+        } catch (e) {
+            console.log('Subscription check failed:', e.message);
         }
     }
     
-    // Free users fallback - should not be reached with new system
-    return { used: 0, max: 5, isPremium: false, display: '0/5' };
+    // Free logged-in users
+    return { used: siteCount, max: 5, isPremium: false };
+}
+
+async function getSiteCountFromSupabase() {
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (!client || !user) {
+        return 0;
+    }
+    
+    try {
+        const { count, error } = await client
+            .from('user_sites')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id);
+        
+        if (error) {
+            console.error('Error getting site count from Supabase:', error);
+            return 0;
+        }
+        return count || 0;
+    } catch (e) {
+        console.error('Exception getting site count from Supabase:', e);
+        return 0;
+    }
+}
+
+async function getSiteCountFromChromeLocal() {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(null, function(allData) {
+            if (chrome.runtime.lastError) {
+                console.error('Error getting site count:', chrome.runtime.lastError);
+                resolve(0);
+                return;
+            }
+            
+            let count = 0;
+            for (const [key, value] of Object.entries(allData)) {
+                if (key.startsWith('readify-site-') && value.info) {
+                    const changesCount = value.changes?.length || 0;
+                    const notesCount = Object.keys(value.notes || {}).length;
+                    if (changesCount > 0 || notesCount > 0) {
+                        count++;
+                    }
+                }
+            }
+            resolve(count);
+        });
+    });
 }
 
 async function getSiteCountForPremium() {
@@ -1166,28 +1221,28 @@ async function updateLimitDisplay() {
         const limit = await getWebsiteLimit();
         const limitCounter = document.getElementById('limitCounter');
         
+        console.log('Limit display:', limit);
+        
         if (limitCounter) {
-            if (limit.isPremium) {
+            if (limit.isSessionOnly) {
+                // Not logged in - session only mode
+                limitCounter.textContent = '(Sign in to save)';
+                limitCounter.classList.remove('limit-reached', 'premium-unlimited');
+                limitCounter.classList.add('session-only');
+            } else if (limit.isPremium) {
                 // Premium users - show site count without limit
                 limitCounter.textContent = limit.used > 0 ? `(${limit.used} sites)` : '';
-                limitCounter.classList.remove('limit-reached');
+                limitCounter.classList.remove('limit-reached', 'session-only');
                 limitCounter.classList.add('premium-unlimited');
             } else {
-                // Free users - show used/max format
-                // Sync site tracking for free users
-                await syncSiteTracking();
-                
-                // Small delay to ensure sync completes
-                setTimeout(async () => {
-                    const updatedLimit = await getWebsiteLimit();
-                    limitCounter.textContent = `(${updatedLimit.used}/${updatedLimit.max})`;
-                    if (updatedLimit.used >= updatedLimit.max) {
-                        limitCounter.classList.add('limit-reached');
-                    } else {
-                        limitCounter.classList.remove('limit-reached');
-                    }
-                    limitCounter.classList.remove('premium-unlimited');
-                }, 100);
+                // Free logged-in users - show used/max format
+                limitCounter.textContent = `(${limit.used}/${limit.max})`;
+                limitCounter.classList.remove('premium-unlimited', 'session-only');
+                if (limit.used >= limit.max) {
+                    limitCounter.classList.add('limit-reached');
+                } else {
+                    limitCounter.classList.remove('limit-reached');
+                }
             }
         }
     } catch (error) {
@@ -1197,7 +1252,20 @@ async function updateLimitDisplay() {
 
 async function checkStudyModeAllowed() {
     const limit = await getWebsiteLimit();
-    return limit.max === Infinity || limit.used < limit.max;
+    
+    // Session-only users (not logged in) can always use study mode
+    // Their changes just won't persist
+    if (limit.isSessionOnly) {
+        return true;
+    }
+    
+    // Premium users have no limits
+    if (limit.isPremium || limit.max === Infinity) {
+        return true;
+    }
+    
+    // Free logged-in users - check if under limit
+    return limit.used < limit.max;
 } 
 
 // Note: Manual sync function removed - no longer needed with new storage system 
