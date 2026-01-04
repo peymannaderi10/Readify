@@ -64,7 +64,8 @@ function createMarkElement(options) {
     }
     
     if (options.isUnderline) {
-        mark.style.borderBottom = '2px solid black';
+        const underlineColor = options.color || 'black';
+        mark.style.borderBottom = `2px solid ${underlineColor}`;
         mark.style.cursor = 'pointer';
     }
     
@@ -432,8 +433,8 @@ function showNoteForMark(markId) {
 
     // Get note from storage and show note input
     getURLDigest().then(async urlDigest => {
-        const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
-        const siteData = isPremium ? await loadFromSupabase(urlDigest) : await loadSiteFromLocal(urlDigest);
+        const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+        const siteData = isAuthenticated ? await loadFromSupabase(urlDigest) : await loadSiteFromLocal(urlDigest);
         const noteText = siteData?.notes?.[markId] || '';
         
         // Show note input near the first mark

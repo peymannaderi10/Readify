@@ -20,12 +20,7 @@ function safeGetURL(path) {
     }
 }
 
-function removeSelectionBox() {
-    if (selectionBox) {
-        removeElementWithCleanup(selectionBox);
-        selectionBox = null;
-    }
-}
+// removeSelectionBox is defined in utils/dom-utils.js
 
 // Function to show selection box
 function showSelectionBox(evt) {
@@ -110,18 +105,20 @@ function showSelectionBox(evt) {
         
         underlineButton.style.border = "transparent";
 
-        underlineButton.addEventListener("click", async function () {
+        underlineButton.addEventListener("click", function () {
             if (isExactUnderlineSelection()) {
                 // Remove underline - get IDs from selection and save deletion
                 const clearedIds = underlineSelectedText("remove");
                 if (clearedIds && clearedIds.length > 0) {
-                    await saveChangeToDisk("clearUnderline", clearedIds, true);
+                    // Save in background
+                    saveChangeToDisk("clearUnderline", clearedIds, true);
                 }
             } else {
-                // Apply underline - new system handles cross-tag selections
+                // Apply underline - new system handles cross-tag selections (visual is instant)
                 const markData = underlineSelectedText();
                 if (markData) {
-                    await saveChangeToDisk("underline", null, false, markData);
+                    // Save in background
+                    saveChangeToDisk("underline", null, false, markData);
                 }
             }
         });
