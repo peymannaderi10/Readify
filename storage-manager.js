@@ -1092,70 +1092,237 @@ function showSessionOnlyNotice() {
 
 // Show upgrade prompt for premium features
 function showUpgradePrompt(feature) {
-    const messages = {
-        'website_limit': 'You\'ve reached the free limit of 5 websites. Upgrade to Premium for unlimited sites!',
-        'storage_limit': 'You\'ve reached the 10MB storage limit. Upgrade to Premium for unlimited storage!',
-        'tts': 'Text-to-Speech is a Premium feature. Upgrade to unlock!',
-        'default': 'This is a Premium feature. Upgrade to unlock all features!'
+    const featureContent = {
+        'website_limit': {
+            icon: '📚',
+            title: 'Site Limit Reached',
+            message: 'You\'ve reached the free limit of 5 websites. Upgrade to Premium for unlimited sites!'
+        },
+        'storage_limit': {
+            icon: '💾',
+            title: 'Storage Full',
+            message: 'You\'ve reached the 10MB storage limit. Upgrade to Premium for unlimited storage!'
+        },
+        'tts': {
+            icon: '🔊',
+            title: 'Premium Feature',
+            message: 'Text-to-Speech is a Premium feature. Upgrade to unlock!'
+        },
+        'default': {
+            icon: '✨',
+            title: 'Upgrade to Premium',
+            message: 'This is a Premium feature. Upgrade to unlock all features!'
+        }
     };
     
-    const message = messages[feature] || messages['default'];
+    const content = featureContent[feature] || featureContent['default'];
     
-    // Create upgrade prompt
-    const existingPrompt = document.querySelector('#readify-upgrade-prompt');
-    if (existingPrompt) existingPrompt.remove();
+    // Create overlay
+    const existingOverlay = document.querySelector('#readify-upgrade-overlay');
+    if (existingOverlay) existingOverlay.remove();
     
+    const overlay = document.createElement('div');
+    overlay.id = 'readify-upgrade-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 10001;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.2s ease;
+    `;
+    
+    // Create prompt modal
     const prompt = document.createElement('div');
     prompt.id = 'readify-upgrade-prompt';
     prompt.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        position: relative;
+        background: #ffffff;
         padding: 32px;
         border-radius: 16px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 20px 40px rgba(0, 151, 255, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1);
         z-index: 10002;
-        max-width: 400px;
+        max-width: 380px;
+        width: 90%;
         text-align: center;
         font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        border: 1px solid rgba(0, 151, 255, 0.1);
+        animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     `;
     
+    // Add animation styles
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+    `;
+    document.head.appendChild(styleSheet);
+    
     prompt.innerHTML = `
-        <div style="font-size: 48px; margin-bottom: 16px;">✨</div>
-        <h3 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 700;">Upgrade to Premium</h3>
-        <p style="margin: 0 0 24px 0; font-size: 14px; opacity: 0.9; line-height: 1.5;">${message}</p>
-        <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="readify-close-x" style="
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            color: #9ca3af;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            line-height: 1;
+        ">×</button>
+        
+        <div style="
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, rgba(0, 151, 255, 0.1) 0%, rgba(0, 180, 255, 0.1) 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        ">${content.icon}</div>
+        
+        <h3 style="
+            margin: 0 0 8px 0;
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a202c;
+            line-height: 1.2;
+        ">${content.title}</h3>
+        
+        <p style="
+            margin: 0 0 24px 0;
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.6;
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+        ">${content.message}</p>
+        
+        <div style="
+            display: inline-block;
+            padding: 8px 16px;
+            background: rgba(0, 151, 255, 0.08);
+            border-radius: 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(0, 151, 255, 0.15);
+        ">
+            <span style="
+                font-size: 12px;
+                font-weight: 600;
+                color: #0097ff;
+                letter-spacing: 0.3px;
+            ">🔒 Premium Feature</span>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
             <button id="readify-upgrade-btn" style="
-                background: white;
-                color: #764ba2;
+                width: 100%;
+                background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+                color: white;
                 border: none;
-                padding: 12px 24px;
-                border-radius: 8px;
+                padding: 14px 24px;
+                border-radius: 10px;
                 font-weight: 600;
                 cursor: pointer;
-                font-size: 14px;
-            ">Upgrade Now</button>
+                font-size: 15px;
+                font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                box-shadow: 0 4px 12px rgba(0, 151, 255, 0.3);
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            ">✨ Upgrade Now</button>
             <button id="readify-close-upgrade" style="
+                width: 100%;
                 background: transparent;
-                color: white;
-                border: 1px solid rgba(255,255,255,0.3);
+                color: #6b7280;
+                border: 2px solid rgba(0, 151, 255, 0.15);
                 padding: 12px 24px;
-                border-radius: 8px;
+                border-radius: 10px;
                 font-weight: 500;
                 cursor: pointer;
                 font-size: 14px;
+                font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             ">Maybe Later</button>
         </div>
     `;
     
-    document.body.appendChild(prompt);
+    overlay.appendChild(prompt);
+    document.body.appendChild(overlay);
+    
+    // Add hover effects
+    const upgradeBtn = document.getElementById('readify-upgrade-btn');
+    const closeBtn = document.getElementById('readify-close-upgrade');
+    const closeX = document.getElementById('readify-close-x');
+    
+    upgradeBtn.addEventListener('mouseenter', function() {
+        this.style.background = 'linear-gradient(135deg, #0088e6 0%, #00a3e6 100%)';
+        this.style.transform = 'translateY(-2px)';
+        this.style.boxShadow = '0 6px 20px rgba(0, 151, 255, 0.4)';
+    });
+    upgradeBtn.addEventListener('mouseleave', function() {
+        this.style.background = 'linear-gradient(135deg, #0097ff 0%, #00b4ff 100%)';
+        this.style.transform = 'translateY(0)';
+        this.style.boxShadow = '0 4px 12px rgba(0, 151, 255, 0.3)';
+    });
+    
+    closeBtn.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = 'rgba(0, 151, 255, 0.05)';
+        this.style.borderColor = 'rgba(0, 151, 255, 0.3)';
+        this.style.color = '#0097ff';
+    });
+    closeBtn.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = 'transparent';
+        this.style.borderColor = 'rgba(0, 151, 255, 0.15)';
+        this.style.color = '#6b7280';
+    });
+    
+    closeX.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = 'rgba(107, 114, 128, 0.1)';
+        this.style.color = '#374151';
+    });
+    closeX.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = 'transparent';
+        this.style.color = '#9ca3af';
+    });
+    
+    // Close modal function
+    const closeModal = () => {
+        overlay.style.opacity = '0';
+        prompt.style.transform = 'translateY(10px) scale(0.95)';
+        prompt.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 200);
+    };
     
     // Add event listeners
-    document.getElementById('readify-upgrade-btn').addEventListener('click', async () => {
-        prompt.remove();
+    upgradeBtn.addEventListener('click', async () => {
+        closeModal();
         if (window.ReadifySubscription) {
             await window.ReadifySubscription.createCheckoutSession();
         } else {
@@ -1164,8 +1331,14 @@ function showUpgradePrompt(feature) {
         }
     });
     
-    document.getElementById('readify-close-upgrade').addEventListener('click', () => {
-        prompt.remove();
+    closeBtn.addEventListener('click', closeModal);
+    closeX.addEventListener('click', closeModal);
+    
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            closeModal();
+        }
     });
 }
 
