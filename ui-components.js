@@ -1174,44 +1174,41 @@ function handleDocumentClick(event) {
 // ============================================
 
 let editToolbar = null;
-let editToolbarTimeout = null;
 let currentEditMark = null;
 
 function initEditToolbarListeners() {
-    // Add hover listeners to all marks
-    document.addEventListener('mouseover', handleMarkHover);
-    document.addEventListener('mouseout', handleMarkLeave);
+    // Add click listener for marks - use capture to intercept before other handlers
+    document.addEventListener('click', handleMarkClick, true);
 }
 
-function handleMarkHover(event) {
+function handleMarkClick(event) {
     const mark = event.target.closest('readify-mark');
-    if (!mark) return;
     
-    // Clear any pending hide timeout
-    if (editToolbarTimeout) {
-        clearTimeout(editToolbarTimeout);
-        editToolbarTimeout = null;
-    }
-    
-    // Show toolbar after small delay
-    setTimeout(() => {
-        if (mark.matches(':hover') || (editToolbar && editToolbar.matches(':hover'))) {
+    // If clicking on a mark, show the edit toolbar
+    if (mark) {
+        // Don't show if there's an active text selection being made
+        const selection = window.getSelection();
+        if (selection && selection.toString().length > 0) {
+            return; // Let the selection happen
+        }
+        
+        // Prevent the click from bubbling (don't follow links inside marks, etc.)
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Toggle toolbar - if clicking same mark, close it; if different mark, show new toolbar
+        if (currentEditMark === mark && editToolbar) {
+            removeEditToolbar();
+        } else {
             showEditToolbar(mark);
         }
-    }, 200);
-}
-
-function handleMarkLeave(event) {
-    const mark = event.target.closest('readify-mark');
-    if (!mark && event.target !== editToolbar) return;
+        return;
+    }
     
-    // Hide toolbar after delay (allows moving to toolbar)
-    editToolbarTimeout = setTimeout(() => {
-        if (editToolbar && !editToolbar.matches(':hover') && 
-            (!currentEditMark || !currentEditMark.matches(':hover'))) {
-            removeEditToolbar();
-        }
-    }, 300);
+    // If clicking outside of marks and toolbar, close the toolbar
+    if (editToolbar && !editToolbar.contains(event.target)) {
+        removeEditToolbar();
+    }
 }
 
 function showEditToolbar(mark) {
@@ -1377,20 +1374,9 @@ function showEditToolbar(mark) {
     editToolbar.style.top = top + 'px';
     editToolbar.style.left = left + 'px';
     
-    // Keep toolbar open when hovering over it
-    editToolbar.addEventListener('mouseenter', () => {
-        if (editToolbarTimeout) {
-            clearTimeout(editToolbarTimeout);
-            editToolbarTimeout = null;
-        }
-    });
-    
-    editToolbar.addEventListener('mouseleave', () => {
-        editToolbarTimeout = setTimeout(() => {
-            if (!currentEditMark?.matches(':hover')) {
-                removeEditToolbar();
-            }
-        }, 200);
+    // Prevent clicks inside toolbar from closing it
+    editToolbar.addEventListener('click', (e) => {
+        e.stopPropagation();
     });
     
     containerRoot.appendChild(editToolbar);
@@ -1402,10 +1388,6 @@ function removeEditToolbar() {
         editToolbar = null;
     }
     currentEditMark = null;
-    if (editToolbarTimeout) {
-        clearTimeout(editToolbarTimeout);
-        editToolbarTimeout = null;
-    }
 }
 
 function isCurrentColor(current, option) {
