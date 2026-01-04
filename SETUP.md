@@ -182,3 +182,4 @@ const READIFY_CONFIG = {
 - [ ] Configure email templates in Supabase
 - [ ] Review RLS policies for security
 
+

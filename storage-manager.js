@@ -1,76 +1,87 @@
 // Readify Extension - Storage Manager
 // Handles data persistence, restoration, and storage operations
-// Updated to use storage service abstraction for premium/free user routing
+// Updated to use chrome.storage.local for free users with 10MB and 5 website limits
 
-// Website limit constants (for free users)
+// Storage limit constants
 const DEFAULT_WEBSITE_LIMIT = 5;
+const DEFAULT_STORAGE_LIMIT_MB = 10;
+const DEFAULT_STORAGE_LIMIT_BYTES = DEFAULT_STORAGE_LIMIT_MB * 1024 * 1024; // 10MB in bytes
 
-// Website limit tracking functions
-async function getWebsiteLimit() {
-    // Premium users have unlimited sites
+// Global stats key for chrome.storage.local
+const GLOBAL_STATS_KEY = 'readify-global-stats';
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+// Calculate storage size in bytes
+function calculateStorageSize(data) {
+    return new Blob([JSON.stringify(data)]).size;
+}
+
+// Get or initialize global stats
+async function getGlobalStats() {
+    try {
+        const result = await chrome.storage.local.get(GLOBAL_STATS_KEY);
+        return result[GLOBAL_STATS_KEY] || {
+            totalSizeBytes: 0,
+            siteCount: 0,
+            sites: []
+        };
+    } catch (e) {
+        console.error('Failed to get global stats:', e);
+        return {
+            totalSizeBytes: 0,
+            siteCount: 0,
+            sites: []
+        };
+    }
+}
+
+// Update global stats
+async function updateGlobalStats(stats) {
+    try {
+        await chrome.storage.local.set({ [GLOBAL_STATS_KEY]: stats });
+    } catch (e) {
+        console.error('Failed to update global stats:', e);
+    }
+}
+
+// ============================================
+// LIMIT CHECKING FUNCTIONS
+// ============================================
+
+// Check if user can add a new change
+async function canAddChange(urlDigest, estimatedChangeSize = 0) {
+    // Premium users have no limits
     if (window.ReadifySubscription) {
         const isPremium = await window.ReadifySubscription.isPremium();
         if (isPremium) {
-            return { used: 0, max: Infinity };
+            return { canAdd: true };
         }
     }
     
-    // Free users use Chrome storage limit
-    const result = await chrome.storage.sync.get('websiteLimit');
-    return result.websiteLimit || { used: 0, max: DEFAULT_WEBSITE_LIMIT };
-}
-
-async function checkWebsiteLimit() {
-    const limit = await getWebsiteLimit();
-    return limit.max === Infinity || limit.used < limit.max;
-}
-
-async function incrementWebsiteLimit() {
-    // Premium users don't need to track limits
-    if (window.ReadifySubscription) {
-        const isPremium = await window.ReadifySubscription.isPremium();
-        if (isPremium) {
-            return true;
-        }
+    const stats = await getGlobalStats();
+    
+    // Check website limit for new sites
+    if (!stats.sites.includes(urlDigest) && stats.siteCount >= DEFAULT_WEBSITE_LIMIT) {
+        return { canAdd: false, reason: 'website_limit' };
     }
     
-    const limit = await getWebsiteLimit();
-    if (limit.used < limit.max) {
-        limit.used++;
-        await chrome.storage.sync.set({ websiteLimit: limit });
-        return true;
-    }
-    return false;
-}
-
-async function decrementWebsiteLimit() {
-    // Premium users don't need to track limits
-    if (window.ReadifySubscription) {
-        const isPremium = await window.ReadifySubscription.isPremium();
-        if (isPremium) {
-            return;
-        }
+    // Check storage limit
+    if (stats.totalSizeBytes + estimatedChangeSize > DEFAULT_STORAGE_LIMIT_BYTES) {
+        return { canAdd: false, reason: 'storage_limit' };
     }
     
-    const limitResult = await chrome.storage.sync.get('websiteLimit');
-    const limit = limitResult.websiteLimit || { used: 0, max: DEFAULT_WEBSITE_LIMIT };
-    if (limit.used > 0) {
-        limit.used--;
-        await chrome.storage.sync.set({ websiteLimit: limit });
-    }
+    return { canAdd: true };
 }
 
-async function isStudyModeAllowed() {
-    const limit = await getWebsiteLimit();
-    return limit.max === Infinity || limit.used < limit.max;
-}
-
-// Get the current website limit display info
+// Get website limit info for display
 async function getWebsiteLimitInfo() {
     if (window.ReadifySubscription) {
         const isPremium = await window.ReadifySubscription.isPremium();
         if (isPremium) {
-            const count = await window.ReadifyStorage?.getSiteCount() || 0;
+            const count = await getSiteCount();
             return {
                 used: count,
                 max: Infinity,
@@ -80,288 +91,665 @@ async function getWebsiteLimitInfo() {
         }
     }
     
-    const limit = await getWebsiteLimit();
-    const count = await window.ReadifyStorage?.getSiteCount() || limit.used;
+    const stats = await getGlobalStats();
+    const storageUsedMB = Math.round((stats.totalSizeBytes / (1024 * 1024)) * 100) / 100;
+    
     return {
-        used: count,
-        max: limit.max,
+        used: stats.siteCount,
+        max: DEFAULT_WEBSITE_LIMIT,
         isPremium: false,
-        display: `${count}/${limit.max}`
+        storageUsedMB: storageUsedMB,
+        storageMaxMB: DEFAULT_STORAGE_LIMIT_MB,
+        display: `${stats.siteCount}/${DEFAULT_WEBSITE_LIMIT} sites (${storageUsedMB}/${DEFAULT_STORAGE_LIMIT_MB}MB)`
     };
 }
 
-async function saveChangeToDisk(type, data, isDelete = false) {
-    const urlDigest = await getURLDigest();
-    
-    // Use storage service if available
-    if (window.ReadifyStorage) {
-        // Load existing changes
-        let changes = await window.ReadifyStorage.loadSiteChanges(urlDigest);
-        let originalChangeCount = changes.length;
+// ============================================
+// CHROME STORAGE OPERATIONS
+// ============================================
+
+// Save site data to chrome.storage.local
+async function saveSiteToLocal(urlDigest, siteData) {
+    try {
+        const key = `readify-site-${urlDigest}`;
+        const dataSize = calculateStorageSize(siteData);
+        siteData.sizeBytes = dataSize;
         
-        if (isDelete) {
-            // Remove the saved change for the deleted note
-            changes = changes.filter(change => !(change.type === 'note' && change.data === data));
-        } else if (type === "highlight" && data === "none") {
-            // Special handling for highlight clearing
-            let currentRange = serializeSelection();
-            changes = changes.filter(change => {
-                if (change.type === 'highlight') {
-                    return !rangesOverlap(currentRange, change.range);
-                }
-                return true;
-            });
-        } else if (type === "underlineRemove") {
-            // Special handling for underline removal
-            let currentRange = serializeSelection();
-            changes = changes.filter(change => {
-                if (change.type === 'underline') {
-                    return !rangesOverlap(currentRange, change.range);
-                }
-                return true;
-            });
-        } else {
-            // Validate selection safety before saving
-            if ((type === "highlight" || type === "underline") && !isSelectionSafe()) {
-                console.warn("Attempted to save unsafe selection spanning across paragraphs");
-                return;
+        await chrome.storage.local.set({ [key]: siteData });
+        return { success: true };
+    } catch (e) {
+        console.error('Failed to save site to local storage:', e);
+        return { error: { message: e.message } };
+    }
+}
+
+// Load site data from chrome.storage.local
+async function loadSiteFromLocal(urlDigest) {
+    try {
+        const key = `readify-site-${urlDigest}`;
+        const result = await chrome.storage.local.get(key);
+        return result[key] || null;
+    } catch (e) {
+        console.error('Failed to load site from local storage:', e);
+        return null;
+    }
+}
+
+// Delete site data from chrome.storage.local
+async function deleteSiteFromLocal(urlDigest) {
+    try {
+        const key = `readify-site-${urlDigest}`;
+        await chrome.storage.local.remove(key);
+        return { success: true };
+    } catch (e) {
+        console.error('Failed to delete site from local storage:', e);
+        return { error: { message: e.message } };
+    }
+}
+
+// Get all sites from chrome.storage.local
+async function getAllSitesFromLocal() {
+    try {
+        const result = await chrome.storage.local.get(null);
+        const sites = [];
+        
+        for (const [key, value] of Object.entries(result)) {
+            if (key.startsWith('readify-site-') && value.info) {
+                const digest = key.replace('readify-site-', '');
+                sites.push({
+                    digest: digest,
+                    info: value.info,
+                    changeCount: value.changes?.length || 0,
+                    changes: value.changes || [],
+                    notes: value.notes || {},
+                    sizeBytes: value.sizeBytes || 0
+                });
             }
-            let range = serializeSelection();
-            changes.push({ type, range, data });
         }
         
-        // Build site info
-        const siteInfo = {
-            url: window.location.href,
-            title: document.title || window.location.hostname,
-            hostname: window.location.hostname,
-            lastModified: Date.now()
+        // Sort by last modified
+        sites.sort((a, b) => (b.info?.lastModified || 0) - (a.info?.lastModified || 0));
+        return sites;
+    } catch (e) {
+        console.error('Failed to get all sites from local storage:', e);
+        return [];
+    }
+}
+
+// Get site count
+async function getSiteCount() {
+    // For premium users, get from Supabase
+    if (window.ReadifySubscription) {
+        const isPremium = await window.ReadifySubscription.isPremium();
+        if (isPremium) {
+            const client = window.ReadifySupabase?.getClient();
+            const user = window.ReadifyAuth?.getCurrentUser();
+            
+            if (client && user) {
+                try {
+                    const { count, error } = await client
+                        .from('user_sites')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('user_id', user.id);
+                    
+                    return count || 0;
+                } catch (e) {
+                    console.error('Failed to get site count from Supabase:', e);
+                }
+            }
+        }
+    }
+    
+    // For free users, get from local storage
+    const stats = await getGlobalStats();
+    return stats.siteCount;
+}
+
+// ============================================
+// SUPABASE OPERATIONS (for premium users)
+// ============================================
+
+// Save to Supabase for premium users
+async function saveToSupabase(urlDigest, changes, siteInfo, notes = {}) {
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (!client || !user) {
+        return { error: { message: 'Not authenticated' } };
+    }
+    
+    try {
+        const { data, error } = await client
+            .from('user_sites')
+            .upsert({
+                user_id: user.id,
+                url_digest: urlDigest,
+                url: siteInfo?.url || '',
+                title: siteInfo?.title || '',
+                hostname: siteInfo?.hostname || '',
+                changes: changes,
+                notes: notes,
+                last_modified: new Date().toISOString()
+            }, {
+                onConflict: 'user_id,url_digest'
+            })
+            .select()
+            .single();
+        
+        if (error) {
+            console.error('Save to Supabase error:', error);
+            return { error };
+        }
+        
+        return { data, error: null };
+    } catch (e) {
+        console.error('Save to Supabase exception:', e);
+        return { error: { message: e.message } };
+    }
+}
+
+// Load from Supabase for premium users
+async function loadFromSupabase(urlDigest) {
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (!client || !user) {
+        return null;
+    }
+    
+    try {
+        const { data, error } = await client
+            .from('user_sites')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('url_digest', urlDigest)
+            .single();
+        
+        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
+            console.error('Load from Supabase error:', error);
+            return null;
+        }
+        
+        if (!data) {
+            return null;
+        }
+        
+        // Convert to local format
+        return {
+            info: {
+                url: data.url,
+                title: data.title,
+                hostname: data.hostname,
+                lastModified: new Date(data.last_modified).getTime()
+            },
+            changes: data.changes || [],
+            notes: data.notes || {}
+        };
+    } catch (e) {
+        console.error('Load from Supabase exception:', e);
+        return null;
+    }
+}
+
+// Delete from Supabase for premium users
+async function deleteFromSupabase(urlDigest) {
+    const client = window.ReadifySupabase?.getClient();
+    const user = window.ReadifyAuth?.getCurrentUser();
+    
+    if (!client || !user) {
+        return { error: { message: 'Not authenticated' } };
+    }
+    
+    try {
+        const { error } = await client
+            .from('user_sites')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('url_digest', urlDigest);
+        
+        if (error) {
+            console.error('Delete from Supabase error:', error);
+            return { error };
+        }
+        
+        return { success: true };
+    } catch (e) {
+        console.error('Delete from Supabase exception:', e);
+        return { error: { message: e.message } };
+    }
+}
+
+// ============================================
+// MIGRATION FUNCTIONS
+// ============================================
+
+// Migrate from chrome.storage.sync to chrome.storage.local for free users
+async function migrateFromSyncToLocal() {
+    try {
+        console.log('Starting migration from sync to local storage...');
+        
+        // Get all data from sync storage
+        const syncData = await new Promise((resolve) => {
+            chrome.storage.sync.get(null, (data) => {
+                resolve(chrome.runtime.lastError ? {} : data);
+            });
+        });
+        
+        let migratedSites = 0;
+        const stats = {
+            totalSizeBytes: 0,
+            siteCount: 0,
+            sites: []
         };
         
-        // Check limit for new sites
-        if (!isDelete && changes.length > 0) {
-            const existingChanges = await window.ReadifyStorage.loadSiteChanges(urlDigest);
-            if (existingChanges.length === 0) {
-                // This is a new site - check limit
-                const canAdd = await checkWebsiteLimit();
-                if (!canAdd) {
-                    showUpgradePrompt('website_limit');
-                    return;
+        // Find all saved sites in sync storage
+        const siteDigests = new Set();
+        for (const key in syncData) {
+            if (key.startsWith('saved-')) {
+                const digest = key.replace('saved-', '');
+                siteDigests.add(digest);
+            }
+        }
+        
+        // Migrate each site
+        for (const digest of siteDigests) {
+            const savedKey = `saved-${digest}`;
+            const siteInfoKey = `site-info-${digest}`;
+            
+            const changes = syncData[savedKey] || [];
+            const siteInfo = syncData[siteInfoKey] || {
+                url: 'Unknown',
+                title: 'Migrated Site',
+                hostname: 'unknown',
+                lastModified: Date.now()
+            };
+            
+            if (changes.length > 0) {
+                // Create new site data structure
+                const siteData = {
+                    info: siteInfo,
+                    changes: changes,
+                    notes: {},
+                    sizeBytes: 0
+                };
+                
+                // Calculate size
+                siteData.sizeBytes = calculateStorageSize(siteData);
+                
+                // Save to local storage
+                const result = await saveSiteToLocal(digest, siteData);
+                if (result.success) {
+                    stats.sites.push(digest);
+                    stats.siteCount++;
+                    stats.totalSizeBytes += siteData.sizeBytes;
+                    migratedSites++;
                 }
             }
         }
         
-        // Save changes
-        const result = await window.ReadifyStorage.saveSiteChanges(urlDigest, changes, siteInfo);
+        // Update global stats
+        await updateGlobalStats(stats);
+        
+        // Clean up sync storage (remove migrated data)
+        if (migratedSites > 0) {
+            const keysToRemove = [];
+            for (const key in syncData) {
+                if (key.startsWith('saved-') || key.startsWith('site-info-') || key === 'readify-all-sites') {
+                    keysToRemove.push(key);
+                }
+            }
+            
+            if (keysToRemove.length > 0) {
+                await new Promise((resolve) => {
+                    chrome.storage.sync.remove(keysToRemove, resolve);
+                });
+            }
+        }
+        
+        console.log(`Migration completed: ${migratedSites} sites migrated`);
+        return { success: true, migratedSites };
+        
+    } catch (e) {
+        console.error('Migration failed:', e);
+        return { error: e.message };
+    }
+}
+
+// Check if migration is needed
+async function needsMigration() {
+    try {
+        // Check if there's any data in sync storage to migrate
+        const syncData = await new Promise((resolve) => {
+            chrome.storage.sync.get(null, (data) => {
+                resolve(chrome.runtime.lastError ? {} : data);
+            });
+        });
+        
+        // Look for old saved sites
+        for (const key in syncData) {
+            if (key.startsWith('saved-') && syncData[key]?.length > 0) {
+                return true;
+            }
+        }
+        
+        return false;
+    } catch (e) {
+        console.error('Failed to check migration needs:', e);
+        return false;
+    }
+}
+
+// Auto-migrate on first load if needed
+async function autoMigrateIfNeeded() {
+    const shouldMigrate = await needsMigration();
+    if (shouldMigrate) {
+        console.log('Auto-migration detected, starting migration...');
+        await migrateFromSyncToLocal();
+    }
+}
+
+// ============================================
+// MAIN STORAGE FUNCTIONS
+// ============================================
+
+async function saveChangeToDisk(type, data, isDelete = false, markData = null) {
+    const urlDigest = await getURLDigest();
+    
+    // Check if premium user
+    const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
+    
+    if (isPremium) {
+        // Use Supabase for premium users
+        return await saveChangeToSupabase(urlDigest, type, data, isDelete, markData);
+    } else {
+        // Use local storage for free users
+        return await saveChangeToLocal(urlDigest, type, data, isDelete, markData);
+    }
+}
+
+// Save change to local storage (free users)
+// Now supports new mark-based system with segments
+async function saveChangeToLocal(urlDigest, type, data, isDelete = false, markData = null) {
+    try {
+        // Load existing site data
+        let siteData = await loadSiteFromLocal(urlDigest);
+        const isNewSite = !siteData;
+        
+        if (!siteData) {
+            siteData = {
+                info: {
+                    url: window.location.href,
+                    title: document.title || window.location.hostname,
+                    hostname: window.location.hostname,
+                    lastModified: Date.now()
+                },
+                changes: [],
+                notes: {},
+                sizeBytes: 0
+            };
+        }
+        
+        const originalChangeCount = siteData.changes.length;
+        
+        // Handle different change types
+        if (isDelete) {
+            if (type === 'note') {
+                // Remove note by markId
+                delete siteData.notes[data];
+            } else if (type === 'clearHighlight') {
+                // Remove highlights by highlightId array
+                const idsToRemove = Array.isArray(data) ? data : [data];
+                siteData.changes = siteData.changes.filter(change => 
+                    !idsToRemove.includes(change.highlightId)
+                );
+            } else if (type === 'clearUnderline') {
+                // Remove underlines by highlightId array
+                const idsToRemove = Array.isArray(data) ? data : [data];
+                siteData.changes = siteData.changes.filter(change => 
+                    !idsToRemove.includes(change.highlightId)
+                );
+            } else {
+                // Remove by markId
+                siteData.changes = siteData.changes.filter(change => change.markId !== data);
+            }
+        } else if (type === "note") {
+            // Add or update note (markId -> noteText)
+            if (markData && markData.markId) {
+                siteData.notes[markData.markId] = data;
+            } else {
+                siteData.notes[data] = data;
+            }
+        } else if (markData) {
+            // New mark-based system - store full mark data
+            siteData.changes.push({
+                type,
+                data, // color for highlights, null for underlines
+                markId: markData.markId,
+                highlightId: markData.highlightId,
+                text: markData.text,
+                segments: markData.segments,
+                noteText: markData.noteText || null,
+                createdAt: Date.now()
+            });
+        } else {
+            // Legacy fallback - should not be reached with new system
+            console.warn('saveChangeToLocal called without markData');
+        }
+        
+        // Update last modified
+        siteData.info.lastModified = Date.now();
+        
+        // Calculate estimated size
+        const estimatedSize = calculateStorageSize(siteData);
+        
+        // Check limits for new sites or if adding changes
+        if (!isDelete && (isNewSite || siteData.changes.length > originalChangeCount || Object.keys(siteData.notes).length > 0)) {
+            const limitCheck = await canAddChange(urlDigest, estimatedSize);
+            if (!limitCheck.canAdd) {
+                showUpgradePrompt(limitCheck.reason);
+                return;
+            }
+        }
+        
+        // Save the site data
+        const result = await saveSiteToLocal(urlDigest, siteData);
         
         if (result.error) {
             console.error('Failed to save changes:', result.error);
             return;
         }
         
+        // Update global stats
+        await updateGlobalStatsAfterSave(urlDigest, siteData, isNewSite, originalChangeCount);
+        
         // Handle MySites updates
-        if (changes.length === 0 && originalChangeCount > 0) {
-            // All changes removed
-            await window.ReadifyStorage.deleteSiteChanges(urlDigest);
+        if (siteData.changes.length === 0 && Object.keys(siteData.notes).length === 0 && originalChangeCount > 0) {
+            // All changes removed - delete the site
+            await deleteSiteFromLocal(urlDigest);
+            await updateGlobalStatsAfterDelete(urlDigest);
             notifyMySitesUpdate('removed');
-        } else if (changes.length > 0) {
+        } else if (siteData.changes.length > 0 || Object.keys(siteData.notes).length > 0) {
             notifyMySitesUpdate(originalChangeCount === 0 ? 'added' : 'updated');
         }
         
-        return;
+    } catch (e) {
+        console.error('Error saving change to local storage:', e);
     }
-    
-    // Fallback to direct Chrome storage (legacy)
-    let key = `saved-${urlDigest}`;
-    let savedChanges = await chrome.storage.sync.get(key);
-    let changes = savedChanges[key] || [];
-    let originalChangeCount = changes.length;
-    
-    if (isDelete) {
-        changes = changes.filter(change => !(change.type === 'note' && change.data === data));
-    } else if (type === "highlight" && data === "none") {
-        let currentRange = serializeSelection();
-        changes = changes.filter(change => {
-            if (change.type === 'highlight') {
-                return !rangesOverlap(currentRange, change.range);
+}
+
+// Save change to Supabase (premium users)
+async function saveChangeToSupabase(urlDigest, type, data, isDelete = false, markData = null) {
+    try {
+        // Load existing site data
+        let siteData = await loadFromSupabase(urlDigest);
+        const originalChangeCount = siteData?.changes?.length || 0;
+        
+        if (!siteData) {
+            siteData = {
+                info: {
+                    url: window.location.href,
+                    title: document.title || window.location.hostname,
+                    hostname: window.location.hostname,
+                    lastModified: Date.now()
+                },
+                changes: [],
+                notes: {}
+            };
+        }
+        
+        // Handle different change types
+        if (isDelete) {
+            if (type === 'note') {
+                delete siteData.notes[data];
+            } else if (type === 'clearHighlight' || type === 'clearUnderline') {
+                const idsToRemove = Array.isArray(data) ? data : [data];
+                siteData.changes = siteData.changes.filter(change => 
+                    !idsToRemove.includes(change.highlightId)
+                );
+            } else {
+                siteData.changes = siteData.changes.filter(change => change.markId !== data);
             }
-            return true;
-        });
-    } else if (type === "underlineRemove") {
-        let currentRange = serializeSelection();
-        changes = changes.filter(change => {
-            if (change.type === 'underline') {
-                return !rangesOverlap(currentRange, change.range);
+        } else if (type === "note") {
+            if (markData && markData.markId) {
+                siteData.notes[markData.markId] = data;
+            } else {
+                siteData.notes[data] = data;
             }
-            return true;
-        });
-    } else {
-        if ((type === "highlight" || type === "underline") && !isSelectionSafe()) {
-            console.warn("Attempted to save unsafe selection spanning across paragraphs");
+        } else if (markData) {
+            // New mark-based system
+            siteData.changes.push({
+                type,
+                data,
+                markId: markData.markId,
+                highlightId: markData.highlightId,
+                text: markData.text,
+                segments: markData.segments,
+                noteText: markData.noteText || null,
+                createdAt: Date.now()
+            });
+        }
+        
+        // Update last modified
+        siteData.info.lastModified = Date.now();
+        
+        // Save to Supabase
+        const result = await saveToSupabase(urlDigest, siteData.changes, siteData.info, siteData.notes);
+        
+        if (result.error) {
+            console.error('Failed to save changes to Supabase:', result.error);
             return;
         }
-        let range = serializeSelection();
-        changes.push({ type, range, data });
+        
+        // Handle MySites updates
+        if (siteData.changes.length === 0 && Object.keys(siteData.notes).length === 0 && originalChangeCount > 0) {
+            await deleteFromSupabase(urlDigest);
+            notifyMySitesUpdate('removed');
+        } else if (siteData.changes.length > 0 || Object.keys(siteData.notes).length > 0) {
+            notifyMySitesUpdate(originalChangeCount === 0 ? 'added' : 'updated');
+        }
+        
+    } catch (e) {
+        console.error('Error saving change to Supabase:', e);
     }
+}
 
-    chrome.storage.sync.set({ [key]: changes });
-
-    // Handle MySites updates for all cases
-    if (!isDelete && !(type === "highlight" && data === "none") && type !== "underlineRemove" && changes.length > 0) {
-        try {
-            await saveSiteInfo();
-            notifyMySitesUpdate('added');
-        } catch (error) {
-            if (error.message.includes('Website limit reached')) {
-                showUpgradePrompt('website_limit');
-                changes.pop();
-                chrome.storage.sync.set({ [key]: changes });
-                return;
-            }
-            throw error;
-        }
-    } else if ((isDelete && changes.length === 0) || 
-               (type === "highlight" && data === "none" && changes.length === 0) ||
-               (type === "underlineRemove" && changes.length === 0)) {
-        await cleanupSiteInfo();
-        notifyMySitesUpdate('removed');
-    } else if (isDelete && changes.length > 0) {
-        try {
-            await saveSiteInfo();
-            notifyMySitesUpdate('updated');
-        } catch (error) {
-            if (error.message.includes('Website limit reached')) {
-                showUpgradePrompt('website_limit');
-                return;
-            }
-            throw error;
-        }
-    } else if (!isDelete && !(type === "highlight" && data === "none") && type !== "underlineRemove") {
-        try {
-            await saveSiteInfo();
-            notifyMySitesUpdate('updated');
-        } catch (error) {
-            if (error.message.includes('Website limit reached')) {
-                showUpgradePrompt('website_limit');
-                return;
-            }
-            throw error;
-        }
-    } else if (((type === "highlight" && data === "none") || type === "underlineRemove") && 
-               changes.length > 0 && originalChangeCount > changes.length) {
-        try {
-            await saveSiteInfo();
-            notifyMySitesUpdate('updated');
-        } catch (error) {
-            if (error.message.includes('Website limit reached')) {
-                showUpgradePrompt('website_limit');
-                return;
-            }
-            throw error;
-        }
+// Update global stats after saving
+async function updateGlobalStatsAfterSave(urlDigest, siteData, isNewSite, originalChangeCount) {
+    const stats = await getGlobalStats();
+    
+    // Add site if new
+    if (isNewSite && !stats.sites.includes(urlDigest)) {
+        stats.sites.push(urlDigest);
+        stats.siteCount++;
     }
+    
+    // Recalculate total size by getting all sites (more accurate but slower)
+    // For better performance, we could track size changes incrementally
+    const allSites = await getAllSitesFromLocal();
+    stats.totalSizeBytes = allSites.reduce((total, site) => total + (site.sizeBytes || 0), 0);
+    
+    await updateGlobalStats(stats);
+}
+
+// Update global stats after deleting
+async function updateGlobalStatsAfterDelete(urlDigest) {
+    const stats = await getGlobalStats();
+    
+    // Remove site from list
+    stats.sites = stats.sites.filter(digest => digest !== urlDigest);
+    stats.siteCount = stats.sites.length;
+    
+    // Recalculate total size
+    const allSites = await getAllSitesFromLocal();
+    stats.totalSizeBytes = allSites.reduce((total, site) => total + (site.sizeBytes || 0), 0);
+    
+    await updateGlobalStats(stats);
 }
 
 async function restoreChangesFromDisk(i = 0) {
     try {
         const urlDigest = await getURLDigest();
-        let results = [];
+        let siteData = null;
         
         // Wait a bit for services to initialize on first attempt
         if (i === 0) {
             await new Promise(resolve => setTimeout(resolve, 500));
+            // Auto-migrate if needed
+            await autoMigrateIfNeeded();
         }
-        
-        // Try to load from appropriate storage
-        let loadedFromSupabase = false;
         
         // Check if user is premium and should load from Supabase
         if (window.ReadifySubscription && window.ReadifyAuth?.isAuthenticated()) {
             try {
                 const isPremium = await window.ReadifySubscription.isPremium();
                 if (isPremium) {
-                    // Load directly from Supabase for premium users
-                    const client = window.ReadifySupabase?.getClient();
-                    const user = window.ReadifyAuth?.getCurrentUser();
-                    
-                    if (client && user) {
-                        const { data, error } = await client
-                            .from('user_sites')
-                            .select('changes')
-                            .eq('user_id', user.id)
-                            .eq('url_digest', urlDigest)
-                            .single();
-                        
-                        if (!error && data?.changes) {
-                            // Parse JSON if needed
-                            results = typeof data.changes === 'string' 
-                                ? JSON.parse(data.changes) 
-                                : data.changes;
-                            loadedFromSupabase = true;
-                            console.log('Restored', results.length, 'changes from Supabase');
-                        }
+                    siteData = await loadFromSupabase(urlDigest);
+                    if (siteData) {
+                        console.log('Restored changes from Supabase');
                     }
                 }
             } catch (e) {
-                console.log('Could not load from Supabase, trying Chrome storage:', e.message);
+                console.log('Could not load from Supabase, trying local storage:', e.message);
             }
         }
         
-        // Fallback to Chrome storage if not loaded from Supabase
-        if (!loadedFromSupabase) {
-            if (window.ReadifyStorage) {
-                results = await window.ReadifyStorage.loadSiteChanges(urlDigest);
-            } else {
-                let key = `saved-${urlDigest}`;
-                const saved = await chrome.storage.sync.get(key);
-                results = saved[key] || [];
-            }
-            if (results.length > 0) {
-                console.log('Restored', results.length, 'changes from Chrome storage');
+        // Fallback to local storage if not loaded from Supabase
+        if (!siteData) {
+            siteData = await loadSiteFromLocal(urlDigest);
+            if (siteData) {
+                console.log('Restored changes from local storage');
             }
         }
 
-        if (results && results.length > 0) {
-            for (const result of results) {
-                let { type, range, data } = result;
-                let startContainer = document.body;
-                let endContainer = document.body;
-
-                for (let i = 0; i < range.startContainerPath.length; i++) {
-                    startContainer = startContainer.childNodes[range.startContainerPath[i]];
-                }
-
-                for (let i = 0; i < range.endContainerPath.length; i++) {
-                    endContainer = endContainer.childNodes[range.endContainerPath[i]];
-                }
-
-                let selection = window.getSelection();
-                let newRange = document.createRange();
-                newRange.setStart(startContainer, range.startOffset);
-                newRange.setEnd(endContainer, range.endOffset);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
-
-                switch (type) {
-                    case "highlight":
-                        highlightSelectedText(data);
-                        break;
-                        
-                    case "underline":
-                        underlineSelectedText();
-                        break;
-                    case "underlineRemove":
-                        underlineSelectedText("remove");
-                        break;
-
-                    case "note":
-                        if (!localStorage.getItem(data)) {
-                            createNoteAnchor(data);
-                        }
-                        break;
+        if (siteData && siteData.changes && siteData.changes.length > 0) {
+            for (const changeData of siteData.changes) {
+                try {
+                    // Check if this is new format (has segments) or legacy format (has range)
+                    if (changeData.segments && changeData.text) {
+                        // New mark-based format - use text restoration
+                        restoreHighlight(changeData);
+                    } else if (changeData.range) {
+                        // Legacy format - use DOM path restoration
+                        restoreLegacyChange(changeData);
+                    }
+                } catch (e) {
+                    console.warn('Failed to restore change:', e.message, changeData);
                 }
             }
-        } else {
+        }
+        
+        // Restore notes - attach click handlers to restored marks
+        if (siteData && siteData.notes) {
+            for (const [markId, noteText] of Object.entries(siteData.notes)) {
+                const marks = document.querySelectorAll(`readify-mark[data-mark-id="${markId}"]`);
+                marks.forEach(mark => {
+                    mark.classList.add('readify-with-notes');
+                    mark.addEventListener('click', () => showNoteForMark(markId));
+                });
+            }
+        }
+        
+        if (!siteData || (!siteData.changes?.length && !Object.keys(siteData.notes || {}).length)) {
             console.log("No saved data found for this page");
         }
     } catch (e) {
@@ -374,182 +762,125 @@ async function restoreChangesFromDisk(i = 0) {
     }
 }
 
+// Legacy restoration for old format data
+function restoreLegacyChange(changeData) {
+    const { type, range, data } = changeData;
+    
+    try {
+        let startContainer = document.body;
+        let endContainer = document.body;
+
+        for (let i = 0; i < range.startContainerPath.length; i++) {
+            startContainer = startContainer.childNodes[range.startContainerPath[i]];
+        }
+
+        for (let i = 0; i < range.endContainerPath.length; i++) {
+            endContainer = endContainer.childNodes[range.endContainerPath[i]];
+        }
+
+        let selection = window.getSelection();
+        let newRange = document.createRange();
+        newRange.setStart(startContainer, range.startOffset);
+        newRange.setEnd(endContainer, range.endOffset);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+
+        switch (type) {
+            case "highlight":
+                highlightSelectedText(data);
+                break;
+            case "underline":
+                underlineSelectedText();
+                break;
+        }
+        
+        selection.removeAllRanges();
+    } catch (e) {
+        console.warn('Legacy restore failed:', e.message);
+    }
+}
+
 async function deleteChangesFromDisk() {
     const urlDigest = await getURLDigest();
     
-    // Use storage service if available
-    if (window.ReadifyStorage) {
-        await window.ReadifyStorage.deleteSiteChanges(urlDigest);
+    // Check if premium user
+    const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
+    
+    if (isPremium) {
+        await deleteFromSupabase(urlDigest);
     } else {
-        let key = `saved-${urlDigest}`;
-        chrome.storage.sync.remove(key);
+        await deleteSiteFromLocal(urlDigest);
+        await updateGlobalStatsAfterDelete(urlDigest);
     }
     
-    // Also remove from localStorage (notes)
-    let localStorageKey = `readifyNotes-${urlDigest}`;
-    localStorage.removeItem(localStorageKey);
-    
-    // Clean up site info (for Chrome storage mode)
-    await cleanupSiteInfo();
-    
-    // Decrement the website limit counter
-    await decrementWebsiteLimit();
-    
     notifyMySitesUpdate('removed');
-    
     window.location.reload();
 }
 
-async function saveSiteInfo() {
-    // Premium users using cloud storage don't need local site tracking
-    if (window.ReadifyStorage?.isCloud()) {
-        return;
-    }
+async function getAllSavedSites() {
+    // Check if premium user
+    const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
     
-    const urlDigest = await getURLDigest();
-    const siteInfoKey = `site-info-${urlDigest}`;
-    
-    // Get current site info or create new
-    const currentSiteInfo = await chrome.storage.sync.get(siteInfoKey);
-    
-    if (!currentSiteInfo[siteInfoKey]) {
-        // Check if we can add a new site (within limit)
-        const canAddSite = await checkWebsiteLimit();
-        if (!canAddSite) {
-            chrome.storage.sync.set({ extensionEnabled: false });
-            throw new Error('Website limit reached. Study mode has been disabled.');
+    if (isPremium) {
+        // Get sites from Supabase
+        const client = window.ReadifySupabase?.getClient();
+        const user = window.ReadifyAuth?.getCurrentUser();
+        
+        if (!client || !user) {
+            return [];
         }
         
-        const siteInfo = {
-            url: window.location.href,
-            title: document.title || window.location.hostname,
-            hostname: window.location.hostname,
-            lastModified: Date.now()
-        };
-        
-        chrome.storage.sync.set({ [siteInfoKey]: siteInfo });
-        
-        // Also maintain a list of all site digests
-        const allSitesKey = 'readify-all-sites';
-        const allSites = await chrome.storage.sync.get(allSitesKey);
-        const siteDigests = allSites[allSitesKey] || [];
-        
-        if (!siteDigests.includes(urlDigest)) {
-            siteDigests.push(urlDigest);
-            chrome.storage.sync.set({ [allSitesKey]: siteDigests });
+        try {
+            const { data, error } = await client
+                .from('user_sites')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('last_modified', { ascending: false });
             
-            // Increment the website limit counter
-            await incrementWebsiteLimit();
+            if (error) {
+                console.error('Get all sites from Supabase error:', error);
+                return [];
+            }
+            
+            return (data || []).map(site => ({
+                digest: site.url_digest,
+                info: {
+                    url: site.url,
+                    title: site.title,
+                    hostname: site.hostname,
+                    lastModified: new Date(site.last_modified).getTime()
+                },
+                changeCount: (site.changes?.length || 0) + (Object.keys(site.notes || {}).length),
+                changes: site.changes || [],
+                notes: site.notes || {}
+            }));
+        } catch (e) {
+            console.error('Get all sites from Supabase exception:', e);
+            return [];
         }
     } else {
-        // Update last modified time
-        currentSiteInfo[siteInfoKey].lastModified = Date.now();
-        chrome.storage.sync.set({ [siteInfoKey]: currentSiteInfo[siteInfoKey] });
+        // Get sites from local storage
+        return await getAllSitesFromLocal();
     }
-}
-
-async function cleanupSiteInfo() {
-    // Premium users using cloud storage don't need local cleanup
-    if (window.ReadifyStorage?.isCloud()) {
-        return;
-    }
-    
-    const urlDigest = await getURLDigest();
-    const siteInfoKey = `site-info-${urlDigest}`;
-    
-    // Remove site info
-    chrome.storage.sync.remove(siteInfoKey);
-    
-    // Remove from all sites list
-    const allSitesKey = 'readify-all-sites';
-    const allSites = await chrome.storage.sync.get(allSitesKey);
-    const siteDigests = allSites[allSitesKey] || [];
-    
-    const updatedDigests = siteDigests.filter(d => d !== urlDigest);
-    chrome.storage.sync.set({ [allSitesKey]: updatedDigests });
-}
-
-function notifyMySitesUpdate(action) {
-    // Send message to extension popup/sidepanel to update My Sites
-    chrome.runtime.sendMessage({
-        type: 'mySitesUpdate',
-        action: action, // 'added', 'updated', 'removed'
-        url: window.location.href,
-        title: document.title || window.location.hostname,
-        hostname: window.location.hostname
-    }).catch(() => {
-        // Ignore errors if popup/sidepanel is not open
-    });
-}
-
-async function getAllSavedSites() {
-    // Use storage service if available
-    if (window.ReadifyStorage) {
-        return await window.ReadifyStorage.getAllSites();
-    }
-    
-    // Fallback to direct Chrome storage
-    const allSitesKey = 'readify-all-sites';
-    const allSites = await chrome.storage.sync.get(allSitesKey);
-    const siteDigests = allSites[allSitesKey] || [];
-    
-    const sites = [];
-    for (const digest of siteDigests) {
-        const siteInfoKey = `site-info-${digest}`;
-        const savedKey = `saved-${digest}`;
-        
-        const [siteInfo, savedChanges] = await Promise.all([
-            chrome.storage.sync.get(siteInfoKey),
-            chrome.storage.sync.get(savedKey)
-        ]);
-        
-        if (siteInfo[siteInfoKey] && savedChanges[savedKey] && savedChanges[savedKey].length > 0) {
-            sites.push({
-                digest: digest,
-                info: siteInfo[siteInfoKey],
-                changeCount: savedChanges[savedKey].length
-            });
-        }
-    }
-    
-    // Sort by last modified (most recent first)
-    sites.sort((a, b) => b.info.lastModified - a.info.lastModified);
-    
-    return sites;
 }
 
 async function deleteSiteData(digest) {
-    // Use storage service if available
-    if (window.ReadifyStorage) {
-        await window.ReadifyStorage.deleteSiteChanges(digest);
-        await decrementWebsiteLimit();
-        return;
+    // Check if premium user
+    const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
+    
+    if (isPremium) {
+        await deleteFromSupabase(digest);
+    } else {
+        await deleteSiteFromLocal(digest);
+        await updateGlobalStatsAfterDelete(digest);
     }
-    
-    // Fallback to direct Chrome storage
-    const siteInfoKey = `site-info-${digest}`;
-    const savedKey = `saved-${digest}`;
-    
-    // Remove site data
-    chrome.storage.sync.remove([siteInfoKey, savedKey]);
-    
-    // Remove from all sites list
-    const allSitesKey = 'readify-all-sites';
-    const allSites = await chrome.storage.sync.get(allSitesKey);
-    const siteDigests = allSites[allSitesKey] || [];
-    
-    const updatedDigests = siteDigests.filter(d => d !== digest);
-    chrome.storage.sync.set({ [allSitesKey]: updatedDigests });
-    
-    // Decrement the website limit counter
-    await decrementWebsiteLimit();
 }
 
 // Show upgrade prompt for premium features
 function showUpgradePrompt(feature) {
     const messages = {
         'website_limit': 'You\'ve reached the free limit of 5 websites. Upgrade to Premium for unlimited sites!',
-        'summarize': 'AI Summarization is a Premium feature. Upgrade to unlock!',
+        'storage_limit': 'You\'ve reached the 10MB storage limit. Upgrade to Premium for unlimited storage!',
         'tts': 'Text-to-Speech is a Premium feature. Upgrade to unlock!',
         'default': 'This is a Premium feature. Upgrade to unlock all features!'
     };
@@ -624,43 +955,77 @@ function showUpgradePrompt(feature) {
     });
 }
 
-// Note management functions
+// Note management functions - now uses readify-mark elements
 function attachNoteEvents() {
-    document.querySelectorAll("a").forEach((anchor) => {
-        if (localStorage.getItem(anchor.textContent)) {
-            anchor.onclick = function (e) {
-                e.preventDefault();
-                let savedNote = localStorage.getItem(anchor.textContent);
-                showNoteInput(savedNote, anchor);
-            };
+    // Attach to new readify-mark elements with notes
+    document.querySelectorAll('readify-mark.readify-with-notes').forEach((mark) => {
+        const markId = mark.getAttribute('data-mark-id');
+        if (markId) {
+            mark.addEventListener('click', () => showNoteForMark(markId));
         }
+    });
+    
+    // Legacy support for old anchor-based notes
+    document.querySelectorAll("a.note-anchor").forEach((anchor) => {
+        attachNoteClickHandler(anchor);
     });
 }
 
-function createNoteAnchor(noteText) {
-    let selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-        let range = selection.getRangeAt(0);
-        if (range && !range.collapsed) {
-            let contents = range.extractContents();
-            let anchor = document.createElement("a");
-            anchor.className = "note-anchor";
-            anchor.href = "#";
-            anchor.onclick = function (e) {
-                e.preventDefault();
-                let savedNote = localStorage.getItem(anchor.textContent);
+function attachNoteClickHandler(anchor, noteText = null) {
+    anchor.onclick = function (e) {
+        e.preventDefault();
+        if (!noteText) {
+            getURLDigest().then(async (urlDigest) => {
+                const isPremium = window.ReadifySubscription ? await window.ReadifySubscription.isPremium() : false;
+                const siteData = isPremium ? await loadFromSupabase(urlDigest) : await loadSiteFromLocal(urlDigest);
+                const savedNote = siteData?.notes?.[anchor.textContent] || '';
                 showNoteInput(savedNote, anchor);
-            };
-
-            // Highlight the anchor text if there's content in the textarea
-            let span = document.createElement("span");
-            span.style.backgroundColor = "yellow";
-            span.appendChild(contents);
-            anchor.appendChild(span);
-
-            range.insertNode(anchor);
-            localStorage.setItem(anchor.textContent, noteText);
-            window.getSelection().removeAllRanges();
+            });
+        } else {
+            showNoteInput(noteText, anchor);
         }
+    };
+}
+
+// Legacy function - kept for backwards compatibility
+function createNoteAnchor(noteText) {
+    console.warn('createNoteAnchor is deprecated - use highlightSelectedText with noteText instead');
+    // Create a highlight with note using new system
+    const markData = highlightSelectedText('#fdffb4', noteText);
+    if (markData) {
+        saveChangeToDisk("highlight", '#fdffb4', false, markData);
+        saveChangeToDisk("note", noteText, false, { markId: markData.markId });
     }
+}
+
+function notifyMySitesUpdate(action) {
+    // Send message to extension popup/sidepanel to update My Sites
+    chrome.runtime.sendMessage({
+        type: 'mySitesUpdate',
+        action: action, // 'added', 'updated', 'removed'
+        url: window.location.href,
+        title: document.title || window.location.hostname,
+        hostname: window.location.hostname
+    }).catch(() => {
+        // Ignore errors if popup/sidepanel is not open
+    });
+}
+
+// Legacy compatibility functions (keeping existing API)
+async function checkWebsiteLimit() {
+    const limitCheck = await canAddChange(await getURLDigest());
+    return limitCheck.canAdd;
+}
+
+async function isStudyModeAllowed() {
+    return await checkWebsiteLimit();
+}
+
+// Global exports for sidepanel access
+if (typeof window !== 'undefined') {
+    // Export main functions globally for sidepanel.js
+    window.getAllSavedSites = getAllSavedSites;
+    window.deleteSiteData = deleteSiteData;
+    window.getWebsiteLimitInfo = getWebsiteLimitInfo;
+    window.getSiteCount = getSiteCount;
 }

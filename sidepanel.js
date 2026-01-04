@@ -364,17 +364,7 @@ async function handleSignIn() {
         await loadMySites();
         await updateLimitDisplay();
         
-        // Check for migration
-        if (window.ReadifyStorage?.needsMigration) {
-            const needsMigration = await window.ReadifyStorage.needsMigration();
-            if (needsMigration) {
-                const isPremium = await window.ReadifySubscription?.isPremium();
-                if (isPremium) {
-                    await window.ReadifyStorage.migrateToCloud();
-                    await loadMySites();
-                }
-            }
-        }
+        // Note: Migration functionality handled automatically in storage-manager.js
     }
 }
 
@@ -780,6 +770,14 @@ function escapeHtml(unsafe) {
 
 // Helper function to get all saved sites
 async function getAllSavedSites() {
+    // Use the centralized function from storage-manager.js
+    if (typeof window.getAllSavedSites === 'function') {
+        return await window.getAllSavedSites();
+    }
+    
+    // Fallback if storage-manager function not available
+    console.warn('getAllSavedSites not available from storage-manager.js, using fallback');
+    
     // Check if user is premium - use Supabase
     if (window.ReadifySubscription) {
         const subscription = await window.ReadifySubscription.getStatus();
@@ -788,8 +786,8 @@ async function getAllSavedSites() {
         }
     }
     
-    // Free users - use Chrome storage
-    return await getAllSitesFromChromeStorage();
+    // Free users - use new Chrome local storage format
+    return await getAllSitesFromChromeLocal();
 }
 
 async function getAllSitesFromSupabase() {
@@ -830,28 +828,33 @@ async function getAllSitesFromSupabase() {
     }
 }
 
-async function getAllSitesFromChromeStorage() {
+async function getAllSitesFromChromeLocal() {
     return new Promise((resolve) => {
-        chrome.storage.sync.get(null, function(allData) {
+        chrome.storage.local.get(null, function(allData) {
             if (chrome.runtime.lastError) {
+                console.error('Error getting sites from chrome.storage.local:', chrome.runtime.lastError);
                 resolve([]);
                 return;
             }
             
             const sites = [];
-            const siteInfoKeys = Object.keys(allData).filter(key => key.startsWith('site-info-'));
             
-            for (const siteInfoKey of siteInfoKeys) {
-                const digest = siteInfoKey.replace('site-info-', '');
-                const savedKey = `saved-${digest}`;
-                
-                if (allData[savedKey] && allData[savedKey].length > 0) {
-                    sites.push({
-                        digest: digest,
-                        info: allData[siteInfoKey],
-                        changeCount: allData[savedKey].length,
-                        changes: allData[savedKey]
-                    });
+            // Look for new format keys
+            for (const [key, value] of Object.entries(allData)) {
+                if (key.startsWith('readify-site-') && value.info) {
+                    const digest = key.replace('readify-site-', '');
+                    const totalChanges = (value.changes?.length || 0) + (Object.keys(value.notes || {}).length);
+                    
+                    if (totalChanges > 0) {
+                        sites.push({
+                            digest: digest,
+                            info: value.info,
+                            changeCount: totalChanges,
+                            changes: value.changes || [],
+                            notes: value.notes || {},
+                            sizeBytes: value.sizeBytes || 0
+                        });
+                    }
                 }
             }
             
@@ -864,6 +867,14 @@ async function getAllSitesFromChromeStorage() {
 
 // Helper function to delete site data
 async function deleteSiteData(digest) {
+    // Use the centralized function from storage-manager.js
+    if (typeof window.deleteSiteData === 'function') {
+        return await window.deleteSiteData(digest);
+    }
+    
+    // Fallback if storage-manager function not available
+    console.warn('deleteSiteData not available from storage-manager.js, using fallback');
+    
     // Check if user is premium - delete from Supabase
     if (window.ReadifySubscription) {
         const subscription = await window.ReadifySubscription.getStatus();
@@ -873,8 +884,8 @@ async function deleteSiteData(digest) {
         }
     }
     
-    // Free users - delete from Chrome storage
-    await deleteSiteFromChromeStorage(digest);
+    // Free users - delete from new Chrome local storage
+    await deleteSiteFromChromeLocal(digest);
 }
 
 async function deleteSiteFromSupabase(digest) {
@@ -901,34 +912,42 @@ async function deleteSiteFromSupabase(digest) {
     }
 }
 
-async function deleteSiteFromChromeStorage(digest) {
+async function deleteSiteFromChromeLocal(digest) {
     return new Promise((resolve) => {
         chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
             if (tabs[0]) {
                 chrome.scripting.executeScript({
                     target: { tabId: tabs[0].id },
                     func: async function(digest) {
-                        const siteInfoKey = `site-info-${digest}`;
-                        const savedKey = `saved-${digest}`;
+                        const siteKey = `readify-site-${digest}`;
                         
-                        // Remove site data
-                        chrome.storage.sync.remove([siteInfoKey, savedKey]);
+                        // Remove site data from local storage
+                        await chrome.storage.local.remove(siteKey);
                         
-                        // Remove from all sites list
-                        const allSitesKey = 'readify-all-sites';
-                        const allSites = await chrome.storage.sync.get(allSitesKey);
-                        const siteDigests = allSites[allSitesKey] || [];
+                        // Update global stats
+                        const GLOBAL_STATS_KEY = 'readify-global-stats';
+                        const result = await chrome.storage.local.get(GLOBAL_STATS_KEY);
+                        const stats = result[GLOBAL_STATS_KEY] || {
+                            totalSizeBytes: 0,
+                            siteCount: 0,
+                            sites: []
+                        };
                         
-                        const updatedDigests = siteDigests.filter(d => d !== digest);
-                        chrome.storage.sync.set({ [allSitesKey]: updatedDigests });
+                        // Remove site from list and update counts
+                        stats.sites = stats.sites.filter(d => d !== digest);
+                        stats.siteCount = stats.sites.length;
                         
-                        // Decrement the website limit counter
-                        const limitResult = await chrome.storage.sync.get('websiteLimit');
-                        const limit = limitResult.websiteLimit || { used: 0, max: 5 };
-                        if (limit.used > 0) {
-                            limit.used--;
-                            await chrome.storage.sync.set({ websiteLimit: limit });
+                        // Recalculate total size by getting all remaining sites
+                        const allData = await chrome.storage.local.get(null);
+                        let totalSize = 0;
+                        for (const [key, value] of Object.entries(allData)) {
+                            if (key.startsWith('readify-site-') && value.sizeBytes) {
+                                totalSize += value.sizeBytes;
+                            }
                         }
+                        stats.totalSizeBytes = totalSize;
+                        
+                        await chrome.storage.local.set({ [GLOBAL_STATS_KEY]: stats });
                     },
                     args: [digest]
                 }, function() {
@@ -1089,24 +1108,23 @@ document.getElementById("confirmationModal").addEventListener("click", function(
 
 // Website limit functions
 async function getWebsiteLimit() {
-    // Check if user is premium
+    // Use the centralized function from storage-manager.js
+    if (typeof window.getWebsiteLimitInfo === 'function') {
+        return await window.getWebsiteLimitInfo();
+    }
+    
+    // Fallback for backward compatibility
+    console.warn('getWebsiteLimitInfo not available from storage-manager.js');
     if (window.ReadifySubscription) {
         const subscription = await window.ReadifySubscription.getStatus();
         if (subscription.isPremium) {
-            // Premium users have unlimited sites - count from Supabase
             const siteCount = await getSiteCountForPremium();
             return { used: siteCount, max: Infinity, isPremium: true };
         }
     }
     
-    // Free users - count from Chrome storage
-    return new Promise((resolve) => {
-        chrome.storage.sync.get('websiteLimit', function(result) {
-            const limit = result.websiteLimit || { used: 0, max: 5 };
-            limit.isPremium = false;
-            resolve(limit);
-        });
-    });
+    // Free users fallback - should not be reached with new system
+    return { used: 0, max: 5, isPremium: false, display: '0/5' };
 }
 
 async function getSiteCountForPremium() {
@@ -1136,34 +1154,11 @@ async function getSiteCountForPremium() {
 }
 
 async function syncSiteTracking() {
-    // Get all storage keys to find all sites
-    chrome.storage.sync.get(null, function(allData) {
-        const siteInfoKeys = Object.keys(allData).filter(key => key.startsWith('site-info-'));
-        const savedKeys = Object.keys(allData).filter(key => key.startsWith('saved-'));
-        
-        // Find all site digests that have both site-info and saved data
-        const validSiteDigests = [];
-        
-        siteInfoKeys.forEach(siteInfoKey => {
-            const digest = siteInfoKey.replace('site-info-', '');
-            const savedKey = `saved-${digest}`;
-            
-            // Check if this site has saved changes
-            if (allData[savedKey] && allData[savedKey].length > 0) {
-                validSiteDigests.push(digest);
-            }
-        });
-        
-        // Update the readify-all-sites array
-        chrome.storage.sync.set({ 'readify-all-sites': validSiteDigests });
-        
-        // Update the website limit to match actual count
-        const currentLimit = allData.websiteLimit || { used: 0, max: 5 };
-        currentLimit.used = validSiteDigests.length;
-        chrome.storage.sync.set({ websiteLimit: currentLimit });
-        
-        console.log(`Synced site tracking: Found ${validSiteDigests.length} sites`);
-    });
+    // For the new system, this function is no longer needed since global stats
+    // are automatically maintained in storage-manager.js
+    // However, we'll keep it for backward compatibility and just return
+    console.log('syncSiteTracking: Using new global stats system');
+    return Promise.resolve();
 }
 
 async function updateLimitDisplay() {
@@ -1202,57 +1197,7 @@ async function updateLimitDisplay() {
 
 async function checkStudyModeAllowed() {
     const limit = await getWebsiteLimit();
-    return limit.used < limit.max;
+    return limit.max === Infinity || limit.used < limit.max;
 } 
 
-// Manual sync function to fix inconsistent state - can be called from console
-window.fixSiteTracking = function() {
-    chrome.storage.sync.get(null, function(allData) {
-        console.log('Current storage data:', allData);
-        
-        const siteInfoKeys = Object.keys(allData).filter(key => key.startsWith('site-info-'));
-        const savedKeys = Object.keys(allData).filter(key => key.startsWith('saved-'));
-        
-        console.log('Found site-info keys:', siteInfoKeys);
-        console.log('Found saved keys:', savedKeys);
-        
-        // Find all site digests that have both site-info and saved data
-        const validSiteDigests = [];
-        
-        siteInfoKeys.forEach(siteInfoKey => {
-            const digest = siteInfoKey.replace('site-info-', '');
-            const savedKey = `saved-${digest}`;
-            
-            console.log(`Checking digest ${digest}:`, {
-                hasSiteInfo: !!allData[siteInfoKey],
-                hasSaved: !!allData[savedKey],
-                savedLength: allData[savedKey] ? allData[savedKey].length : 0
-            });
-            
-            // Check if this site has saved changes
-            if (allData[savedKey] && allData[savedKey].length > 0) {
-                validSiteDigests.push(digest);
-            }
-        });
-        
-        console.log('Valid site digests:', validSiteDigests);
-        
-        // Update the readify-all-sites array
-        chrome.storage.sync.set({ 'readify-all-sites': validSiteDigests }, function() {
-            console.log('Updated readify-all-sites to:', validSiteDigests);
-        });
-        
-        // Update the website limit to match actual count
-        const currentLimit = allData.websiteLimit || { used: 0, max: 5 };
-        currentLimit.used = validSiteDigests.length;
-        chrome.storage.sync.set({ websiteLimit: currentLimit }, function() {
-            console.log('Updated websiteLimit to:', currentLimit);
-        });
-        
-        // Refresh the UI
-        setTimeout(() => {
-            loadMySites();
-            updateLimitDisplay();
-        }, 200);
-    });
-}; 
+// Note: Manual sync function removed - no longer needed with new storage system 

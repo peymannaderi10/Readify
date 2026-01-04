@@ -1,5 +1,5 @@
 // Readify Extension - UI Components
-// Handles all popup UI components (Notes, TTS, Summary, Highlighter)
+// Handles all popup UI components (Notes, TTS, Highlighter)
 
 // Text-to-Speech functionality
 let currentUtterance = null;
@@ -490,25 +490,21 @@ speechSynthesis.onvoiceschanged = () => {
 };
 
 // ========== COMING SOON POPUP (for temporarily disabled features) ==========
-// featureName: "summarizer" | "tts" (or any string for custom features)
-function showComingSoonPopup(featureName = "summarizer") {
+// featureName: "tts" (or any string for custom features)
+function showComingSoonPopup(featureName = "tts") {
     // Remove any existing coming soon popup
     const existingPopup = containerRoot.querySelector('#coming-soon-popup');
     if (existingPopup) existingPopup.remove();
 
     // Feature-specific content
     const featureContent = {
-        summarizer: {
-            icon: "✨",
-            description: "AI Summarization will be available for Premium users. Stay tuned!"
-        },
         tts: {
             icon: "🔊",
             description: "Text to Speech will be available for Premium users. Stay tuned!"
         }
     };
 
-    const content = featureContent[featureName] || featureContent.summarizer;
+    const content = featureContent[featureName] || featureContent.tts;
 
     const popup = document.createElement("div");
     popup.id = "coming-soon-popup";
@@ -654,373 +650,6 @@ function showComingSoonPopup(featureName = "summarizer") {
     makeDraggable(popup);
 }
 
-// Summary popup functionality
-function showSummary(summary, text) {
-    if (summaryBox) {
-        removeElementWithCleanup(summaryBox);
-        summaryBox = null;
-    }
-
-    summaryBox = document.createElement("div");
-    summaryBox.style.position = "fixed";
-    summaryBox.style.left = selectionBox.style.left;
-
-    summaryBox.style.width = "min(500px, 90vw)";
-    summaryBox.style.height = "auto";
-    summaryBox.style.maxHeight = "70vh";
-    summaryBox.style.backgroundColor = "#ffffff";
-    summaryBox.style.borderRadius = "16px";
-    summaryBox.style.boxShadow = "0 20px 40px rgba(0, 151, 255, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1)";
-    summaryBox.style.padding = "24px";
-    summaryBox.style.border = "1px solid rgba(0, 151, 255, 0.1)";
-    summaryBox.style.backdropFilter = "blur(10px)";
-    summaryBox.style.fontFamily = "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    summaryBox.style.display = "flex";
-    summaryBox.style.flexDirection = "column";
-    summaryBox.style.gap = "20px";
-    summaryBox.style.overflow = "visible";
-    summaryBox.style.zIndex = "10000";
-
-    containerRoot.appendChild(summaryBox);
-
-    // Add a modern header
-    let headerContainer = document.createElement("div");
-    headerContainer.style.cssText = `
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 8px;
-        height: 32px;
-    `;
-    
-    let titleContainer = document.createElement("div");
-    titleContainer.style.cssText = `
-        display: flex;
-        align-items: center;
-    `;
-    
-    let iconElement = document.createElement("div");
-    iconElement.innerHTML = "🤖";
-    iconElement.style.cssText = `
-        font-size: 20px;
-        opacity: 0.7;
-        margin-right: 8px;
-        line-height: 1;
-    `;
-    
-    let titleElement = document.createElement("h3");
-    titleElement.innerText = "AI Summary";
-    titleElement.style.cssText = `
-        margin: 0;
-        font-size: 18px;
-        font-weight: 600;
-        color: #1a202c;
-        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        line-height: 1;
-    `;
-    
-    titleContainer.appendChild(iconElement);
-    titleContainer.appendChild(titleElement);
-    headerContainer.appendChild(titleContainer);
-
-    const dropdownContainer = document.createElement("div");
-    dropdownContainer.className = "dropdown-container";
-
-    const dropdownButton = document.createElement("button");
-    dropdownButton.className = "dropdown-toggle";
-    dropdownButton.innerText = "✨ Quick Actions";
-    
-    // Modern dropdown button styling
-    dropdownButton.style.cssText = `
-        padding: 12px 16px;
-        border-radius: 10px;
-        border: 2px solid rgba(0, 151, 255, 0.2);
-        background: transparent;
-        color: #0097ff;
-        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        font-weight: 500;
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        width: 100%;
-        text-align: left;
-        position: relative;
-    `;
-    
-    dropdownButton.addEventListener("mouseenter", function() {
-        this.style.backgroundColor = "rgba(0, 151, 255, 0.05)";
-        this.style.borderColor = "#0097ff";
-    });
-    
-    dropdownButton.addEventListener("mouseleave", function() {
-        this.style.backgroundColor = "transparent";
-        this.style.borderColor = "rgba(0, 151, 255, 0.2)";
-    });
-    
-    dropdownContainer.appendChild(dropdownButton);
-
-    const dropdownMenu = document.createElement("ul");
-    dropdownMenu.className = "dropdown-menu";
-    dropdownContainer.appendChild(dropdownMenu);
-
-    const optionsList = [
-        { value: "summary", label: "Summarize" },
-        { value: "longSummary", label: "Long Summary" },
-        { value: "shortSummary", label: "Shorter Summary" },
-        {
-            label: "Tone",
-            options: [
-                { value: "formalTone", label: "Formal Tone" },
-                { value: "casualTone", label: "Casual Tone" },
-                { value: "neutralTone", label: "Neutral Tone" },
-            ],
-        },
-        {
-            label: "Translate",
-            options: [
-                { value: "spanish", label: "Spanish" },
-                { value: "french", label: "French" },
-                { value: "mandarin", label: "Chinese (Simplified)" },
-                { value: "cantonese", label: "Chinese (Traditional)" },
-                { value: "korean", label: "Korean" },
-                { value: "japanese", label: "Japanese" },
-                { value: "vietnamese", label: "Vietnamese" },
-                { value: "punjabi", label: "Punjabi" },
-                { value: "arabic", label: "Arabic" },
-                { value: "indonesian", label: "Indonesian" },
-                { value: "turkish", label: "Turkish" },
-                { value: "russian", label: "Russian" },
-                { value: "german", label: "German" },
-                { value: "tagalog", label: "Tagalog" },
-                { value: "italian", label: "Italian" },
-            ],
-        },
-    ];
-
-    optionsList.forEach((opt) => {
-        const li = document.createElement("li");
-        if (opt.options) {
-            li.innerText = opt.label;
-            li.className = "has-submenu";
-
-            const submenu = document.createElement("ul");
-            submenu.className = "submenu";
-            opt.options.forEach((subOpt) => {
-                const subLi = document.createElement("li");
-                subLi.innerText = subOpt.label;
-                subLi.dataset.value = subOpt.value;
-                submenu.appendChild(subLi);
-            });
-
-            li.appendChild(submenu);
-        } else {
-            li.innerText = opt.label;
-            li.dataset.value = opt.value;
-        }
-        dropdownMenu.appendChild(li);
-    });
-
-    const textArea = document.createElement("textarea");
-    textArea.style.width = "100%";
-    textArea.style.minHeight = "120px";
-    textArea.style.maxHeight = "400px";
-    textArea.style.resize = "none";
-    textArea.style.boxSizing = "border-box";
-    textArea.style.padding = "16px";
-    textArea.style.fontFamily = "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    textArea.style.fontSize = "15px";
-    textArea.style.lineHeight = "1.5";
-    textArea.style.border = "2px solid rgba(182, 240, 233, 0.3)";
-    textArea.style.backgroundColor = "rgba(182, 240, 233, 0.05)";
-    textArea.style.borderRadius = "12px";
-    textArea.style.outline = "none";
-    textArea.style.transition = "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
-    textArea.style.color = "#2d3748";
-    textArea.style.overflow = "auto";
-    textArea.value = summary;
-    
-    // Function to auto-resize textarea based on content
-    function autoResizeTextarea() {
-        textArea.style.height = "auto";
-        const scrollHeight = textArea.scrollHeight;
-        const minHeight = 120;
-        const maxHeight = 400;
-        
-        if (scrollHeight <= maxHeight) {
-            textArea.style.height = Math.max(scrollHeight, minHeight) + "px";
-            textArea.style.overflow = "hidden";
-        } else {
-            textArea.style.height = maxHeight + "px";
-            textArea.style.overflow = "auto";
-        }
-    }
-    
-    // Auto-resize on input and initial load
-    textArea.addEventListener("input", autoResizeTextarea);
-    
-    // Initial resize after content is set
-    setTimeout(autoResizeTextarea, 100);
-    
-    // Focus and hover effects for textarea
-    textArea.addEventListener("focus", function() {
-        this.style.borderColor = "#0097ff";
-        this.style.backgroundColor = "rgba(182, 240, 233, 0.1)";
-        this.style.boxShadow = "0 0 0 3px rgba(0, 151, 255, 0.1)";
-    });
-    
-    textArea.addEventListener("blur", function() {
-        this.style.borderColor = "rgba(182, 240, 233, 0.3)";
-        this.style.backgroundColor = "rgba(182, 240, 233, 0.05)";
-        this.style.boxShadow = "none";
-    });
-
-    dropdownButton.addEventListener("click", () => {
-        const isShown = dropdownMenu.style.display === "block";
-        dropdownMenu.style.display = isShown ? "none" : "block";
-    });
-
-    dropdownMenu.addEventListener("click", async (e) => {
-        if (e.target.tagName === "LI" && e.target.dataset.value) {
-            const value = e.target.dataset.value;
-            dropdownMenu.style.display = "none";
-
-            const overlay = showLoadingOverlay(textArea);
-            textArea.disabled = true;
-
-            const newSummary = await summarizeText(text, value);
-
-            textArea.value = newSummary;
-            
-            // Auto-resize after new content is loaded
-            setTimeout(autoResizeTextarea, 100);
-
-            overlay.remove();
-            textArea.disabled = false;
-        }
-    });
-
-    // Create action buttons container
-    const actionButtonsContainer = document.createElement("div");
-    actionButtonsContainer.style.cssText = `
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
-        margin-top: 8px;
-    `;
-
-    const copyButton = document.createElement("button");
-    copyButton.innerText = "📋 Copy";
-    copyButton.title = "Copy to Clipboard";
-    
-    // Modern copy button styling
-    copyButton.style.cssText = `
-        padding: 12px 24px;
-        border-radius: 10px;
-        border: 2px solid rgba(0, 151, 255, 0.2);
-        background: transparent;
-        color: #0097ff;
-        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        font-weight: 500;
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    `;
-    
-    copyButton.addEventListener("mouseenter", function() {
-        this.style.backgroundColor = "rgba(0, 151, 255, 0.05)";
-        this.style.borderColor = "#0097ff";
-        this.style.transform = "translateY(-1px)";
-    });
-    
-    copyButton.addEventListener("mouseleave", function() {
-        this.style.backgroundColor = "transparent";
-        this.style.borderColor = "rgba(0, 151, 255, 0.2)";
-        this.style.transform = "translateY(0)";
-    });
-
-    copyButton.onclick = () => {
-        copyToClipboard(textArea.value);
-        // Modern feedback instead of alert
-        copyButton.innerText = "✅ Copied!";
-        setTimeout(() => {
-            copyButton.innerText = "📋 Copy";
-        }, 2000);
-    };
-
-    actionButtonsContainer.appendChild(copyButton);
-    
-    // Create modern close button
-    const closeButton = document.createElement('button');
-    closeButton.innerText = '×';
-    closeButton.style.cssText = `
-        background: transparent;
-        border: none;
-        font-size: 24px;
-        color: #6b7280;
-        cursor: pointer;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        transition: all 0.2s ease;
-        font-family: system-ui;
-        line-height: 1;
-        padding: 0;
-        margin: 0;
-    `;
-    
-    closeButton.addEventListener('click', function() {
-        removeElementWithCleanup(summaryBox);
-        summaryBox = null;
-    });
-    
-    closeButton.addEventListener('mouseenter', function() {
-        this.style.backgroundColor = 'rgba(107, 114, 128, 0.1)';
-        this.style.color = '#374151';
-    });
-    
-    closeButton.addEventListener('mouseleave', function() {
-        this.style.backgroundColor = 'transparent';
-        this.style.color = '#6b7280';
-    });
-    
-    // Add close button to header
-    headerContainer.appendChild(closeButton);
-
-    // Assemble the popup
-    summaryBox.appendChild(headerContainer);
-    summaryBox.appendChild(dropdownContainer);
-    summaryBox.appendChild(textArea);
-    summaryBox.appendChild(actionButtonsContainer);
-
-    // Calculate positioning similar to note popup logic
-    let boxHeight = summaryBox.getBoundingClientRect().height;
-    let positionLeft = parseFloat(selectionBox.style.left);
-    let spaceAbove = parseFloat(selectionBox.style.top);
-    let spaceBelow = window.innerHeight - (parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height);
-
-    let positionTop;
-    if (spaceBelow > boxHeight + 20) { // 20px buffer
-        // Position below the selection box
-        positionTop = parseFloat(selectionBox.style.top) + selectionBox.getBoundingClientRect().height + 10;
-    } else if (spaceAbove > boxHeight + 20) { // 20px buffer
-        // Position above the selection box
-        positionTop = spaceAbove - boxHeight - 10;
-    } else {
-        // Default to above if neither space is sufficient, but adjust to fit
-        positionTop = Math.max(10, spaceAbove - boxHeight - 10);
-    }
-
-    summaryBox.style.top = positionTop + "px";
-    summaryBox.style.left = positionLeft + "px";
-
-    makeDraggable(summaryBox);
-}
 
 // Note popup functionality
 function showNoteInput(initialText, anchorElement) {
@@ -1144,16 +773,27 @@ function showNoteInput(initialText, anchorElement) {
 
     let doneButton = document.createElement("button");
     doneButton.innerText = "Save Note";
-    doneButton.onclick = function () {
+    doneButton.onclick = async function () {
         restoreSelection();
         let noteText = noteTextArea.value.trim();
         if (noteText) {
             if (!anchorElement) {
-                saveChangeToDisk("note", noteText).then(() => {
-                    createNoteAnchor(noteText);
-                });
+                // Create new highlight with note
+                const markData = highlightSelectedText('#fdffb4', noteText); // Yellow highlight with note
+                if (markData) {
+                    // Save the highlight and note
+                    await saveChangeToDisk("highlight", '#fdffb4', false, markData);
+                    await saveChangeToDisk("note", noteText, false, { markId: markData.markId });
+                    // Update visual indicator for notes
+                    addNoteToHighlight(markData.markId, noteText);
+                }
             } else {
-                localStorage.setItem(anchorElement.textContent, noteText);
+                // Update existing note - anchorElement is now a readify-mark
+                const markId = anchorElement.getAttribute('data-mark-id');
+                if (markId) {
+                    await saveChangeToDisk("note", noteText, false, { markId });
+                    addNoteToHighlight(markId, noteText);
+                }
             }
         }
         removeElementWithCleanup(summaryBox);
@@ -1459,20 +1099,25 @@ function showColorPicker(selection) {
             });
         }
         
-        btn.addEventListener("click", function () {
-            // Double-check selection safety before applying highlight
-            if (!isSelectionSafe() && colorOption.name !== "none") {
-                showSelectionWarning();
-                removeColorPicker();
-                removeSelectionBox();
-                return;
-            }
+        btn.addEventListener("click", async function () {
             const highlightColor = colorOption.name === "none" ? "none" : colorOption.name;
-            saveChangeToDisk("highlight", highlightColor).then(() => {
-                highlightSelectedText(highlightColor);
-                removeColorPicker();
-                removeSelectionBox();
-            });
+            
+            if (highlightColor === "none") {
+                // Clear highlights - returns array of cleared IDs
+                const clearedIds = highlightSelectedText("none");
+                if (clearedIds && clearedIds.length > 0) {
+                    await saveChangeToDisk("clearHighlight", clearedIds, true);
+                }
+            } else {
+                // Apply highlight - returns markData
+                const markData = highlightSelectedText(highlightColor);
+                if (markData) {
+                    await saveChangeToDisk("highlight", highlightColor, false, markData);
+                }
+            }
+            
+            removeColorPicker();
+            removeSelectionBox();
         });
         buttonWrapper.appendChild(btn);
     }

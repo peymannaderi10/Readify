@@ -18,8 +18,7 @@ The service worker is the backbone of the extension, responsible for managing th
 A suite of content scripts is injected into web pages at `document_idle` to interact with the DOM. These scripts are responsible for the core functionalities of the extension:
 
 -   **`content-main.js`**: The main entry point for the content scripts. It initializes a shadow DOM to encapsulate the extension's UI components, preventing style conflicts with the host page. It also sets up event listeners for user interactions, such as `mouseup` for text selection, and handles communication with other parts of the extension via `chrome.runtime.onMessage`.
--   **`selection-handler.js` & `text-operations.js`**: These scripts manage text selection and provide a context menu of actions that can be performed on the selected text, such as highlighting, summarizing, or text-to-speech.
--   **`ai-services.js`**: This module integrates with AI APIs to provide advanced features like text summarization and analysis.
+-   **`selection-handler.js` & `text-operations.js`**: These scripts manage text selection and provide a context menu of actions that can be performed on the selected text, such as highlighting or text-to-speech.
 -   **`storage-manager.js`**: Manages the persistence of user preferences and modifications using `chrome.storage.sync` and `chrome.storage.local`. This ensures that user customizations are not lost between sessions.
 -   **`ui-components.js`**: Contains the logic for creating and managing the various UI components that are injected into the page, such as the selection menu and pop-ups.
 

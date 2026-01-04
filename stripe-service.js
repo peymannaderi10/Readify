@@ -180,15 +180,7 @@ async function handlePaymentSuccess() {
         await window.ReadifySubscription.refresh();
     }
     
-    // Check for migration needs
-    if (window.ReadifyStorage) {
-        const needsMigration = await window.ReadifyStorage.needsMigration();
-        if (needsMigration) {
-            // Migrate data from Chrome storage to Supabase
-            const result = await window.ReadifyStorage.migrateToCloud();
-            console.log('Data migration result:', result);
-        }
-    }
+    // Note: Migration functionality removed - handled in storage-manager.js
     
     return { success: true };
 }
@@ -230,7 +222,6 @@ function getPricingInfo() {
         price: window.READIFY_CONFIG?.SUBSCRIPTION_PRICE || '$4.99/month',
         features: [
             'Unlimited website saves',
-            'AI-powered summarization',
             'Text-to-speech',
             'Cloud sync across devices',
             'Priority support'

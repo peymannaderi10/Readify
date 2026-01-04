@@ -129,7 +129,7 @@ async function canAccessFeature(featureName) {
     }
     
     // Premium features require active subscription
-    const premiumFeatures = ['summarize', 'tts', 'unlimited_sites', 'cloud_sync'];
+    const premiumFeatures = ['tts', 'unlimited_sites', 'cloud_sync'];
     if (premiumFeatures.includes(featureName)) {
         return subscription.canAccessPremiumFeatures;
     }
