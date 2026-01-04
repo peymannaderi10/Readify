@@ -1,7 +1,7 @@
 // Readify Extension - Supabase Storage Operations
-// Functions for interacting with Supabase backend
+// Functions for interacting with Readify API backend
 
-// Save to Supabase via Edge Function (server-side limit enforcement)
+// Save to Readify API (server-side limit enforcement)
 async function saveToSupabase(urlDigest, changes, siteInfo, notes = {}) {
     const client = window.ReadifySupabase?.getClient();
     const user = window.ReadifyAuth?.getCurrentUser();
@@ -17,14 +17,14 @@ async function saveToSupabase(urlDigest, changes, siteInfo, notes = {}) {
             return { error: { message: 'No valid session' } };
         }
         
-        // Use Edge Function for server-side limit enforcement
-        const supabaseUrl = window.READIFY_CONFIG?.SUPABASE_URL;
-        const response = await fetch(`${supabaseUrl}/functions/v1/save-site`, {
+        // Use Readify API for server-side limit enforcement
+        const apiUrl = window.READIFY_CONFIG.getApiUrl(window.READIFY_CONFIG.ENDPOINTS.SAVE_SITE);
+        
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-                'apikey': window.READIFY_CONFIG?.SUPABASE_ANON_KEY
+                'Authorization': `Bearer ${session.access_token}`
             },
             body: JSON.stringify({
                 url_digest: urlDigest,
@@ -44,13 +44,13 @@ async function saveToSupabase(urlDigest, changes, siteInfo, notes = {}) {
                 showUpgradePrompt('website_limit');
                 return { error: result, limitReached: true };
             }
-            console.error('Save to Supabase error:', result);
+            console.error('Save to API error:', result);
             return { error: result };
         }
         
         return { data: result.data, error: null, siteCount: result.site_count };
     } catch (e) {
-        console.error('Save to Supabase exception:', e);
+        console.error('Save to API exception:', e);
         return { error: { message: e.message } };
     }
 }
@@ -140,7 +140,7 @@ async function loadFromSupabase(urlDigest) {
     }
 }
 
-// Delete from Supabase for premium users
+// Delete from Supabase/API
 async function deleteFromSupabase(urlDigest) {
     const client = window.ReadifySupabase?.getClient();
     const user = window.ReadifyAuth?.getCurrentUser();
@@ -150,25 +150,38 @@ async function deleteFromSupabase(urlDigest) {
     }
     
     try {
-        const { error } = await client
-            .from('user_sites')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('url_digest', urlDigest);
+        // Get the current session for auth token
+        const { data: { session } } = await client.auth.getSession();
+        if (!session?.access_token) {
+            return { error: { message: 'No valid session' } };
+        }
         
-        if (error) {
-            console.error('Delete from Supabase error:', error);
-            return { error };
+        // Use Readify API
+        const apiUrl = window.READIFY_CONFIG.getApiUrl(
+            window.READIFY_CONFIG.ENDPOINTS.DELETE_SITE + '/' + encodeURIComponent(urlDigest)
+        );
+        
+        const response = await fetch(apiUrl, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`
+            }
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            console.error('Delete from API error:', result);
+            return { error: result };
         }
         
         return { success: true };
     } catch (e) {
-        console.error('Delete from Supabase exception:', e);
+        console.error('Delete from API exception:', e);
         return { error: { message: e.message } };
     }
 }
 
-// Get all saved sites from Supabase
+// Get all saved sites from API
 async function getAllSavedSites() {
     // Check if user is logged in
     const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
@@ -178,7 +191,6 @@ async function getAllSavedSites() {
         return [];
     }
     
-    // Get sites from Supabase for logged-in users (free or premium)
     const client = window.ReadifySupabase?.getClient();
     const user = window.ReadifyAuth?.getCurrentUser();
     
@@ -187,18 +199,31 @@ async function getAllSavedSites() {
     }
     
     try {
-        const { data, error } = await client
-            .from('user_sites')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('last_modified', { ascending: false });
-        
-        if (error) {
-            console.error('Get all sites from Supabase error:', error);
+        // Get the current session for auth token
+        const { data: { session } } = await client.auth.getSession();
+        if (!session?.access_token) {
             return [];
         }
         
-        return (data || []).map(site => ({
+        // Use Readify API
+        const apiUrl = window.READIFY_CONFIG.getApiUrl(window.READIFY_CONFIG.ENDPOINTS.LIST_SITES);
+        
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`
+            }
+        });
+        
+        if (!response.ok) {
+            console.error('Get all sites error:', await response.text());
+            return [];
+        }
+        
+        const result = await response.json();
+        const sites = result.sites || [];
+        
+        return sites.map(site => ({
             digest: site.url_digest,
             info: {
                 url: site.url,
@@ -211,7 +236,7 @@ async function getAllSavedSites() {
             notes: site.notes || {}
         }));
     } catch (e) {
-        console.error('Get all sites from Supabase exception:', e);
+        console.error('Get all sites from API exception:', e);
         return [];
     }
 }
@@ -226,4 +251,3 @@ async function deleteSiteData(digest) {
     }
     // For non-logged-in users, nothing to delete (session-only)
 }
-

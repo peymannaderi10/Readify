@@ -140,33 +140,47 @@ async function getAllSavedSitesSidepanel() {
         return [];
     }
     
-    // All logged-in users (free and premium) use Supabase
-    console.log('Loading sites from Supabase');
-    return await getAllSitesFromSupabaseSidepanel();
+    // All logged-in users use the API
+    console.log('Loading sites from API');
+    return await getAllSitesFromAPI();
 }
 
-async function getAllSitesFromSupabaseSidepanel() {
+// Get all sites via Readify API
+async function getAllSitesFromAPI() {
     const client = window.ReadifySupabase?.getClient();
     const user = window.ReadifyAuth?.getCurrentUser();
     
     if (!client || !user) {
-        console.log('No client or user for Supabase sites');
+        console.log('No client or user for API sites');
         return [];
     }
     
     try {
-        const { data, error } = await client
-            .from('user_sites')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('last_modified', { ascending: false });
-        
-        if (error) {
-            console.error('Get all sites from Supabase error:', error);
+        // Get access token for API auth
+        const { data: { session } } = await client.auth.getSession();
+        if (!session?.access_token) {
+            console.log('No valid session for API');
             return [];
         }
         
-        return (data || []).map(site => ({
+        const apiUrl = window.READIFY_CONFIG.getApiUrl(window.READIFY_CONFIG.ENDPOINTS.LIST_SITES);
+        
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`
+            }
+        });
+        
+        if (!response.ok) {
+            console.error('Get sites from API error:', await response.text());
+            return [];
+        }
+        
+        const result = await response.json();
+        const sites = result.sites || [];
+        
+        return sites.map(site => ({
             digest: site.url_digest,
             info: {
                 url: site.url,
@@ -178,7 +192,7 @@ async function getAllSitesFromSupabaseSidepanel() {
             changes: site.changes
         }));
     } catch (e) {
-        console.error('Get all sites from Supabase exception:', e);
+        console.error('Get sites from API exception:', e);
         return [];
     }
 }
@@ -194,31 +208,46 @@ async function deleteSiteDataSidepanel(digest) {
         return;
     }
     
-    // All logged-in users delete from Supabase
-    await deleteSiteFromSupabaseSidepanel(digest);
+    // All logged-in users delete via API
+    await deleteSiteFromAPI(digest);
 }
 
-async function deleteSiteFromSupabaseSidepanel(digest) {
+// Delete site via Readify API
+async function deleteSiteFromAPI(digest) {
     const client = window.ReadifySupabase?.getClient();
     const user = window.ReadifyAuth?.getCurrentUser();
     
     if (!client || !user) {
-        console.error('No client or user for Supabase delete');
+        console.error('No client or user for API delete');
         return;
     }
     
     try {
-        const { error } = await client
-            .from('user_sites')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('url_digest', digest);
+        // Get access token for API auth
+        const { data: { session } } = await client.auth.getSession();
+        if (!session?.access_token) {
+            console.error('No valid session for API delete');
+            return;
+        }
         
-        if (error) {
-            console.error('Delete from Supabase error:', error);
+        const apiUrl = window.READIFY_CONFIG.getApiUrl(
+            window.READIFY_CONFIG.ENDPOINTS.DELETE_SITE + '/' + encodeURIComponent(digest)
+        );
+        
+        const response = await fetch(apiUrl, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`
+            }
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            console.error('Delete from API error:', result);
+        } else {
+            console.log('Site deleted via API');
         }
     } catch (e) {
-        console.error('Delete from Supabase exception:', e);
+        console.error('Delete from API exception:', e);
     }
 }
-

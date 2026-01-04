@@ -1,5 +1,5 @@
 // Readify Extension - Stripe Service
-// Handles Stripe checkout and subscription management via Supabase Edge Functions
+// Handles Stripe checkout and subscription management via Readify API
 
 // Create a checkout session for subscription
 async function createStripeCheckout() {
@@ -22,17 +22,12 @@ async function createStripeCheckout() {
         // Ensure we have a valid session with access token
         const { data: sessionData, error: sessionError } = await client.auth.getSession();
         
-        console.log('Session data:', sessionData);
-        console.log('Session error:', sessionError);
-        
         if (sessionError || !sessionData?.session) {
             console.error('No valid session for checkout:', sessionError);
             return { error: { message: 'Please sign in again to continue' } };
         }
         
         const accessToken = sessionData.session.access_token;
-        console.log('Access token (first 50 chars):', accessToken?.substring(0, 50));
-        console.log('Token expires at:', new Date(sessionData.session.expires_at * 1000).toISOString());
         
         // Get URLs safely
         let successUrl, cancelUrl;
@@ -44,28 +39,26 @@ async function createStripeCheckout() {
             cancelUrl = 'https://readify.ca/cancel';
         }
         
-        // Call Supabase Edge Function with explicit authorization header
-        const functionUrl = `${window.READIFY_CONFIG.SUPABASE_URL}/functions/v1/create-checkout-session`;
+        // Call Readify API (priceId is configured on backend)
+        const apiUrl = window.READIFY_CONFIG.getApiUrl(window.READIFY_CONFIG.ENDPOINTS.CREATE_CHECKOUT);
         const requestBody = {
-            priceId: window.READIFY_CONFIG?.STRIPE_PRICE_ID,
             successUrl: successUrl,
             cancelUrl: cancelUrl
         };
         
-        console.log('Calling Edge Function:', functionUrl);
-        console.log('Request body:', requestBody);
+        if (window.READIFY_CONFIG.DEV_MODE) {
+            console.log('Calling API:', apiUrl);
+            console.log('Request body:', requestBody);
+        }
         
-        const response = await fetch(functionUrl, {
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`,
-                'apikey': window.READIFY_CONFIG.SUPABASE_ANON_KEY
+                'Authorization': `Bearer ${accessToken}`
             },
             body: JSON.stringify(requestBody)
         });
-        
-        console.log('Response status:', response.status);
         
         let data;
         try {
@@ -78,7 +71,6 @@ async function createStripeCheckout() {
         
         if (!response.ok) {
             console.error('Checkout session error:', JSON.stringify(data, null, 2));
-            console.error('Response headers:', Object.fromEntries(response.headers.entries()));
             return { error: { message: data.error || data.message || 'Failed to create checkout session' } };
         }
         
@@ -134,21 +126,19 @@ async function openCustomerPortal() {
             returnUrl = 'https://readify.ca';
         }
         
-        // Call Supabase Edge Function with explicit authorization header
-        const response = await fetch(
-            `${window.READIFY_CONFIG.SUPABASE_URL}/functions/v1/create-portal-session`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`,
-                    'apikey': window.READIFY_CONFIG.SUPABASE_ANON_KEY
-                },
-                body: JSON.stringify({
-                    returnUrl: returnUrl
-                })
-            }
-        );
+        // Call Readify API
+        const apiUrl = window.READIFY_CONFIG.getApiUrl(window.READIFY_CONFIG.ENDPOINTS.CREATE_PORTAL);
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+                returnUrl: returnUrl
+            })
+        });
         
         const data = await response.json();
         
@@ -173,14 +163,60 @@ async function openCustomerPortal() {
     }
 }
 
+// Cancel subscription
+async function cancelSubscription(subscriptionId) {
+    if (!window.ReadifyAuth?.isAuthenticated()) {
+        return { 
+            error: { 
+                message: 'Please sign in to cancel your subscription',
+                requiresAuth: true 
+            } 
+        };
+    }
+    
+    const client = window.ReadifySupabase?.getClient();
+    if (!client) {
+        return { error: { message: 'Service unavailable' } };
+    }
+    
+    try {
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+        
+        if (sessionError || !sessionData?.session) {
+            return { error: { message: 'Please sign in again to continue' } };
+        }
+        
+        const accessToken = sessionData.session.access_token;
+        const apiUrl = window.READIFY_CONFIG.getApiUrl(window.READIFY_CONFIG.ENDPOINTS.CANCEL_SUBSCRIPTION);
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({ subscriptionId })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            return { error: { message: data.error || 'Failed to cancel subscription' } };
+        }
+        
+        return { success: true, ...data };
+    } catch (e) {
+        console.error('Cancel subscription exception:', e);
+        return { error: { message: e.message || 'Failed to cancel subscription' } };
+    }
+}
+
 // Handle payment success redirect
 async function handlePaymentSuccess() {
     // Refresh subscription status
     if (window.ReadifySubscription) {
         await window.ReadifySubscription.refresh();
     }
-    
-    // Note: Migration functionality removed - handled in storage-manager.js
     
     return { success: true };
 }
@@ -234,10 +270,10 @@ if (typeof window !== 'undefined') {
     window.ReadifyStripe = {
         createCheckout: createStripeCheckout,
         openPortal: openCustomerPortal,
+        cancelSubscription: cancelSubscription,
         handlePaymentSuccess,
         handlePaymentCanceled,
         checkPaymentStatus,
         getPricingInfo
     };
 }
-

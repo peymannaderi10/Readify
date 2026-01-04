@@ -51,13 +51,19 @@
         }
     ],
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co https://api.stripe.com;"
+        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co https://api.stripe.com http://localhost:* ws://localhost:* https://*.onrender.com wss://*.onrender.com;"
     },
     "background": {
         "service_worker": "background.js"
     },
     "permissions": ["activeTab", "storage", "scripting", "sidePanel", "identity", "alarms"],
-    "host_permissions": ["<all_urls>", "https://*.supabase.co/*", "https://api.stripe.com/*"],
+    "host_permissions": [
+        "<all_urls>",
+        "https://*.supabase.co/*",
+        "https://api.stripe.com/*",
+        "http://localhost:*/*",
+        "https://*.onrender.com/*"
+    ],
     "icons": {
         "128": "logo.png"
     },
