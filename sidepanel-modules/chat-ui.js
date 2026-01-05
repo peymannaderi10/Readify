@@ -96,9 +96,11 @@ function setupChatEventListeners() {
     const premiumRequiredModal = document.getElementById('premiumRequiredModal');
     const premiumRequiredCancelBtn = document.getElementById('premiumRequiredCancelBtn');
     const premiumRequiredUpgradeBtn = document.getElementById('premiumRequiredUpgradeBtn');
+    const premiumRequiredCloseBtn = document.getElementById('premiumRequiredCloseBtn');
     
     premiumRequiredCancelBtn?.addEventListener('click', hidePremiumRequiredModal);
     premiumRequiredUpgradeBtn?.addEventListener('click', handlePremiumUpgrade);
+    premiumRequiredCloseBtn?.addEventListener('click', hidePremiumRequiredModal);
     
     // Close modal when clicking outside
     premiumRequiredModal?.addEventListener('click', (e) => {
@@ -154,17 +156,31 @@ async function openChatPanel() {
 function showPremiumRequired() {
     const modal = document.getElementById('premiumRequiredModal');
     const modalText = document.getElementById('premiumRequiredText');
+    const upgradeFooter = document.getElementById('premiumRequiredFooter');
+    const closeFooter = document.getElementById('premiumRequiredCloseFooter');
     const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
     
     if (!isAuthenticated) {
-        // Update text for non-logged in users
+        // Not logged in - show sign in message with close button only
         if (modalText) {
-            modalText.textContent = 'Please sign in and upgrade to Premium to access AI Chat.';
+            modalText.textContent = 'Please sign in as a premium user to use this feature.';
+        }
+        if (upgradeFooter) {
+            upgradeFooter.style.display = 'none';
+        }
+        if (closeFooter) {
+            closeFooter.style.display = 'flex';
         }
     } else {
-        // Text for logged in free users
+        // Logged in free user - show upgrade prompt with buttons
         if (modalText) {
             modalText.textContent = 'AI Chat is a Premium feature. Upgrade to unlock unlimited AI conversations about any webpage.';
+        }
+        if (upgradeFooter) {
+            upgradeFooter.style.display = 'flex';
+        }
+        if (closeFooter) {
+            closeFooter.style.display = 'none';
         }
     }
     

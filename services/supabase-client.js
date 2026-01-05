@@ -139,7 +139,16 @@ function initSupabase() {
                     // Disable auto-refresh in content scripts to prevent
                     // "Extension context invalidated" errors when page navigates
                     autoRefreshToken: !isContentScript,
-                    detectSessionInUrl: false
+                    detectSessionInUrl: false,
+                    // Disable the lock mechanism that requires navigator.locks or Service Workers
+                    // This prevents "No SW" errors in content scripts where these aren't available
+                    lock: isContentScript ? async (name, acquireTimeout, callback) => {
+                        // In content scripts, just execute the callback without locking
+                        // This is safe because content scripts don't do token refresh
+                        return await callback();
+                    } : undefined,
+                    // Set a short timeout for lock acquisition to fail fast
+                    lockAcquireTimeout: isContentScript ? 0 : 10000
                 }
             }
         );

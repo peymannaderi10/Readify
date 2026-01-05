@@ -58,5 +58,18 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (window.ReadifyChatUI) {
         window.ReadifyChatUI.init();
     }
+    
+    // Listen for scroll to top requests (from content script sign-in prompt)
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === 'scrollSidepanelToTop') {
+            // Scroll the sidepanel to the top where auth section is
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Also expand the sign-in form if auth section is visible
+            const authSection = document.getElementById('authSection');
+            if (authSection && authSection.style.display !== 'none') {
+                expandAuthForm('signin');
+            }
+        }
+    });
 });
 

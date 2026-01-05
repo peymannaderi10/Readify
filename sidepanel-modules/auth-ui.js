@@ -38,10 +38,15 @@ async function updateAuthUI() {
         // Always show profile section when logged in
         if (userProfileSection) userProfileSection.style.display = 'block';
         
-        // Show voice settings section
+        // Show voice settings section only for premium users (TTS is a premium feature)
         if (voiceSettingsSection) {
-            voiceSettingsSection.style.display = 'block';
-            loadVoicePreference();
+            const isPremium = await window.ReadifySubscription?.isPremium() || false;
+            if (isPremium) {
+                voiceSettingsSection.style.display = 'block';
+                loadVoicePreference();
+            } else {
+                voiceSettingsSection.style.display = 'none';
+            }
         }
         
         // Update subscription status

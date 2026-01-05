@@ -83,30 +83,38 @@ function showSessionOnlyNotice() {
 
 // Show upgrade prompt for premium features
 function showUpgradePrompt(feature) {
+    // Check if user is authenticated
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
     const featureContent = {
         'website_limit': {
             icon: '📚',
             title: 'Site Limit Reached',
-            message: 'You\'ve reached the free limit of 5 websites. Upgrade to Premium for unlimited sites!'
+            message: 'You\'ve reached the free limit of 5 websites. Upgrade to Premium for unlimited sites!',
+            signInMessage: 'Please sign in as a premium user to save more than 5 websites.'
         },
         'storage_limit': {
             icon: '💾',
             title: 'Storage Full',
-            message: 'You\'ve reached the 10MB storage limit. Upgrade to Premium for unlimited storage!'
+            message: 'You\'ve reached the 10MB storage limit. Upgrade to Premium for unlimited storage!',
+            signInMessage: 'Please sign in as a premium user for unlimited storage.'
         },
         'tts': {
             icon: '🔊',
             title: 'Premium Feature',
-            message: 'Text-to-Speech is a Premium feature. Upgrade to unlock!'
+            message: 'Text-to-Speech is a Premium feature. Upgrade to unlock!',
+            signInMessage: 'Please sign in as a premium user to use Text-to-Speech.'
         },
         'default': {
             icon: '✨',
             title: 'Upgrade to Premium',
-            message: 'This is a Premium feature. Upgrade to unlock all features!'
+            message: 'This is a Premium feature. Upgrade to unlock all features!',
+            signInMessage: 'Please sign in as a premium user to use this feature.'
         }
     };
     
     const content = featureContent[feature] || featureContent['default'];
+    const displayMessage = isAuthenticated ? content.message : content.signInMessage;
     
     // Create overlay
     const existingOverlay = document.querySelector('#readify-upgrade-overlay');
@@ -215,7 +223,7 @@ function showUpgradePrompt(feature) {
             max-width: 300px;
             margin-left: auto;
             margin-right: auto;
-        ">${content.message}</p>
+        ">${displayMessage}</p>
         
         <div style="
             display: inline-block;
@@ -234,54 +242,89 @@ function showUpgradePrompt(feature) {
         </div>
         
         <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button id="readify-upgrade-btn" style="
-                width: 100%;
-                background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
-                color: white;
-                border: none;
-                padding: 14px 24px;
-                border-radius: 10px;
-                font-weight: 600;
-                cursor: pointer;
-                font-size: 15px;
-                font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                box-shadow: 0 4px 12px rgba(0, 151, 255, 0.3);
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            ">✨ Upgrade Now</button>
-            <button id="readify-close-upgrade" style="
-                width: 100%;
-                background: transparent;
-                color: #6b7280;
-                border: 2px solid rgba(0, 151, 255, 0.15);
-                padding: 12px 24px;
-                border-radius: 10px;
-                font-weight: 500;
-                cursor: pointer;
-                font-size: 14px;
-                font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            ">Maybe Later</button>
+            ${isAuthenticated ? `
+                <button id="readify-upgrade-btn" style="
+                    width: 100%;
+                    background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+                    color: white;
+                    border: none;
+                    padding: 14px 24px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 15px;
+                    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    box-shadow: 0 4px 12px rgba(0, 151, 255, 0.3);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                ">✨ Upgrade Now</button>
+                <button id="readify-close-upgrade" style="
+                    width: 100%;
+                    background: transparent;
+                    color: #6b7280;
+                    border: 2px solid rgba(0, 151, 255, 0.15);
+                    padding: 12px 24px;
+                    border-radius: 10px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                ">Maybe Later</button>
+            ` : `
+                <button id="readify-signin-btn" style="
+                    width: 100%;
+                    background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+                    color: white;
+                    border: none;
+                    padding: 14px 24px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 15px;
+                    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    box-shadow: 0 4px 12px rgba(0, 151, 255, 0.3);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                ">👤 Sign In</button>
+                <button id="readify-close-upgrade" style="
+                    width: 100%;
+                    background: transparent;
+                    color: #6b7280;
+                    border: 2px solid rgba(0, 151, 255, 0.15);
+                    padding: 12px 24px;
+                    border-radius: 10px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                ">Close</button>
+            `}
         </div>
     `;
     
     overlay.appendChild(prompt);
     document.body.appendChild(overlay);
     
-    // Add hover effects
+    // Get button elements
     const upgradeBtn = document.getElementById('readify-upgrade-btn');
+    const signInBtn = document.getElementById('readify-signin-btn');
     const closeBtn = document.getElementById('readify-close-upgrade');
     const closeX = document.getElementById('readify-close-x');
     
-    upgradeBtn.addEventListener('mouseenter', function() {
-        this.style.background = 'linear-gradient(135deg, #0088e6 0%, #00a3e6 100%)';
-        this.style.transform = 'translateY(-2px)';
-        this.style.boxShadow = '0 6px 20px rgba(0, 151, 255, 0.4)';
-    });
-    upgradeBtn.addEventListener('mouseleave', function() {
-        this.style.background = 'linear-gradient(135deg, #0097ff 0%, #00b4ff 100%)';
-        this.style.transform = 'translateY(0)';
-        this.style.boxShadow = '0 4px 12px rgba(0, 151, 255, 0.3)';
-    });
+    // Primary button (upgrade or sign in) - add hover effects
+    const primaryBtn = upgradeBtn || signInBtn;
+    if (primaryBtn) {
+        primaryBtn.addEventListener('mouseenter', function() {
+            this.style.background = 'linear-gradient(135deg, #0088e6 0%, #00a3e6 100%)';
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 6px 20px rgba(0, 151, 255, 0.4)';
+        });
+        primaryBtn.addEventListener('mouseleave', function() {
+            this.style.background = 'linear-gradient(135deg, #0097ff 0%, #00b4ff 100%)';
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 4px 12px rgba(0, 151, 255, 0.3)';
+        });
+    }
     
     closeBtn.addEventListener('mouseenter', function() {
         this.style.backgroundColor = 'rgba(0, 151, 255, 0.05)';
@@ -312,15 +355,30 @@ function showUpgradePrompt(feature) {
     };
     
     // Add event listeners
-    upgradeBtn.addEventListener('click', async () => {
-        closeModal();
-        if (window.ReadifySubscription) {
-            await window.ReadifySubscription.createCheckoutSession();
-        } else {
-            // Fallback: Open sidepanel
-            chrome.runtime.sendMessage({ type: 'openSidepanel' });
-        }
-    });
+    if (upgradeBtn) {
+        upgradeBtn.addEventListener('click', async () => {
+            closeModal();
+            if (window.ReadifySubscription) {
+                await window.ReadifySubscription.createCheckoutSession();
+            } else {
+                // Fallback: Open sidepanel
+                chrome.runtime.sendMessage({ type: 'openSidepanel' });
+            }
+        });
+    }
+    
+    if (signInBtn) {
+        signInBtn.addEventListener('click', () => {
+            closeModal();
+            // Open sidepanel and scroll to top for sign in
+            chrome.runtime.sendMessage({ type: 'openSidepanel' }).then(() => {
+                // Send message to scroll sidepanel to top
+                chrome.runtime.sendMessage({ type: 'scrollSidepanelToTop' });
+            }).catch(() => {
+                // Fallback if sendMessage fails
+            });
+        });
+    }
     
     closeBtn.addEventListener('click', closeModal);
     closeX.addEventListener('click', closeModal);

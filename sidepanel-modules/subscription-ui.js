@@ -9,6 +9,7 @@ async function updateSubscriptionUI() {
     const subEndingBtn = document.getElementById('subEndingBtn');
     const premiumBanner = document.getElementById('premiumBanner');
     const limitCounter = document.getElementById('limitCounter');
+    const voiceSettingsSection = document.getElementById('voiceSettingsSection');
     
     const user = window.ReadifyAuth?.getCurrentUser();
     if (userEmail && user) {
@@ -18,6 +19,15 @@ async function updateSubscriptionUI() {
     // Get subscription status
     if (window.ReadifySubscription) {
         const subscription = await window.ReadifySubscription.getStatus();
+        
+        // Update voice settings visibility (TTS is premium only)
+        if (voiceSettingsSection) {
+            if (subscription.isPremium) {
+                voiceSettingsSection.style.display = 'block';
+            } else {
+                voiceSettingsSection.style.display = 'none';
+            }
+        }
         
         if (subscription.isPremium) {
             // Premium user - check if cancelled (has cancelled_at date or status is canceling)

@@ -183,7 +183,7 @@ async function getUserProfile() {
             .single();
         
         if (error) {
-            console.error('Get profile error:', error);
+            console.error('Get profile error:', error.message || JSON.stringify(error));
             return { data: null, error };
         }
         
