@@ -112,10 +112,68 @@ async function refreshSubscriptionStatus() {
     return await getSubscriptionStatus();
 }
 
-// Check if user has premium access
+// Check if user has premium access (uses local cache)
 async function isPremium() {
     const subscription = await getSubscriptionStatus();
     return subscription.isPremium;
+}
+
+// Verify premium status via backend API (server-side verification)
+async function verifyPremiumWithServer() {
+    const client = window.ReadifySupabase?.getClient();
+    
+    if (!client) {
+        console.log('[Subscription] No Supabase client');
+        return { isPremium: false, error: 'Not connected to service' };
+    }
+    
+    try {
+        // Get fresh session token
+        const { data: { session } } = await client.auth.getSession();
+        if (!session?.access_token) {
+            console.log('[Subscription] No valid session');
+            return { isPremium: false, error: 'Not authenticated' };
+        }
+        
+        const apiUrl = window.READIFY_CONFIG.getApiUrl(window.READIFY_CONFIG.ENDPOINTS.SUBSCRIPTION_STATUS);
+        
+        console.log('[Subscription] Verifying premium status with server...');
+        
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            // Prevent browser caching
+            cache: 'no-store',
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            console.log('[Subscription] Server returned error:', error);
+            return { 
+                isPremium: false, 
+                error: error.error || 'Failed to verify subscription',
+                code: error.code
+            };
+        }
+        
+        const data = await response.json();
+        
+        console.log('[Subscription] Server verified status:', data.status, 'isPremium:', data.isPremium);
+        
+        // Return server response directly - NO CACHING
+        return { 
+            isPremium: data.isPremium === true,
+            status: data.status,
+            canAccessPremiumFeatures: data.canAccessPremiumFeatures === true,
+            error: null 
+        };
+        
+    } catch (e) {
+        console.error('[Subscription] Server verification error:', e);
+        return { isPremium: false, error: e.message || 'Verification failed' };
+    }
 }
 
 // Check if user can access a premium feature
@@ -377,6 +435,7 @@ if (typeof window !== 'undefined') {
         getStatus: getSubscriptionStatus,
         refresh: refreshSubscriptionStatus,
         isPremium,
+        verifyPremiumWithServer,
         canAccessFeature,
         getWebsiteLimit,
         createCheckoutSession,

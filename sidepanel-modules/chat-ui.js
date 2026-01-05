@@ -126,10 +126,11 @@ async function openChatPanel() {
     const chatPanel = document.getElementById('chatPanel');
     if (!chatPanel) return;
     
-    // Check if user has premium access
+    // Check if user has premium access via server verification
     if (window.ReadifySubscription) {
-        const isPremium = await window.ReadifySubscription.isPremium();
-        if (!isPremium) {
+        // Use server-verified premium check to prevent client-side bypass
+        const result = await window.ReadifySubscription.verifyPremiumWithServer();
+        if (!result.isPremium) {
             // Show upgrade prompt for non-premium users
             showPremiumRequired();
             return;
