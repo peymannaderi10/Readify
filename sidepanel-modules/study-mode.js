@@ -111,7 +111,7 @@ function setupModalListeners() {
             
             // Delete the individual site
             deleteSiteDataSidepanel(digest).then(() => {
-                loadMySites(); // Refresh the list
+                loadMySites(true); // Force refresh the list to bypass cache
                 updateLimitDisplay(); // Update the limit counter
             }).catch(error => {
                 console.error('Error deleting site:', error);
@@ -132,7 +132,7 @@ function setupModalListeners() {
                 
                 // Refresh My Sites and limit display after a short delay to allow the delete to complete
                 setTimeout(() => {
-                    loadMySites();
+                    loadMySites(true); // Force refresh to bypass cache
                     updateLimitDisplay();
                 }, 1000);
             });
