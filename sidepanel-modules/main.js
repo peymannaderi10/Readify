@@ -50,5 +50,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     // Check for payment status in URL
     checkPaymentStatusOnLoad();
+    
+    // Initialize AI Chat UI
+    if (window.ReadifyChatUI) {
+        window.ReadifyChatUI.init();
+    }
 });
 

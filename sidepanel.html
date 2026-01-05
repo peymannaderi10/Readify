@@ -110,6 +110,42 @@
                 </div>
             </section>
 
+            <!-- AI Chat Section -->
+            <section class="control-section chat-section">
+                <div class="section-header">
+                    <h2 class="section-title">💬 AI Assistant</h2>
+                    <div class="chat-mode-toggle">
+                        <button class="mode-btn active" id="textModeBtn" title="Text Chat">💬</button>
+                        <button class="mode-btn" id="voiceModeBtn" title="Voice Chat">🎤</button>
+                    </div>
+                </div>
+                
+                <!-- Chat Messages -->
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-welcome">
+                        <p>Ask me anything about this page!</p>
+                    </div>
+                </div>
+                
+                <!-- Text Input -->
+                <div class="chat-input-container" id="chatInputContainer">
+                    <textarea 
+                        id="chatInput" 
+                        placeholder="Ask about this page..." 
+                        rows="1"
+                    ></textarea>
+                    <button class="chat-send-btn" id="chatSendBtn">→</button>
+                </div>
+                
+                <!-- Voice Mode Container -->
+                <div class="voice-container" id="voiceContainer" style="display: none;">
+                    <div class="voice-waveform" id="voiceWaveform">
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    <div class="voice-status" id="voiceStatus">Click 🎤 to start</div>
+                </div>
+            </section>
+
             <!-- My Sites -->
             <section class="control-section">
                 <div class="section-header">
@@ -243,6 +279,8 @@
         <script src="services/auth-service.js"></script>
         <script src="services/subscription-service.js"></script>
         <script src="services/stripe-service.js"></script>
+        <script src="services/chat-service.js"></script>
+        <script src="services/voice-service.js"></script>
         <!-- Sidepanel modules -->
         <script src="sidepanel-modules/auth-ui.js"></script>
         <script src="sidepanel-modules/auth-handlers.js"></script>
@@ -250,6 +288,7 @@
         <script src="sidepanel-modules/sites-manager.js"></script>
         <script src="sidepanel-modules/limits.js"></script>
         <script src="sidepanel-modules/study-mode.js"></script>
+        <script src="sidepanel-modules/chat-ui.js"></script>
         <script src="sidepanel-modules/main.js"></script>
     </body>
 </html>
