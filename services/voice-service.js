@@ -13,7 +13,7 @@ let realtimeNextPlayTime = 0;
 let realtimeActiveSources = [];
 let realtimeResponseActive = false;
 let realtimeAssistantBuffer = '';
-let currentResponseId = null; // Track current response for proper cancellation
+let currentResponseId = null;
 
 // Callbacks
 let onStatusChange = null;
@@ -56,7 +56,7 @@ async function getRealtimeToken(pageContext) {
             pageContent: pageContext?.content,
             pageTitle: pageContext?.title,
             pageUrl: pageContext?.url,
-            voice: 'verse', // Default voice
+            voice: 'verse',
         }),
     });
     
@@ -78,7 +78,7 @@ async function startVoiceSession(pageContext) {
     try {
         onStatusChange?.('connecting');
         
-        // Get ephemeral token from backend
+        // Get ephemeral token from backend (includes session config with VAD)
         const tokenData = await getRealtimeToken(pageContext);
         console.log('[Voice] Got ephemeral token, expires:', new Date(tokenData.expires_at * 1000));
         
@@ -168,6 +168,9 @@ async function startMicrophone() {
         // Create audio context at 24kHz
         realtimeAudioContext = new AudioContext({ sampleRate: 24000 });
         
+        // Initialize playback timing
+        realtimeNextPlayTime = realtimeAudioContext.currentTime;
+        
         // Load and register the AudioWorklet
         const workletUrl = chrome.runtime.getURL('realtime-worklet.js');
         await realtimeAudioContext.audioWorklet.addModule(workletUrl);
@@ -192,6 +195,8 @@ async function startMicrophone() {
         // Connect microphone to worklet
         const source = realtimeAudioContext.createMediaStreamSource(realtimeMicStream);
         source.connect(realtimeWorkletNode);
+        // Connect worklet to destination to keep it alive
+        realtimeWorkletNode.connect(realtimeAudioContext.destination);
         
         onStatusChange?.('listening');
         console.log('[Voice] Microphone started');
@@ -226,29 +231,28 @@ function handleRealtimeMessage(event) {
                 console.log('[Voice] Session created');
                 break;
                 
+            case 'session.updated':
+                console.log('[Voice] Session configured');
+                break;
+                
             case 'input_audio_buffer.speech_started':
                 console.log('[Voice] User started speaking');
                 onStatusChange?.('listening');
                 
-                // Stop local audio playback immediately
-                stopPlayback();
-                
-                // Only try to cancel if we have an active response
+                // Cancel any ongoing AI response when user interrupts
                 if (realtimeResponseActive && currentResponseId && realtimeWs?.readyState === WebSocket.OPEN) {
-                    console.log('[Voice] Sending response.cancel for:', currentResponseId);
+                    console.log('[Voice] Interrupting AI response');
                     realtimeWs.send(JSON.stringify({ type: 'response.cancel' }));
                 }
                 
-                // Clear audio buffer to discard any pending audio from the cancelled response
-                if (realtimeWs?.readyState === WebSocket.OPEN) {
-                    realtimeWs.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
-                }
+                // Stop local audio playback immediately
+                stopPlayback();
                 break;
                 
             case 'input_audio_buffer.speech_stopped':
                 console.log('[Voice] User stopped speaking');
                 onStatusChange?.('processing');
-                // Server VAD will automatically commit and trigger response
+                // Server VAD will automatically commit and trigger response after silence_duration_ms
                 break;
                 
             case 'input_audio_buffer.committed':
@@ -256,10 +260,10 @@ function handleRealtimeMessage(event) {
                 break;
                 
             case 'conversation.item.input_audio_transcription.completed':
-                // User's speech transcription
-                if (message.transcript) {
+                // User's speech transcription - this arrives AFTER speech stops
+                if (message.transcript && message.transcript.trim()) {
                     console.log('[Voice] User transcript:', message.transcript);
-                    onTranscript?.(message.transcript, 'user');
+                    onTranscript?.(message.transcript.trim(), 'user');
                 }
                 break;
                 
@@ -279,23 +283,37 @@ function handleRealtimeMessage(event) {
                 break;
                 
             case 'response.audio_transcript.delta':
-                // Stream text
+                // Accumulate text as AI speaks
                 if (message.delta) {
                     realtimeAssistantBuffer += message.delta;
+                    // Update UI with streaming text
                     onAssistantText?.(message.delta, realtimeAssistantBuffer);
                 }
                 break;
                 
+            case 'response.audio_transcript.done':
+                // AI finished speaking - final transcript
+                const finalTranscript = realtimeAssistantBuffer || message.transcript;
+                if (finalTranscript && finalTranscript.trim()) {
+                    console.log('[Voice] AI said:', finalTranscript.trim());
+                    // Send the complete text
+                    onAssistantDone?.(finalTranscript.trim());
+                }
+                realtimeAssistantBuffer = '';
+                break;
+                
+            case 'response.audio.done':
+                console.log('[Voice] AI audio complete');
+                // Reset playback timing for next response
+                if (realtimeAudioContext && realtimeAudioContext.state !== 'closed') {
+                    realtimeNextPlayTime = realtimeAudioContext.currentTime;
+                }
+                break;
+                
             case 'response.done':
-                console.log('[Voice] Response done:', message.response?.id);
+                console.log('[Voice] Response complete');
                 realtimeResponseActive = false;
                 currentResponseId = null;
-                
-                // Notify that assistant response is complete
-                if (realtimeAssistantBuffer) {
-                    onAssistantDone?.(realtimeAssistantBuffer);
-                }
-                
                 onStatusChange?.('listening');
                 break;
                 
@@ -303,16 +321,26 @@ function handleRealtimeMessage(event) {
                 console.log('[Voice] Response cancelled');
                 realtimeResponseActive = false;
                 currentResponseId = null;
-                // Don't change status - we're likely listening to new user input
+                realtimeAssistantBuffer = '';
+                // Status will be set to listening when user stops speaking
                 break;
                 
             case 'error':
                 console.error('[Voice] API error:', message.error);
-                // Only show error to user if it's not the "no active response" cancellation error
-                if (message.error?.message !== 'Cancellation failed: no active response found') {
+                // Ignore "no active response" error - it's harmless
+                if (message.error?.code === 'response_cancel_not_active' ||
+                    message.error?.message?.includes('no active response')) {
+                    realtimeResponseActive = false;
+                } else {
                     onError?.({ message: message.error?.message || 'Voice API error' });
                 }
                 break;
+                
+            default:
+                // Log other non-delta message types for debugging
+                if (message.type && !message.type.includes('delta')) {
+                    console.log('[Voice] Message:', message.type);
+                }
         }
     } catch (e) {
         console.error('[Voice] Message parse error:', e);

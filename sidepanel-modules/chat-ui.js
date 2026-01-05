@@ -1,33 +1,42 @@
 // Readify Extension - Chat UI Module
-// Handles the AI chat interface in the sidepanel
+// Handles the AI chat panel (slide-in) in the sidepanel
 
-let chatMode = 'text'; // 'text' or 'voice'
 let pageContext = null;
 let isStreaming = false;
 
-// Track current voice conversation messages
-let currentUserMsgEl = null;
+// Track current voice conversation state
+let pendingUserMsgEl = null;
 let currentAssistantMsgEl = null;
-let lastTranscript = ''; // To avoid duplicate user messages
+let lastTranscript = '';
+let awaitingTranscript = false;
 
 // Initialize chat UI
 function initChatUI() {
     setupChatEventListeners();
     setupVoiceCallbacks();
-    loadPageContext();
 }
 
 // Setup event listeners
 function setupChatEventListeners() {
-    const chatInput = document.getElementById('chatInput');
+    const openChatBtn = document.getElementById('openChatBtn');
+    const chatBackBtn = document.getElementById('chatBackBtn');
     const chatSendBtn = document.getElementById('chatSendBtn');
-    const voiceModeBtn = document.getElementById('voiceModeBtn');
-    const textModeBtn = document.getElementById('textModeBtn');
+    const chatInput = document.getElementById('chatInput');
+    const chatVoiceBtn = document.getElementById('chatVoiceBtn');
+    const voiceOverlay = document.getElementById('voiceOverlay');
+    const voiceStopBtn = document.getElementById('voiceStopBtn');
+    const chatMessages = document.getElementById('chatMessages');
     
-    // Send message on button click
+    // Open chat panel
+    openChatBtn?.addEventListener('click', openChatPanel);
+    
+    // Close chat panel
+    chatBackBtn?.addEventListener('click', closeChatPanel);
+    
+    // Send message
     chatSendBtn?.addEventListener('click', handleSendMessage);
     
-    // Send message on Enter (but not Shift+Enter)
+    // Send on Enter (but not Shift+Enter)
     chatInput?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -35,15 +44,53 @@ function setupChatEventListeners() {
         }
     });
     
-    // Auto-resize textarea
+    // Auto-resize textarea and show scrollbar when needed
     chatInput?.addEventListener('input', () => {
+        // Reset height to auto to get accurate scrollHeight
         chatInput.style.height = 'auto';
-        chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+        
+        // Get the computed max-height from CSS
+        const computedStyle = window.getComputedStyle(chatInput);
+        const maxHeight = parseInt(computedStyle.maxHeight) || 200;
+        
+        // Set height to scrollHeight but respect max-height
+        const scrollHeight = chatInput.scrollHeight;
+        chatInput.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+        
+        // Show scrollbar only when content exceeds max height
+        if (scrollHeight > maxHeight) {
+            chatInput.classList.add('has-overflow');
+        } else {
+            chatInput.classList.remove('has-overflow');
+        }
     });
     
-    // Mode toggle buttons
-    textModeBtn?.addEventListener('click', () => switchMode('text'));
-    voiceModeBtn?.addEventListener('click', () => toggleVoiceMode());
+    // Voice button
+    chatVoiceBtn?.addEventListener('click', toggleVoiceMode);
+    
+    // Voice overlay click to stop
+    voiceOverlay?.addEventListener('click', (e) => {
+        if (e.target === voiceOverlay) {
+            stopVoiceMode();
+        }
+    });
+    
+    // Voice stop button
+    voiceStopBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        stopVoiceMode();
+    });
+    
+    // Suggestion clicks
+    chatMessages?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('chat-suggestion')) {
+            const prompt = e.target.dataset.prompt;
+            if (prompt && chatInput) {
+                chatInput.value = prompt;
+                handleSendMessage();
+            }
+        }
+    });
 }
 
 // Setup voice service callbacks
@@ -59,6 +106,31 @@ function setupVoiceCallbacks() {
     }
 }
 
+// Open chat panel
+async function openChatPanel() {
+    const chatPanel = document.getElementById('chatPanel');
+    if (!chatPanel) return;
+    
+    chatPanel.classList.add('open');
+    
+    // Load page context
+    await loadPageContext();
+    
+    // Update welcome text
+    updateWelcomeMessage();
+}
+
+// Close chat panel
+function closeChatPanel() {
+    const chatPanel = document.getElementById('chatPanel');
+    if (chatPanel) {
+        chatPanel.classList.remove('open');
+    }
+    
+    // Stop voice if active
+    stopVoiceMode();
+}
+
 // Load page context from current tab
 async function loadPageContext() {
     try {
@@ -71,60 +143,72 @@ async function loadPageContext() {
     }
 }
 
-// Switch between text and voice modes
-function switchMode(mode) {
-    chatMode = mode;
-    
-    const textModeBtn = document.getElementById('textModeBtn');
-    const voiceModeBtn = document.getElementById('voiceModeBtn');
-    const chatInputContainer = document.getElementById('chatInputContainer');
-    const voiceContainer = document.getElementById('voiceContainer');
-    
-    if (mode === 'text') {
-        textModeBtn?.classList.add('active');
-        voiceModeBtn?.classList.remove('active');
-        chatInputContainer.style.display = 'flex';
-        voiceContainer.style.display = 'none';
-        
-        // Stop voice if active
-        if (window.ReadifyVoice?.isActive()) {
-            window.ReadifyVoice.stop();
-        }
-        
-        // Reset voice message tracking
-        currentUserMsgEl = null;
-        currentAssistantMsgEl = null;
-        lastTranscript = '';
-    } else {
-        textModeBtn?.classList.remove('active');
-        voiceModeBtn?.classList.add('active');
-        chatInputContainer.style.display = 'none';
-        voiceContainer.style.display = 'flex';
+// Update welcome message with page title
+function updateWelcomeMessage() {
+    const welcomeText = document.getElementById('chatWelcomeText');
+    if (welcomeText && pageContext?.title) {
+        const shortTitle = pageContext.title.length > 40 
+            ? pageContext.title.substring(0, 40) + '...' 
+            : pageContext.title;
+        welcomeText.innerHTML = `I've read "<strong>${shortTitle}</strong>"<br>Ask me anything about it!`;
     }
 }
 
 // Toggle voice mode
 async function toggleVoiceMode() {
-    if (chatMode !== 'voice') {
-        switchMode('voice');
-    }
-    
     if (window.ReadifyVoice?.isActive()) {
-        window.ReadifyVoice.stop();
+        stopVoiceMode();
     } else {
-        // Refresh page context before starting
-        await loadPageContext();
-        
-        // Reset voice message tracking
-        currentUserMsgEl = null;
-        currentAssistantMsgEl = null;
-        lastTranscript = '';
-        
-        window.ReadifyVoice?.start(pageContext);
+        startVoiceMode();
     }
 }
 
-// Handle send message
+// Start voice mode
+async function startVoiceMode() {
+    const voiceOverlay = document.getElementById('voiceOverlay');
+    const chatVoiceBtn = document.getElementById('chatVoiceBtn');
+    
+    // Refresh page context
+    await loadPageContext();
+    
+    // Reset state
+    resetVoiceState();
+    
+    // Show overlay
+    voiceOverlay?.classList.add('active');
+    chatVoiceBtn?.classList.add('active');
+    
+    // Start voice service
+    window.ReadifyVoice?.start(pageContext);
+}
+
+// Stop voice mode
+function stopVoiceMode() {
+    const voiceOverlay = document.getElementById('voiceOverlay');
+    const chatVoiceBtn = document.getElementById('chatVoiceBtn');
+    
+    // Hide overlay
+    voiceOverlay?.classList.remove('active');
+    chatVoiceBtn?.classList.remove('active');
+    
+    // Stop voice service
+    if (window.ReadifyVoice?.isActive()) {
+        window.ReadifyVoice.stop();
+    }
+    
+    // Reset state
+    resetVoiceState();
+}
+
+// Reset voice conversation state
+function resetVoiceState() {
+    pendingUserMsgEl = null;
+    currentAssistantMsgEl = null;
+    lastTranscript = '';
+    awaitingTranscript = false;
+}
+
+// Handle send message (text mode)
 async function handleSendMessage() {
     const chatInput = document.getElementById('chatInput');
     const message = chatInput?.value?.trim();
@@ -134,6 +218,9 @@ async function handleSendMessage() {
     // Clear input
     chatInput.value = '';
     chatInput.style.height = 'auto';
+    
+    // Remove welcome if present
+    removeWelcome();
     
     // Add user message to chat
     addMessageToChat('user', message);
@@ -168,21 +255,31 @@ async function handleSendMessage() {
     );
 }
 
+// Remove welcome message
+function removeWelcome() {
+    const welcome = document.getElementById('chatWelcome');
+    if (welcome) {
+        welcome.remove();
+    }
+}
+
 // Add message to chat container
 function addMessageToChat(role, content, streaming = false) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return null;
     
+    // Remove welcome
+    removeWelcome();
+    
     const msgEl = document.createElement('div');
     msgEl.className = `chat-message ${role}`;
     msgEl.dataset.timestamp = Date.now();
     
-    const avatar = role === 'user' ? '👤' : '🤖';
-    
-    msgEl.innerHTML = `
-        <div class="message-avatar">${avatar}</div>
-        <div class="message-content">${escapeHtml(content) || (streaming ? '<span class="typing-indicator">...</span>' : '')}</div>
-    `;
+    if (streaming && !content) {
+        msgEl.innerHTML = '<span class="typing-indicator">...</span>';
+    } else {
+        msgEl.textContent = content;
+    }
     
     chatMessages.appendChild(msgEl);
     scrollToBottom();
@@ -193,11 +290,8 @@ function addMessageToChat(role, content, streaming = false) {
 // Update message content (for streaming)
 function updateMessageContent(msgEl, content) {
     if (!msgEl) return;
-    const contentEl = msgEl.querySelector('.message-content');
-    if (contentEl) {
-        contentEl.innerHTML = formatMessage(content);
-        scrollToBottom();
-    }
+    msgEl.innerHTML = formatMessage(content);
+    scrollToBottom();
 }
 
 // Format message (basic markdown support)
@@ -243,50 +337,52 @@ function updateSendButton(loading) {
     const chatSendBtn = document.getElementById('chatSendBtn');
     if (chatSendBtn) {
         chatSendBtn.disabled = loading;
-        chatSendBtn.textContent = loading ? '...' : '→';
+        if (loading) {
+            chatSendBtn.innerHTML = '<span class="loading-dots">...</span>';
+        } else {
+            chatSendBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
+        }
     }
 }
 
 // Voice status change handler
 function handleVoiceStatusChange(status) {
-    const voiceStatus = document.getElementById('voiceStatus');
-    const voiceWaveform = document.getElementById('voiceWaveform');
-    const voiceModeBtn = document.getElementById('voiceModeBtn');
+    const voiceText = document.getElementById('voiceText');
     
     const statusMessages = {
         'connecting': 'Connecting...',
         'listening': 'Listening...',
         'processing': 'Processing...',
-        'speaking': 'Speaking...',
-        'idle': 'Click to start',
+        'speaking': 'AI is speaking...',
+        'idle': 'Tap to start',
         'disconnected': 'Disconnected',
         'error': 'Error occurred',
     };
     
-    if (voiceStatus) {
-        voiceStatus.textContent = statusMessages[status] || status;
+    if (voiceText) {
+        voiceText.textContent = statusMessages[status] || status;
     }
     
-    // Update waveform animation
-    if (voiceWaveform) {
-        voiceWaveform.className = 'voice-waveform';
-        if (status === 'listening' || status === 'speaking') {
-            voiceWaveform.classList.add('active');
-        }
-        if (status === 'speaking') {
-            voiceWaveform.classList.add('speaking');
+    // When processing starts (user stopped speaking), add placeholder for user message
+    if (status === 'processing') {
+        removeWelcome();
+        if (!pendingUserMsgEl) {
+            pendingUserMsgEl = addMessageToChat('user', '...', true);
+            awaitingTranscript = true;
         }
     }
     
-    // Update button state
-    if (voiceModeBtn) {
-        voiceModeBtn.classList.toggle('active', status !== 'idle' && status !== 'disconnected');
-    }
-    
-    // When user starts speaking (listening status after speaking), prepare for new turn
+    // When we go back to listening (after response or interruption), reset for next turn
     if (status === 'listening') {
-        // Reset for new conversation turn
         currentAssistantMsgEl = null;
+    }
+    
+    // If disconnected or error, close the overlay
+    if (status === 'disconnected' || status === 'error') {
+        const voiceOverlay = document.getElementById('voiceOverlay');
+        const chatVoiceBtn = document.getElementById('chatVoiceBtn');
+        voiceOverlay?.classList.remove('active');
+        chatVoiceBtn?.classList.remove('active');
     }
 }
 
@@ -299,11 +395,16 @@ function handleVoiceTranscript(text, role) {
         }
         lastTranscript = text;
         
-        // Create a new user message
-        currentUserMsgEl = addMessageToChat('user', text);
+        // Update the pending placeholder if it exists
+        if (pendingUserMsgEl) {
+            updateMessageContent(pendingUserMsgEl, text);
+            pendingUserMsgEl = null;
+        } else {
+            // No placeholder - create a new message
+            addMessageToChat('user', text);
+        }
         
-        // Reset assistant message for the new turn
-        currentAssistantMsgEl = null;
+        awaitingTranscript = false;
     }
 }
 
@@ -311,58 +412,72 @@ function handleVoiceTranscript(text, role) {
 function handleAssistantText(chunk, fullText) {
     // If we don't have an assistant message for this turn, create one
     if (!currentAssistantMsgEl) {
-        currentAssistantMsgEl = addMessageToChat('assistant', fullText, true);
-    } else {
-        updateMessageContent(currentAssistantMsgEl, fullText);
+        currentAssistantMsgEl = addMessageToChat('assistant', '', true);
     }
+    updateMessageContent(currentAssistantMsgEl, fullText);
 }
 
 // Assistant done handler - called when assistant finishes speaking
 function handleAssistantDone(fullText) {
-    // Ensure final text is displayed
+    // Only update if we have an existing streaming message
     if (currentAssistantMsgEl) {
         updateMessageContent(currentAssistantMsgEl, fullText);
+        currentAssistantMsgEl = null;
     }
-    // Ready for next turn
-    currentAssistantMsgEl = null;
 }
 
 // Voice error handler
 function handleVoiceError(error) {
     console.error('[Chat] Voice error:', error);
     
-    const voiceStatus = document.getElementById('voiceStatus');
-    if (voiceStatus) {
-        voiceStatus.textContent = error.message || 'Error occurred';
-        voiceStatus.classList.add('error');
-        
-        setTimeout(() => {
-            voiceStatus.classList.remove('error');
-        }, 3000);
+    // Remove pending placeholder on error
+    if (pendingUserMsgEl) {
+        pendingUserMsgEl.remove();
+        pendingUserMsgEl = null;
     }
+    
+    const voiceText = document.getElementById('voiceText');
+    if (voiceText) {
+        voiceText.textContent = error.message || 'Error occurred';
+    }
+    
+    // Auto-close voice overlay after error
+    setTimeout(() => {
+        stopVoiceMode();
+    }, 2000);
 }
 
 // Clear chat history
 function clearChat() {
     const chatMessages = document.getElementById('chatMessages');
     if (chatMessages) {
-        chatMessages.innerHTML = '';
+        // Restore welcome
+        chatMessages.innerHTML = `
+            <div class="chat-welcome" id="chatWelcome">
+                <div class="chat-welcome-icon">💬</div>
+                <div class="chat-welcome-title">Chat about this page</div>
+                <div class="chat-welcome-text" id="chatWelcomeText">
+                    Ask me anything about the current page!
+                </div>
+                <div class="chat-suggestions">
+                    <button class="chat-suggestion" data-prompt="Summarize this page">📝 Summarize</button>
+                    <button class="chat-suggestion" data-prompt="What are the key points?">🎯 Key points</button>
+                    <button class="chat-suggestion" data-prompt="Explain this in simple terms">💡 Simplify</button>
+                </div>
+            </div>
+        `;
     }
     window.ReadifyChat?.resetHistory(null);
-    
-    // Reset voice message tracking
-    currentUserMsgEl = null;
-    currentAssistantMsgEl = null;
-    lastTranscript = '';
+    resetVoiceState();
 }
 
 // Export for use in main.js
 if (typeof window !== 'undefined') {
     window.ReadifyChatUI = {
         init: initChatUI,
+        openPanel: openChatPanel,
+        closePanel: closeChatPanel,
         clearChat,
         loadPageContext,
-        switchMode,
-        toggleVoiceMode,
     };
 }
