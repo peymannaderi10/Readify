@@ -2,6 +2,12 @@
 // Event handlers for authentication actions
 
 function setupAuthListeners() {
+    // Google Sign In button
+    const googleSigninBtn = document.getElementById('googleSigninBtn');
+    if (googleSigninBtn) {
+        googleSigninBtn.addEventListener('click', handleGoogleSignIn);
+    }
+    
     // Sign In button - expands to show sign in form
     const showSigninBtn = document.getElementById('showSigninBtn');
     if (showSigninBtn) {
@@ -185,6 +191,54 @@ async function handleSignOut() {
     await updateAuthUI();
     await loadMySites(true); // Force refresh since we're signed out now
     await updateLimitDisplay();
+}
+
+async function handleGoogleSignIn() {
+    const googleSigninBtn = document.getElementById('googleSigninBtn');
+    const originalContent = googleSigninBtn.innerHTML;
+    
+    // Show loading state
+    googleSigninBtn.disabled = true;
+    googleSigninBtn.innerHTML = `
+        <svg class="google-icon spinner" viewBox="0 0 24 24" width="18" height="18">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="31.4" stroke-dashoffset="10"/>
+        </svg>
+        <span>Signing in...</span>
+    `;
+    
+    const result = await window.ReadifyAuth?.signInWithGoogle();
+    
+    // Restore button
+    googleSigninBtn.disabled = false;
+    googleSigninBtn.innerHTML = originalContent;
+    
+    if (result?.error) {
+        // Show error message - use signin message element or create alert
+        const messageEl = document.getElementById('signinMessage');
+        if (messageEl) {
+            // Expand signin form to show the message
+            const authFormsContainer = document.getElementById('authFormsContainer');
+            const signinForm = document.getElementById('signinForm');
+            if (authFormsContainer) authFormsContainer.style.display = 'block';
+            if (signinForm) signinForm.style.display = 'flex';
+            showAuthMessage(messageEl, result.error.message || 'Google sign in failed', 'error');
+        } else {
+            alert(result.error.message || 'Google sign in failed');
+        }
+    } else {
+        // Success - hide auth section and update UI
+        document.getElementById('authSection').style.display = 'none';
+        
+        // Clear old cache and refresh
+        if (typeof clearSitesCache === 'function') {
+            clearSitesCache();
+        }
+        
+        // Update UI
+        await updateAuthUI();
+        await loadMySites(true);
+        await updateLimitDisplay();
+    }
 }
 
 async function handleUpgrade() {

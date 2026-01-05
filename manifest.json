@@ -3,6 +3,10 @@
     "name": "Readify: Your Productivity Companion",
     "description": "Readify is a browser extension that allows users to customize any webpage or online reading content to their own preferences.",
     "version": "1.5",
+    "oauth2": {
+        "client_id": "390693096948-ouiihkm68huvkgqentod6k0is1evlktp.apps.googleusercontent.com",
+        "scopes": ["openid", "email", "profile"]
+    },
     "action": {
         "default_icon": {
             "128": "logoExt.png"

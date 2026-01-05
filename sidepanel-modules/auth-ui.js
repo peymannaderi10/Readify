@@ -71,9 +71,9 @@ async function updateAuthUI() {
         // Hide voice settings section
         if (voiceSettingsSection) voiceSettingsSection.style.display = 'none';
         
-        // Show premium banner for non-logged in users
+        // Hide premium banner for non-logged in users (only show for signed-in free users)
         if (premiumBanner) {
-            premiumBanner.style.display = 'block';
+            premiumBanner.style.display = 'none';
         }
     }
 }

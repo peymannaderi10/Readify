@@ -124,6 +124,93 @@ async function signIn(email, password) {
     }
 }
 
+// Sign in with Google OAuth
+async function signInWithGoogle() {
+    const client = window.ReadifySupabase?.getClient();
+    if (!client) {
+        return { error: { message: 'Authentication service not available' } };
+    }
+    
+    try {
+        // Get the OAuth2 manifest settings
+        const manifest = chrome.runtime.getManifest();
+        const clientId = manifest.oauth2?.client_id;
+        
+        if (!clientId || clientId === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
+            return { error: { message: 'Google OAuth not configured. Please set up your Google Client ID.' } };
+        }
+        
+        // Build the Google OAuth URL
+        const redirectUrl = chrome.identity.getRedirectURL();
+        const nonce = crypto.randomUUID();
+        
+        const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+        authUrl.searchParams.set('client_id', clientId);
+        authUrl.searchParams.set('response_type', 'id_token');
+        authUrl.searchParams.set('redirect_uri', redirectUrl);
+        authUrl.searchParams.set('scope', 'openid email profile');
+        authUrl.searchParams.set('nonce', nonce);
+        authUrl.searchParams.set('prompt', 'select_account');
+        
+        // Launch the OAuth flow
+        const responseUrl = await new Promise((resolve, reject) => {
+            chrome.identity.launchWebAuthFlow(
+                {
+                    url: authUrl.toString(),
+                    interactive: true
+                },
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else if (!response) {
+                        reject(new Error('No response from Google'));
+                    } else {
+                        resolve(response);
+                    }
+                }
+            );
+        });
+        
+        // Extract the ID token from the response URL
+        const url = new URL(responseUrl);
+        const hashParams = new URLSearchParams(url.hash.substring(1));
+        const idToken = hashParams.get('id_token');
+        
+        if (!idToken) {
+            return { error: { message: 'No ID token received from Google' } };
+        }
+        
+        // Sign in to Supabase with the Google ID token
+        const { data, error } = await client.auth.signInWithIdToken({
+            provider: 'google',
+            token: idToken,
+            nonce: nonce
+        });
+        
+        if (error) {
+            console.error('Supabase Google sign in error:', error);
+            return { data: null, error };
+        }
+        
+        // Broadcast sign in to other extension contexts
+        safeSendMessage({
+            type: 'userSignedIn',
+            user: data.user
+        });
+        
+        return { data, error: null };
+    } catch (e) {
+        console.error('Google sign in exception:', e);
+        
+        // Handle user cancellation gracefully
+        if (e.message?.includes('canceled') || e.message?.includes('closed')) {
+            return { error: { message: 'Sign in was cancelled' } };
+        }
+        
+        return { error: { message: e.message || 'Google sign in failed' } };
+    }
+}
+
 // Sign out
 async function signOut() {
     const client = window.ReadifySupabase?.getClient();
@@ -312,6 +399,7 @@ if (typeof window !== 'undefined') {
         init: initAuthService,
         signUp,
         signIn,
+        signInWithGoogle,
         signOut,
         getCurrentUser,
         getCurrentSession,
