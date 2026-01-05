@@ -116,9 +116,14 @@ async function handleSignIn() {
         document.getElementById('signinEmail').value = '';
         document.getElementById('signinPassword').value = '';
         
+        // Clear old cache and refresh
+        if (typeof clearSitesCache === 'function') {
+            clearSitesCache();
+        }
+        
         // Update UI
         await updateAuthUI();
-        await loadMySites();
+        await loadMySites(true); // Force refresh after sign-in
         await updateLimitDisplay();
         
         // Note: Migration functionality handled automatically in storage-manager.js
@@ -172,8 +177,13 @@ async function handleSignUp() {
 async function handleSignOut() {
     await window.ReadifyAuth?.signOut();
     
+    // Clear sites cache on sign-out
+    if (typeof clearSitesCache === 'function') {
+        clearSitesCache();
+    }
+    
     await updateAuthUI();
-    await loadMySites();
+    await loadMySites(true); // Force refresh since we're signed out now
     await updateLimitDisplay();
 }
 

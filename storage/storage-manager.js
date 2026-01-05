@@ -133,9 +133,10 @@ async function saveChangeToLocal(urlDigest, type, data, isDelete = false, markDa
             // All changes removed - delete the site
             await deleteSiteFromLocal(urlDigest);
             await updateGlobalStatsAfterDelete(urlDigest);
-            notifyMySitesUpdate('removed');
+            notifyMySitesUpdate('removed', 0);
         } else if (siteData.changes.length > 0 || Object.keys(siteData.notes).length > 0) {
-            notifyMySitesUpdate(originalChangeCount === 0 ? 'added' : 'updated');
+            const totalChanges = siteData.changes.length + Object.keys(siteData.notes).length;
+            notifyMySitesUpdate(originalChangeCount === 0 ? 'added' : 'updated', totalChanges);
         }
         
     } catch (e) {
@@ -210,9 +211,10 @@ async function saveChangeToSupabase(urlDigest, type, data, isDelete = false, mar
         // Handle MySites updates
         if (siteData.changes.length === 0 && Object.keys(siteData.notes).length === 0 && originalChangeCount > 0) {
             await deleteFromSupabase(urlDigest);
-            notifyMySitesUpdate('removed');
+            notifyMySitesUpdate('removed', 0);
         } else if (siteData.changes.length > 0 || Object.keys(siteData.notes).length > 0) {
-            notifyMySitesUpdate(originalChangeCount === 0 ? 'added' : 'updated');
+            const totalChanges = siteData.changes.length + Object.keys(siteData.notes).length;
+            notifyMySitesUpdate(originalChangeCount === 0 ? 'added' : 'updated', totalChanges);
         }
         
     } catch (e) {
@@ -368,7 +370,7 @@ async function deleteChangesFromDisk() {
     if (isAuthenticated) {
         // Delete from Supabase for logged-in users
         await deleteFromSupabase(urlDigest);
-        notifyMySitesUpdate('removed');
+        notifyMySitesUpdate('removed', 0);
     }
     // For non-logged-in users, just reload (changes were session-only anyway)
     
@@ -376,14 +378,16 @@ async function deleteChangesFromDisk() {
 }
 
 // Notify sidepanel about site updates
-function notifyMySitesUpdate(action) {
+function notifyMySitesUpdate(action, changeCount = 0) {
     // Send message to extension popup/sidepanel to update My Sites
+    // Include change count so sidepanel can update cache locally without API call
     chrome.runtime.sendMessage({
         type: 'mySitesUpdate',
         action: action, // 'added', 'updated', 'removed'
         url: window.location.href,
         title: document.title || window.location.hostname,
-        hostname: window.location.hostname
+        hostname: window.location.hostname,
+        changeCount: changeCount
     }).catch(() => {
         // Ignore errors if popup/sidepanel is not open
     });

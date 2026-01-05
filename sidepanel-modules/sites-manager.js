@@ -1,6 +1,11 @@
 // Readify Extension - Sidepanel Sites Manager
 // Handles the My Sites list display and management
 
+// Local cache of sites to avoid excessive API calls
+let sitesCache = null;
+let sitesCacheTime = 0;
+const SITES_CACHE_DURATION = 30000; // 30 seconds - only refetch if cache is stale
+
 function setupMySitesListener() {
     // Listen for messages from content scripts about site changes
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -11,31 +16,131 @@ function setupMySitesListener() {
 }
 
 async function handleMySitesUpdate(message) {
-    // Reload the My Sites list when changes are made
-    await loadMySites();
+    console.log('[Sites] Update received:', message.action, message.url);
     
-    // Update limit display
-    await updateLimitDisplay();
-    
-    // Optional: Show a brief visual indicator that the list was updated
-    const sitesList = document.getElementById('sitesList');
-    if (sitesList) {
-        sitesList.style.opacity = '0.7';
-        setTimeout(() => {
-            sitesList.style.opacity = '1';
-        }, 200);
+    // Update local cache instead of re-fetching from API
+    if (sitesCache && message.action) {
+        updateLocalCache(message);
+        displaySites(sitesCache);
+        
+        // Brief visual feedback
+        const sitesList = document.getElementById('sitesList');
+        if (sitesList) {
+            sitesList.style.opacity = '0.7';
+            setTimeout(() => {
+                sitesList.style.opacity = '1';
+            }, 200);
+        }
+        
+        // Update limit display locally (no API call needed)
+        updateLimitDisplayFromCache();
+    } else {
+        // No cache - need to fetch
+        await loadMySites(true); // Force refresh
     }
 }
 
-async function loadMySites() {
+// Update local cache based on message action
+function updateLocalCache(message) {
+    if (!sitesCache) return;
+    
+    const { action, url, title, hostname, changeCount } = message;
+    
+    // Generate a simple digest from URL for matching
+    const urlDigest = btoa(url).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+    
+    if (action === 'added' || action === 'updated') {
+        // Find existing site or add new one
+        const existingIndex = sitesCache.findIndex(s => s.info.url === url);
+        
+        const siteData = {
+            digest: urlDigest,
+            info: {
+                url: url,
+                title: title || hostname,
+                hostname: hostname,
+                lastModified: Date.now()
+            },
+            changeCount: changeCount || 1
+        };
+        
+        if (existingIndex >= 0) {
+            // Update existing - increment change count if not provided
+            sitesCache[existingIndex].changeCount = changeCount || (sitesCache[existingIndex].changeCount + 1);
+            sitesCache[existingIndex].info.lastModified = Date.now();
+        } else {
+            // Add new site at the beginning
+            sitesCache.unshift(siteData);
+        }
+        
+        // Sort by last modified
+        sitesCache.sort((a, b) => (b.info.lastModified || 0) - (a.info.lastModified || 0));
+        
+    } else if (action === 'removed') {
+        // Remove site from cache
+        sitesCache = sitesCache.filter(s => s.info.url !== url);
+    }
+    
+    console.log('[Sites] Cache updated locally, sites:', sitesCache.length);
+}
+
+// Update limit display from local cache (no API call)
+function updateLimitDisplayFromCache() {
+    const limitCounter = document.getElementById('limitCounter');
+    if (!limitCounter || !sitesCache) return;
+    
+    const count = sitesCache.length;
+    
+    // Check if premium (use cached subscription status)
+    if (window.ReadifySubscription) {
+        window.ReadifySubscription.isPremium().then(isPremium => {
+            if (isPremium) {
+                limitCounter.textContent = count > 0 ? `(${count} sites)` : '';
+                limitCounter.classList.remove('limit-reached');
+                limitCounter.classList.add('premium-unlimited');
+            } else {
+                const max = window.READIFY_CONFIG?.FREE_WEBSITE_LIMIT || 5;
+                limitCounter.textContent = `(${count}/${max})`;
+                if (count >= max) {
+                    limitCounter.classList.add('limit-reached');
+                } else {
+                    limitCounter.classList.remove('limit-reached');
+                }
+                limitCounter.classList.remove('premium-unlimited');
+            }
+        });
+    }
+}
+
+// Load sites - uses cache unless forceRefresh is true
+async function loadMySites(forceRefresh = false) {
     try {
-        console.log('Loading My Sites...');
+        // Use cache if available and not stale
+        if (!forceRefresh && sitesCache && (Date.now() - sitesCacheTime < SITES_CACHE_DURATION)) {
+            console.log('[Sites] Using cached sites:', sitesCache.length);
+            displaySites(sitesCache);
+            return;
+        }
+        
+        console.log('[Sites] Fetching from API...');
         const sites = await getAllSavedSitesSidepanel();
-        console.log('Got sites:', sites.length);
+        
+        // Update cache
+        sitesCache = sites;
+        sitesCacheTime = Date.now();
+        
+        console.log('[Sites] Got sites from API:', sites.length);
         displaySites(sites);
     } catch (error) {
-        console.error('Error loading sites:', error);
+        console.error('[Sites] Error loading:', error);
     }
+}
+
+// Clear cache (call on sign-out or when needed)
+function clearSitesCache() {
+    sitesCache = null;
+    sitesCacheTime = 0;
+    console.log('[Sites] Cache cleared');
 }
 
 function displaySites(sites) {

@@ -183,12 +183,22 @@ function handleMouseUp(evt) {
     }
 }
 
-// Helper function to check premium feature access
+// Helper function to check premium feature access via server verification
 async function checkPremiumFeature(featureName) {
-    // If subscription service is available, use it
-    if (window.ReadifySubscription) {
-        return await window.ReadifySubscription.canAccessFeature(featureName);
+    // List of features that require premium (server verification)
+    const premiumFeatures = ['tts', 'ai_chat', 'summarize', 'unlimited_sites', 'cloud_sync'];
+    
+    // Basic features don't need premium check
+    if (!premiumFeatures.includes(featureName)) {
+        return true;
     }
+    
+    // Use server-verified premium check for premium features
+    if (window.ReadifySubscription?.verifyPremiumWithServer) {
+        const result = await window.ReadifySubscription.verifyPremiumWithServer();
+        return result.isPremium === true;
+    }
+    
     // Default to false if service not available
     return false;
 } 
