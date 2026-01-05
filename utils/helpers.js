@@ -51,7 +51,9 @@ function makeDraggable(elem) {
     let localOffsetX, localOffsetY;
     
     function handleMouseDown(event) {
-        if (event.target.tagName.toLowerCase() === "textarea") {
+        const tagName = event.target.tagName.toLowerCase();
+        // Don't start dragging if clicking on interactive elements
+        if (tagName === "textarea" || tagName === "input" || tagName === "button" || tagName === "select") {
             return;
         }
 

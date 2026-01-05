@@ -24,6 +24,7 @@ async function initializeAuth() {
 async function updateAuthUI() {
     const authSection = document.getElementById('authSection');
     const userProfileSection = document.getElementById('userProfileSection');
+    const voiceSettingsSection = document.getElementById('voiceSettingsSection');
     const premiumBanner = document.getElementById('premiumBanner');
     const authFormsContainer = document.getElementById('authFormsContainer');
     
@@ -36,6 +37,12 @@ async function updateAuthUI() {
         
         // Always show profile section when logged in
         if (userProfileSection) userProfileSection.style.display = 'block';
+        
+        // Show voice settings section
+        if (voiceSettingsSection) {
+            voiceSettingsSection.style.display = 'block';
+            loadVoicePreference();
+        }
         
         // Update subscription status
         await updateSubscriptionUI();
@@ -56,10 +63,40 @@ async function updateAuthUI() {
         // Hide profile section
         if (userProfileSection) userProfileSection.style.display = 'none';
         
+        // Hide voice settings section
+        if (voiceSettingsSection) voiceSettingsSection.style.display = 'none';
+        
         // Show premium banner for non-logged in users
         if (premiumBanner) {
             premiumBanner.style.display = 'block';
         }
+    }
+}
+
+// Load voice preference from storage
+function loadVoicePreference() {
+    const voiceSelector = document.getElementById('voiceSelector');
+    if (!voiceSelector) return;
+    
+    chrome.storage.local.get(['ttsVoice'], (result) => {
+        if (result.ttsVoice) {
+            voiceSelector.value = result.ttsVoice;
+        }
+    });
+}
+
+// Save voice preference to storage
+function saveVoicePreference(voice) {
+    chrome.storage.local.set({ ttsVoice: voice });
+}
+
+// Initialize voice selector
+function initVoiceSelector() {
+    const voiceSelector = document.getElementById('voiceSelector');
+    if (voiceSelector) {
+        voiceSelector.addEventListener('change', (e) => {
+            saveVoicePreference(e.target.value);
+        });
     }
 }
 

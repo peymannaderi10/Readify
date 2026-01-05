@@ -1,83 +1,230 @@
 // Readify Extension - Text-to-Speech Component
-// Handles TTS functionality and controls
+// Handles TTS functionality using OpenAI TTS API
 
-// Text-to-Speech state
-let currentUtterance = null;
+// TTS state
 let textToSpeak = "";
-let pausedPosition = 0;
-let isPaused = false;
-let currentSentenceIndex = 0;
+let ttsAudio = null;
+let ttsAudioUrl = null;
+let isLoading = false;
 
-function createUtterance() {
-    currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
-    currentUtterance.onboundary = function (event) {
-        if (event.name == "word") {
-            pausedPosition = event.charIndex;
-        }
-    };
-    updateUtteranceSettings();
-}
-
-function updateUtteranceSettings() {
-    if (currentUtterance) {
-        const volumeControl = document.getElementById("volumeControl");
-        const rateControl = document.getElementById("rateControl");
-        if (volumeControl && rateControl) {
-            currentUtterance.volume = parseFloat(volumeControl.value);
-            currentUtterance.rate = parseFloat(rateControl.value);
-            currentUtterance.voice = speechSynthesis.getVoices().find((voice) => voice.name === "Google UK English Male");
-        }
-    }
-}
-
-function playSpeech() {
-    if (currentUtterance) {
-        if (!isPaused) {
-            speechSynthesis.cancel();
-            createUtterance();
-            currentSentenceIndex = 0;
+// Get the selected TTS voice from storage
+async function getSelectedVoice() {
+    return new Promise((resolve) => {
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+            chrome.storage.local.get(['ttsVoice'], (result) => {
+                resolve(result.ttsVoice || 'nova');
+            });
         } else {
-            isPaused = false;
-            speechSynthesis.cancel();
-            createUtterance();
+            resolve('nova');
         }
+    });
+}
 
-        const sentences = textToSpeak.match(/[^.!,?;]+[.!?,;]+/g);
+// Fetch TTS audio from OpenAI API (always at 1.0 speed, we control playback rate locally)
+async function fetchTTSAudio(text) {
+    const client = window.ReadifySupabase?.getClient();
+    
+    if (!client) {
+        throw new Error('Not connected to service');
+    }
+    
+    const { data: { session } } = await client.auth.getSession();
+    if (!session?.access_token) {
+        throw new Error('Please sign in to use text-to-speech');
+    }
+    
+    // Get selected voice from storage
+    const selectedVoice = await getSelectedVoice();
+    
+    const apiUrl = window.READIFY_CONFIG.getApiUrl(window.READIFY_CONFIG.ENDPOINTS.AI_TTS);
+    
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+            text: text,
+            voice: selectedVoice,
+            speed: 1.0  // Always generate at normal speed, we control playback rate locally
+        }),
+    });
+    
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to generate speech' }));
+        throw new Error(error.error || 'Failed to generate speech');
+    }
+    
+    const audioBlob = await response.blob();
+    return URL.createObjectURL(audioBlob);
+}
 
-        function playSentence(index) {
-            if (index < sentences.length) {
-                currentUtterance.text = sentences[index];
-                currentUtterance.onend = function () {
-                    playSentence(index + 1);
-                };
-                speechSynthesis.speak(currentUtterance);
-                currentSentenceIndex = index;
+// Play the TTS audio
+async function playTTS(playButton) {
+    if (isLoading) return;
+    
+    // If already have audio and it's paused, just resume
+    if (ttsAudio && ttsAudio.paused && ttsAudioUrl) {
+        ttsAudio.play();
+        updatePlayButtonState(playButton, 'playing');
+        return;
+    }
+    
+    // If no audio yet, fetch it
+    if (!ttsAudioUrl) {
+        isLoading = true;
+        updatePlayButtonState(playButton, 'loading');
+        
+        try {
+            ttsAudioUrl = await fetchTTSAudio(textToSpeak);
+            
+            ttsAudio = new Audio(ttsAudioUrl);
+            
+            // Apply volume
+            const volumeControl = document.getElementById('volumeControl');
+            if (volumeControl) {
+                ttsAudio.volume = parseFloat(volumeControl.value);
             }
+            
+            // Apply playback rate (speed)
+            const rateControl = document.getElementById('rateControl');
+            if (rateControl) {
+                ttsAudio.playbackRate = parseFloat(rateControl.value);
+            }
+            
+            // Set up event handlers
+            ttsAudio.onended = () => {
+                updatePlayButtonState(playButton, 'stopped');
+            };
+            
+            ttsAudio.onerror = () => {
+                console.error('[TTS] Audio playback error');
+                updatePlayButtonState(playButton, 'stopped');
+            };
+            
+            await ttsAudio.play();
+            updatePlayButtonState(playButton, 'playing');
+            
+        } catch (error) {
+            console.error('[TTS] Error:', error);
+            showTTSError(error.message);
+            updatePlayButtonState(playButton, 'stopped');
+        } finally {
+            isLoading = false;
         }
-
-        playSentence(currentSentenceIndex);
+    } else {
+        // Have audio URL, create new audio element
+        ttsAudio = new Audio(ttsAudioUrl);
+        
+        const volumeControl = document.getElementById('volumeControl');
+        if (volumeControl) {
+            ttsAudio.volume = parseFloat(volumeControl.value);
+        }
+        
+        const rateControl = document.getElementById('rateControl');
+        if (rateControl) {
+            ttsAudio.playbackRate = parseFloat(rateControl.value);
+        }
+        
+        ttsAudio.onended = () => {
+            updatePlayButtonState(playButton, 'stopped');
+        };
+        
+        await ttsAudio.play();
+        updatePlayButtonState(playButton, 'playing');
     }
 }
 
-function pauseSpeech() {
-    if (speechSynthesis.speaking && !isPaused) {
-        speechSynthesis.pause();
-        isPaused = true;
+// Pause the TTS audio
+function pauseTTS(playButton) {
+    if (ttsAudio && !ttsAudio.paused) {
+        ttsAudio.pause();
+        updatePlayButtonState(playButton, 'paused');
+    }
+}
+
+// Update play button visual state
+function updatePlayButtonState(button, state) {
+    if (!button) return;
+    
+    switch (state) {
+        case 'loading':
+            button.innerHTML = '<span class="tts-spinner"></span> Loading...';
+            button.disabled = true;
+            button.style.opacity = '0.7';
+            break;
+        case 'playing':
+            button.innerHTML = '▶ Playing';
+            button.disabled = false;
+            button.style.opacity = '1';
+            break;
+        case 'paused':
+            button.innerHTML = '▶ Resume';
+            button.disabled = false;
+            button.style.opacity = '1';
+            break;
+        case 'stopped':
+        default:
+            button.innerHTML = '▶ Play';
+            button.disabled = false;
+            button.style.opacity = '1';
+            break;
+    }
+}
+
+// Show error message
+function showTTSError(message) {
+    const errorDiv = document.getElementById('tts-error');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Update audio volume when slider changes
+function updateTTSVolume() {
+    const volumeControl = document.getElementById('volumeControl');
+    if (ttsAudio && volumeControl) {
+        ttsAudio.volume = parseFloat(volumeControl.value);
+    }
+}
+
+// Update audio playback speed when slider changes
+function updateTTSSpeed() {
+    const rateControl = document.getElementById('rateControl');
+    if (ttsAudio && rateControl) {
+        ttsAudio.playbackRate = parseFloat(rateControl.value);
+    }
+}
+
+// Clean up audio resources
+function cleanupAudio() {
+    if (ttsAudio) {
+        ttsAudio.pause();
+        ttsAudio = null;
+    }
+    if (ttsAudioUrl) {
+        URL.revokeObjectURL(ttsAudioUrl);
+        ttsAudioUrl = null;
     }
 }
 
 function removeTTS() {
     if (ttsBox) {
-        speechSynthesis.cancel(); // Stop any ongoing speech completely
-        pauseSpeech();
+        cleanupAudio();
         removeElementWithCleanup(ttsBox);
         ttsBox = null;
     }
+    isLoading = false;
     document.removeEventListener('mousedown', handleDocumentClick);
 }
 
 function showTextToSpeech(text) {
-    if(ttsBox){
+    if (ttsBox) {
         removeTTS();
     }
     
@@ -158,7 +305,6 @@ function showTextToSpeech(text) {
         margin: 0;
     `;
     
-    // Add close button to header container instead of absolute positioning
     headerContainer.appendChild(titleContainer);
     headerContainer.appendChild(closeButton);
     closeButton.addEventListener('click', removeTTS);
@@ -172,6 +318,20 @@ function showTextToSpeech(text) {
     });
     ttsBox.appendChild(headerContainer);
     
+    // Error message container (hidden by default)
+    const errorDiv = document.createElement('div');
+    errorDiv.id = 'tts-error';
+    errorDiv.style.cssText = `
+        display: none;
+        padding: 10px 14px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        color: #dc2626;
+        font-size: 13px;
+        text-align: center;
+    `;
+    ttsBox.appendChild(errorDiv);
 
     // Container for Play and Pause buttons
     const buttonContainer = document.createElement('div');
@@ -183,12 +343,8 @@ function showTextToSpeech(text) {
     `;
 
     const playButton = document.createElement('button');
-    playButton.innerText = '▶ Play';
+    playButton.innerHTML = '▶ Play';
     playButton.classList.add('control-button');
-    playButton.onclick = function () {
-        createUtterance();
-        playSpeech();
-    };
     
     // Modern primary button styling for play
     playButton.style.cssText = `
@@ -202,17 +358,20 @@ function showTextToSpeech(text) {
         font-size: 14px;
         cursor: pointer;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        min-width: 80px;
+        min-width: 100px;
         box-shadow: 0 4px 12px rgba(0, 151, 255, 0.3);
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
     `;
     
     playButton.addEventListener("mouseenter", function() {
-        this.style.background = "linear-gradient(135deg, #0088e6 0%, #00a3e6 100%)";
-        this.style.transform = "translateY(-2px)";
-        this.style.boxShadow = "0 6px 20px rgba(0, 151, 255, 0.4)";
+        if (!this.disabled) {
+            this.style.background = "linear-gradient(135deg, #0088e6 0%, #00a3e6 100%)";
+            this.style.transform = "translateY(-2px)";
+            this.style.boxShadow = "0 6px 20px rgba(0, 151, 255, 0.4)";
+        }
     });
     
     playButton.addEventListener("mouseleave", function() {
@@ -220,11 +379,14 @@ function showTextToSpeech(text) {
         this.style.transform = "translateY(0)";
         this.style.boxShadow = "0 4px 12px rgba(0, 151, 255, 0.3)";
     });
+    
+    playButton.onclick = function() {
+        playTTS(playButton);
+    };
 
     const pauseButton = document.createElement('button');
     pauseButton.innerText = '⏸ Pause';
     pauseButton.classList.add('control-button');
-    pauseButton.onclick = pauseSpeech;
     
     // Modern secondary button styling for pause
     pauseButton.style.cssText = `
@@ -255,6 +417,10 @@ function showTextToSpeech(text) {
         this.style.borderColor = "rgba(0, 151, 255, 0.2)";
         this.style.transform = "translateY(0)";
     });
+    
+    pauseButton.onclick = function() {
+        pauseTTS(playButton);
+    };
 
     buttonContainer.appendChild(playButton);
     buttonContainer.appendChild(pauseButton);
@@ -283,7 +449,10 @@ function showTextToSpeech(text) {
     volumeControl.step = '0.01';
     volumeControl.value = '1';
     volumeControl.id = 'volumeControl';
-    volumeControl.oninput = updateUtteranceSettings;
+    volumeControl.oninput = function() {
+        updateTTSVolume();
+        updateVolumeSliderProgress();
+    };
     
     // Modern slider styling
     volumeControl.style.cssText = `
@@ -305,9 +474,6 @@ function showTextToSpeech(text) {
     
     // Initial progress update
     updateVolumeSliderProgress();
-    
-    // Update progress on input
-    volumeControl.addEventListener('input', updateVolumeSliderProgress);
     
     // Add custom slider thumb styling
     const volumeThumbStyle = document.createElement('style');
@@ -350,6 +516,18 @@ function showTextToSpeech(text) {
             background: #0097ff;
             border: none;
         }
+        .tts-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: tts-spin 0.8s linear infinite;
+        }
+        @keyframes tts-spin {
+            to { transform: rotate(360deg); }
+        }
     `;
     document.head.appendChild(volumeThumbStyle);
     
@@ -376,11 +554,14 @@ function showTextToSpeech(text) {
     const rateControl = document.createElement('input');
     rateControl.type = 'range';
     rateControl.min = '0.5';
-    rateControl.max = '1.5';
-    rateControl.step = '0.25';
+    rateControl.max = '2.0';
+    rateControl.step = '0.1';
     rateControl.value = '1';
     rateControl.id = 'rateControl';
-    rateControl.oninput = updateUtteranceSettings;
+    rateControl.oninput = function() {
+        updateTTSSpeed();
+        updateRateSliderProgress();
+    };
     
     // Modern slider styling
     rateControl.style.cssText = `
@@ -402,9 +583,6 @@ function showTextToSpeech(text) {
     
     // Initial progress update
     updateRateSliderProgress();
-    
-    // Update progress on input
-    rateControl.addEventListener('input', updateRateSliderProgress);
     
     // Add custom slider thumb styling for rate control
     const rateThumbStyle = document.createElement('style');
@@ -483,9 +661,3 @@ function showTextToSpeech(text) {
 
     makeDraggable(ttsBox);
 }
-
-// Ensure voices are loaded before setting the voice
-speechSynthesis.onvoiceschanged = () => {
-    updateUtteranceSettings();
-};
-

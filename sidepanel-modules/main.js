@@ -39,6 +39,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Set up auth event listeners
     setupAuthListeners();
     
+    // Initialize voice selector
+    initVoiceSelector();
+    
     // Set up subscription listeners
     setupSubscriptionListeners();
     
