@@ -91,6 +91,21 @@ function setupChatEventListeners() {
             }
         }
     });
+    
+    // Premium required modal buttons
+    const premiumRequiredModal = document.getElementById('premiumRequiredModal');
+    const premiumRequiredCancelBtn = document.getElementById('premiumRequiredCancelBtn');
+    const premiumRequiredUpgradeBtn = document.getElementById('premiumRequiredUpgradeBtn');
+    
+    premiumRequiredCancelBtn?.addEventListener('click', hidePremiumRequiredModal);
+    premiumRequiredUpgradeBtn?.addEventListener('click', handlePremiumUpgrade);
+    
+    // Close modal when clicking outside
+    premiumRequiredModal?.addEventListener('click', (e) => {
+        if (e.target === premiumRequiredModal) {
+            hidePremiumRequiredModal();
+        }
+    });
 }
 
 // Setup voice service callbacks
@@ -111,6 +126,20 @@ async function openChatPanel() {
     const chatPanel = document.getElementById('chatPanel');
     if (!chatPanel) return;
     
+    // Check if user has premium access
+    if (window.ReadifySubscription) {
+        const isPremium = await window.ReadifySubscription.isPremium();
+        if (!isPremium) {
+            // Show upgrade prompt for non-premium users
+            showPremiumRequired();
+            return;
+        }
+    } else {
+        // No subscription service - block access
+        showPremiumRequired();
+        return;
+    }
+    
     chatPanel.classList.add('open');
     
     // Load page context
@@ -118,6 +147,60 @@ async function openChatPanel() {
     
     // Update welcome text
     updateWelcomeMessage();
+}
+
+// Show premium required modal
+function showPremiumRequired() {
+    const modal = document.getElementById('premiumRequiredModal');
+    const modalText = document.getElementById('premiumRequiredText');
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (!isAuthenticated) {
+        // Update text for non-logged in users
+        if (modalText) {
+            modalText.textContent = 'Please sign in and upgrade to Premium to access AI Chat.';
+        }
+    } else {
+        // Text for logged in free users
+        if (modalText) {
+            modalText.textContent = 'AI Chat is a Premium feature. Upgrade to unlock unlimited AI conversations about any webpage.';
+        }
+    }
+    
+    // Show the modal
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+// Hide premium required modal
+function hidePremiumRequiredModal() {
+    const modal = document.getElementById('premiumRequiredModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Handle premium upgrade button click
+function handlePremiumUpgrade() {
+    hidePremiumRequiredModal();
+    
+    const isAuthenticated = window.ReadifyAuth?.isAuthenticated() || false;
+    
+    if (!isAuthenticated) {
+        // Show auth section for non-logged in users
+        const authSection = document.getElementById('authSection');
+        if (authSection) {
+            authSection.style.display = 'block';
+        }
+    } else {
+        // Trigger upgrade flow for logged in users
+        if (window.ReadifyStripe) {
+            window.ReadifyStripe.createCheckout();
+        } else if (window.ReadifySubscription) {
+            window.ReadifySubscription.createCheckoutSession();
+        }
+    }
 }
 
 // Close chat panel
@@ -146,11 +229,23 @@ async function loadPageContext() {
 // Update welcome message with page title
 function updateWelcomeMessage() {
     const welcomeText = document.getElementById('chatWelcomeText');
-    if (welcomeText && pageContext?.title) {
+    const headerTitle = document.querySelector('.chat-header-page-title');
+    
+    if (pageContext?.title) {
+        // Truncate title for display
         const shortTitle = pageContext.title.length > 40 
             ? pageContext.title.substring(0, 40) + '...' 
             : pageContext.title;
-        welcomeText.innerHTML = `I've read "<strong>${shortTitle}</strong>"<br>Ask me anything about it!`;
+        
+        // Update welcome text (shown before first message)
+        if (welcomeText) {
+            welcomeText.innerHTML = `I've read "<strong>${shortTitle}</strong>"<br>Ask me anything about it!`;
+        }
+        
+        // Update header title (always visible, even after chat starts)
+        if (headerTitle) {
+            headerTitle.textContent = shortTitle;
+        }
     }
 }
 
@@ -466,6 +561,9 @@ function clearChat() {
                 </div>
             </div>
         `;
+        
+        // Re-apply page context to welcome message
+        updateWelcomeMessage();
     }
     window.ReadifyChat?.resetHistory(null);
     resetVoiceState();

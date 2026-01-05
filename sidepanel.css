@@ -100,6 +100,18 @@ html, body {
     gap: 10px;
 }
 
+/* Premium Badge */
+.premium-badge {
+    font-size: 10px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #0097ff 0%, #00b4ff 100%);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 /* Modern Toggle Switch */
 .toggle-container {
     display: flex;
@@ -1326,6 +1338,30 @@ html, body {
 .chat-back-btn:hover svg {
     fill: rgba(255, 255, 255, 0.8);
     transform: translateX(-2px);
+}
+
+/* Chat Header Title */
+.chat-header-title {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 8px;
+    margin-right: 40px; /* Balance the back button width */
+    min-width: 0; /* Allow text truncation */
+}
+
+.chat-header-page-title {
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    opacity: 0.95;
 }
 
 /* Chat Panel Messages */
