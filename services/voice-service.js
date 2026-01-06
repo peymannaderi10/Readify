@@ -555,6 +555,49 @@ function isVoiceActive() {
     return realtimeActive;
 }
 
+// Update session context mid-session (for infinite scroll/SPA navigation)
+function updateSessionContext(pageContext) {
+    if (!realtimeWs || realtimeWs.readyState !== WebSocket.OPEN) {
+        console.log('[Voice] Cannot update context - no active session');
+        return false;
+    }
+
+    if (!pageContext?.content) {
+        console.log('[Voice] Cannot update context - no content provided');
+        return false;
+    }
+
+    // Build new instructions with updated page context
+    const instructions = `You are a reading assistant having a voice conversation. Answer questions using ONLY the webpage content below.
+
+RULES:
+1. Be CONCISE - give brief, conversational answers (1-3 sentences).
+2. Only use information from the page content.
+3. If something is not in the content, say "I don't see that on this page."
+4. Speak naturally, as if having a conversation.
+
+WEBPAGE: ${pageContext.title || 'Unknown'}
+URL: ${pageContext.url || 'Unknown'}
+
+CONTENT:
+${pageContext.content.substring(0, 50000)}`;
+
+    // Send session.update to change the instructions
+    try {
+        realtimeWs.send(JSON.stringify({
+            type: 'session.update',
+            session: {
+                instructions: instructions,
+            }
+        }));
+        console.log('[Voice] Session context updated:', pageContext.title);
+        return true;
+    } catch (e) {
+        console.error('[Voice] Failed to update session context:', e);
+        return false;
+    }
+}
+
 // Export voice functions
 if (typeof window !== 'undefined') {
     window.ReadifyVoice = {
@@ -562,5 +605,6 @@ if (typeof window !== 'undefined') {
         start: startVoiceSession,
         stop: stopVoiceSession,
         isActive: isVoiceActive,
+        updateContext: updateSessionContext,
     };
 }

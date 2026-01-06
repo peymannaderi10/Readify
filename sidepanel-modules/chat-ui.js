@@ -156,7 +156,7 @@ function setupContextMonitoring() {
  * Handle context change notification
  * Called when URL, title, or content changes on the page
  */
-function handleContextChange(message) {
+async function handleContextChange(message) {
     const { url, title, previousUrl, reason } = message;
 
     console.log('[Chat] Context change detected:', reason, {
@@ -177,7 +177,54 @@ function handleContextChange(message) {
     // If chat panel is open, refresh context (but keep chat history)
     const chatPanel = document.getElementById('chatPanel');
     if (chatPanel?.classList.contains('open')) {
-        refreshChatContext();
+        await refreshChatContext();
+    }
+
+    // If voice mode is active, update the session context dynamically
+    if (window.ReadifyVoice?.isActive()) {
+        await updateVoiceSessionContext(title);
+    }
+}
+
+/**
+ * Update voice session context when page changes during active session
+ */
+async function updateVoiceSessionContext(newTitle) {
+    // Load fresh page content
+    await loadPageContext(true);
+
+    // Update the voice session with new context
+    if (pageContext && window.ReadifyVoice?.updateContext) {
+        const updated = window.ReadifyVoice.updateContext(pageContext);
+        
+        if (updated) {
+            // Show visual indicator that context was updated
+            showVoiceContextChangeIndicator(newTitle || pageContext.title);
+        }
+    }
+}
+
+/**
+ * Show indicator in voice overlay that page context has been updated
+ */
+function showVoiceContextChangeIndicator(newTitle) {
+    const voiceSubtext = document.querySelector('.voice-subtext');
+    if (voiceSubtext) {
+        const shortTitle = newTitle && newTitle.length > 30 
+            ? newTitle.substring(0, 30) + '...' 
+            : newTitle;
+        
+        // Show temporary message about context update
+        voiceSubtext.textContent = `✓ Context updated: ${shortTitle || 'New page'}`;
+        voiceSubtext.classList.add('context-changed');
+        
+        // Revert after a few seconds
+        setTimeout(() => {
+            if (window.ReadifyVoice?.isActive()) {
+                voiceSubtext.textContent = 'Tap to end call';
+                voiceSubtext.classList.remove('context-changed');
+            }
+        }, 3000);
     }
 }
 
@@ -530,8 +577,9 @@ async function startVoiceMode() {
     const voiceOverlay = document.getElementById('voiceOverlay');
     const chatVoiceBtn = document.getElementById('chatVoiceBtn');
 
-    // Refresh page context
-    await loadPageContext();
+    // Force refresh page context to get the currently visible article
+    // (important for infinite scroll pages like Britannica)
+    await loadPageContext(true);
 
     // Reset state
     resetVoiceState();
