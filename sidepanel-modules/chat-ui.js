@@ -182,49 +182,20 @@ async function handleContextChange(message) {
 
     // If voice mode is active, update the session context dynamically
     if (window.ReadifyVoice?.isActive()) {
-        await updateVoiceSessionContext(title);
+        await updateVoiceSessionContext();
     }
 }
 
 /**
  * Update voice session context when page changes during active session
  */
-async function updateVoiceSessionContext(newTitle) {
+async function updateVoiceSessionContext() {
     // Load fresh page content
     await loadPageContext(true);
 
-    // Update the voice session with new context
+    // Update the voice session with new context (silently)
     if (pageContext && window.ReadifyVoice?.updateContext) {
-        const updated = window.ReadifyVoice.updateContext(pageContext);
-        
-        if (updated) {
-            // Show visual indicator that context was updated
-            showVoiceContextChangeIndicator(newTitle || pageContext.title);
-        }
-    }
-}
-
-/**
- * Show indicator in voice overlay that page context has been updated
- */
-function showVoiceContextChangeIndicator(newTitle) {
-    const voiceSubtext = document.querySelector('.voice-subtext');
-    if (voiceSubtext) {
-        const shortTitle = newTitle && newTitle.length > 30 
-            ? newTitle.substring(0, 30) + '...' 
-            : newTitle;
-        
-        // Show temporary message about context update
-        voiceSubtext.textContent = `✓ Context updated: ${shortTitle || 'New page'}`;
-        voiceSubtext.classList.add('context-changed');
-        
-        // Revert after a few seconds
-        setTimeout(() => {
-            if (window.ReadifyVoice?.isActive()) {
-                voiceSubtext.textContent = 'Tap to end call';
-                voiceSubtext.classList.remove('context-changed');
-            }
-        }, 3000);
+        window.ReadifyVoice.updateContext(pageContext);
     }
 }
 

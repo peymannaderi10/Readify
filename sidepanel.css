@@ -2195,24 +2195,3 @@ html, body {
         background-color: transparent;
     }
 }
-
-/* Voice overlay context change indicator */
-.voice-subtext.context-changed {
-    animation: voiceContextPulse 0.5s ease-out;
-    color: #00d4aa;
-}
-
-@keyframes voiceContextPulse {
-    0% {
-        opacity: 0.5;
-        transform: scale(0.95);
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1.02);
-    }
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
