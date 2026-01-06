@@ -101,15 +101,15 @@ function showUpgradePrompt(feature) {
         },
         'tts': {
             icon: '🔊',
-            title: 'Premium Feature',
-            message: 'Text-to-Speech is a Premium feature. Upgrade to unlock!',
-            signInMessage: 'Please sign in as a premium user to use Text-to-Speech.'
+            title: 'Limit Reached',
+            message: 'You\'ve used all your tokens this month. Upgrade to Premium for 500k tokens/month!',
+            signInMessage: 'Please sign in to use Text-to-Speech. Free users get 5,000 tokens/month!'
         },
         'default': {
-            icon: '✨',
-            title: 'Upgrade to Premium',
-            message: 'This is a Premium feature. Upgrade to unlock all features!',
-            signInMessage: 'Please sign in as a premium user to use this feature.'
+            icon: '⚡',
+            title: 'Limit Reached',
+            message: 'You\'ve used all your tokens this month. Upgrade to Premium for more!',
+            signInMessage: 'Please sign in to use this feature.'
         }
     };
     
@@ -238,7 +238,7 @@ function showUpgradePrompt(feature) {
                 font-weight: 600;
                 color: #0097ff;
                 letter-spacing: 0.3px;
-            ">🔒 Premium Feature</span>
+            ">${isAuthenticated ? '⚡ Limit Reached' : '🔐 Sign In Required'}</span>
         </div>
         
         <div style="display: flex; flex-direction: column; gap: 10px;">

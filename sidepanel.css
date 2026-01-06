@@ -1658,6 +1658,28 @@ html, body {
     flex-direction: row;
 }
 
+/* Limit Reached Message Styles */
+.chat-panel .chat-message.limit-reached {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #f59e0b;
+    color: #92400e;
+}
+
+.chat-panel .chat-message.limit-reached strong {
+    color: #78350f;
+}
+
+.limit-upgrade-link {
+    color: #0097ff;
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+.limit-upgrade-link:hover {
+    color: #0080e6;
+}
+
 /* Voice Overlay - Glass effect with pulsating ball */
 .voice-overlay {
     position: absolute;
@@ -1767,6 +1789,58 @@ html, body {
 .voice-subtext {
     color: rgba(255, 255, 255, 0.7);
     font-size: 13px;
+    text-align: center;
+    max-width: 220px;
+}
+
+.voice-subtext .limit-upgrade-link {
+    color: #60a5fa;
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+.voice-subtext .limit-upgrade-link:hover {
+    color: #93c5fd;
+}
+
+/* Voice Usage Meter */
+.voice-usage-meter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+    width: 200px;
+}
+
+.voice-usage-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.voice-usage-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #0097ff 0%, #0080e6 100%);
+    border-radius: 2px;
+    transition: width 0.3s ease, background 0.3s ease;
+    width: 0%;
+}
+
+.voice-usage-fill.usage-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.voice-usage-fill.usage-error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.voice-usage-text {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .voice-stop-btn {
@@ -1882,4 +1956,242 @@ html, body {
 .voice-selector option {
     padding: 10px;
     font-family: 'Space Grotesk', sans-serif;
+}
+
+/* ============================================
+   TOKEN USAGE METER STYLES
+   ============================================ */
+
+/* Chat Footer Usage Meter (compact) */
+.chat-usage-meter {
+    padding: 8px 16px;
+    background: rgba(182, 240, 233, 0.1);
+    border-top: 1px solid rgba(182, 240, 233, 0.2);
+}
+
+.usage-meter-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.usage-meter-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(182, 240, 233, 0.3);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.usage-meter-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #0097ff 0%, #0080e6 100%);
+    border-radius: 2px;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+.usage-meter-fill.usage-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.usage-meter-fill.usage-error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.usage-meter-text {
+    font-size: 11px;
+    color: #7f8c8d;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.chat-usage-meter.is-warning .usage-meter-text {
+    color: #d97706;
+}
+
+.chat-usage-meter.is-error .usage-meter-text {
+    color: #dc2626;
+}
+
+/* Settings Usage Stats Section (Per-Feature) */
+.usage-stats-section {
+    margin-top: 16px;
+    padding: 16px;
+    background: rgba(182, 240, 233, 0.08);
+    border-radius: 12px;
+    border: 1px solid rgba(182, 240, 233, 0.2);
+}
+
+.usage-stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.usage-stats-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.usage-stats-reset {
+    font-size: 11px;
+    color: #7f8c8d;
+}
+
+/* Per-Feature Usage Rows */
+.usage-feature-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.usage-feature-row:last-of-type {
+    margin-bottom: 12px;
+}
+
+.usage-feature-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 70px;
+}
+
+.usage-feature-label .feature-icon {
+    font-size: 12px;
+}
+
+.usage-feature-label .feature-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: #7f8c8d;
+}
+
+.usage-feature-bar-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.usage-feature-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(182, 240, 233, 0.3);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.usage-feature-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #0097ff 0%, #0080e6 100%);
+    border-radius: 3px;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+.usage-feature-fill.usage-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.usage-feature-fill.usage-error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.usage-feature-text {
+    font-size: 10px;
+    color: #7f8c8d;
+    min-width: 55px;
+    text-align: right;
+}
+
+/* Legacy styles (kept for backwards compatibility) */
+.usage-stats-bar-container {
+    margin-bottom: 10px;
+}
+
+.usage-stats-bar {
+    height: 8px;
+    background: rgba(182, 240, 233, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.usage-stats-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #0097ff 0%, #0080e6 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+.usage-stats-fill.usage-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.usage-stats-fill.usage-error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.usage-stats-labels {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.usage-stats-used {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.usage-stats-limit {
+    font-size: 12px;
+    color: #7f8c8d;
+}
+
+.usage-stats-tier {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(182, 240, 233, 0.2);
+}
+
+.tier-label {
+    color: #7f8c8d;
+    font-weight: 500;
+}
+
+.tier-upgrade {
+    color: #0097ff;
+    cursor: pointer;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.tier-upgrade:hover {
+    color: #0080e6;
+    text-decoration: underline;
+}
+
+/* ============================================
+   Context Refresh Indicator
+   ============================================ */
+
+.chat-header-page-title.context-refreshed {
+    animation: contextRefresh 1s ease-out;
+}
+
+@keyframes contextRefresh {
+    0% {
+        background-color: rgba(0, 151, 255, 0.3);
+        border-radius: 4px;
+    }
+    100% {
+        background-color: transparent;
+    }
 }

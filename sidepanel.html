@@ -126,16 +126,16 @@
                 </div>
             </section>
 
-            <!-- AI Chat Button (Premium Feature) -->
+            <!-- AI Chat Button -->
             <section class="control-section">
                 <div class="section-header">
-                    <h2 class="section-title">🤖 AI Chat <span class="premium-badge">✨ Premium</span></h2>
+                    <h2 class="section-title">🤖 AI Chat</h2>
                 </div>
                 <button id="openChatBtn" class="control-button primary chat-button">
                     <span class="button-icon">💬</span>
                     <span class="button-label">Chat about this page</span>
                 </button>
-                <p class="chat-description">Have a conversation about this webspage</p>
+                <p class="chat-description">Have a conversation about this webpage</p>
             </section>
 
             <!-- My Sites -->
@@ -174,6 +174,62 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Token Usage Stats (Per-Feature) -->
+                <div class="usage-stats-section" id="usageStatsSection">
+                    <div class="usage-stats-header">
+                        <span class="usage-stats-title">AI Usage</span>
+                        <span class="usage-stats-reset" id="usageResetDate">Resets Jan 1</span>
+                    </div>
+                    
+                    <!-- Chat Usage -->
+                    <div class="usage-feature-row" id="usageChatRow">
+                        <div class="usage-feature-label">
+                            <span class="feature-icon">💬</span>
+                            <span class="feature-name">Chat</span>
+                        </div>
+                        <div class="usage-feature-bar-wrap">
+                            <div class="usage-feature-bar">
+                                <div class="usage-feature-fill" id="usageChatFill"></div>
+                            </div>
+                            <span class="usage-feature-text" id="usageChatText">0 / 50k</span>
+                        </div>
+                    </div>
+                    
+                    <!-- TTS Usage -->
+                    <div class="usage-feature-row" id="usageTTSRow">
+                        <div class="usage-feature-label">
+                            <span class="feature-icon">🔊</span>
+                            <span class="feature-name">TTS</span>
+                        </div>
+                        <div class="usage-feature-bar-wrap">
+                            <div class="usage-feature-bar">
+                                <div class="usage-feature-fill" id="usageTTSFill"></div>
+                            </div>
+                            <span class="usage-feature-text" id="usageTTSText">0 / 10k</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Realtime Voice Usage -->
+                    <div class="usage-feature-row" id="usageRealtimeRow">
+                        <div class="usage-feature-label">
+                            <span class="feature-icon">🎙️</span>
+                            <span class="feature-name">Voice</span>
+                        </div>
+                        <div class="usage-feature-bar-wrap">
+                            <div class="usage-feature-bar">
+                                <div class="usage-feature-fill" id="usageRealtimeFill"></div>
+                            </div>
+                            <span class="usage-feature-text" id="usageRealtimeText">0 / 3k</span>
+                        </div>
+                    </div>
+                    
+                    <div class="usage-stats-tier" id="usageStatsTier">
+                        <span class="tier-label">Free tier</span>
+                        <span class="tier-upgrade" id="usageTierUpgrade">Upgrade for more</span>
+                    </div>
+                </div>
+                
                 <div class="user-actions">
                     <button class="upgrade-btn" id="upgradeBtn" style="display: none;">
                         ✨ Upgrade to Premium
@@ -251,14 +307,14 @@
             </div>
         </div>
 
-        <!-- Premium Required Modal -->
+        <!-- Token Limit / Sign In Required Modal -->
         <div class="modal-overlay" id="premiumRequiredModal" style="display: none;">
             <div class="modern-modal">
                 <div class="modal-header">
-                    <h3 class="modal-title">✨ Premium Feature</h3>
+                    <h3 class="modal-title" id="premiumRequiredTitle">⚡ Token Limit Reached</h3>
                 </div>
                 <div class="modal-body">
-                    <p class="modal-text" id="premiumRequiredText">AI Chat is a Premium feature. Upgrade to unlock unlimited AI conversations about any webpage.</p>
+                    <p class="modal-text" id="premiumRequiredText">You've used all your free tokens this month. Upgrade to Premium for 500,000 tokens/month!</p>
                 </div>
                 <div class="modal-footer" id="premiumRequiredFooter">
                     <button type="button" class="control-button secondary" id="premiumRequiredCancelBtn">Maybe Later</button>
@@ -325,6 +381,15 @@
                 </div>
                 <div class="voice-text" id="voiceText">Listening...</div>
                 <div class="voice-subtext">Speak naturally. Tap to stop.</div>
+                
+                <!-- Voice Usage Meter -->
+                <div class="voice-usage-meter" id="voiceUsageMeter">
+                    <div class="voice-usage-bar">
+                        <div class="voice-usage-fill" id="voiceUsageFill"></div>
+                    </div>
+                    <span class="voice-usage-text" id="voiceUsageText">0 / 3k voice tokens</span>
+                </div>
+                
                 <button id="voiceStopBtn" class="voice-stop-btn">✕</button>
             </div>
             
@@ -367,6 +432,7 @@
         <script src="services/stripe-service.js"></script>
         <script src="services/chat-service.js"></script>
         <script src="services/voice-service.js"></script>
+        <script src="services/usage-service.js"></script>
         <!-- Sidepanel modules -->
         <script src="sidepanel-modules/auth-ui.js"></script>
         <script src="sidepanel-modules/auth-handlers.js"></script>

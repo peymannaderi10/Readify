@@ -29,6 +29,9 @@ async function updateSubscriptionUI() {
             }
         }
         
+        // Update usage stats section (use cache if available, fetch fresh if not)
+        updateUsageStatsSection(false);
+        
         if (subscription.isPremium) {
             // Premium user - check if cancelled (has cancelled_at date or status is canceling)
             const isCanceling = subscription.cancelledAt || subscription.status === 'canceling';
@@ -262,6 +265,7 @@ function checkPaymentStatusOnLoad() {
             await updateAuthUI();
             await loadMySites();
             await updateLimitDisplay();
+            await updateUsageStatsSection(true); // Bypass cache after payment
         }, 500);
         
         // Clean URL
@@ -270,5 +274,129 @@ function checkPaymentStatusOnLoad() {
         // Clean URL
         window.history.replaceState({}, '', window.location.pathname);
     }
+}
+
+// ============================================
+// Usage Stats Section (Per-Feature Display)
+// ============================================
+
+async function updateUsageStatsSection(bypassCache = false) {
+    const usageSection = document.getElementById('usageStatsSection');
+    const usageResetDate = document.getElementById('usageResetDate');
+    const usageTier = document.getElementById('usageStatsTier');
+    const usageTierUpgrade = document.getElementById('usageTierUpgrade');
+    
+    // Only show for authenticated users
+    if (!window.ReadifyAuth?.isAuthenticated()) {
+        if (usageSection) usageSection.style.display = 'none';
+        return;
+    }
+    
+    if (!window.ReadifyUsage) {
+        if (usageSection) usageSection.style.display = 'none';
+        return;
+    }
+    
+    // Show loading state
+    if (usageSection) usageSection.style.display = 'block';
+    
+    try {
+        // First try to get cached data (fast, no API call)
+        let usage = window.ReadifyUsage.getCached();
+        
+        // If no cache or explicitly bypassing, fetch from API
+        if (!usage || bypassCache) {
+            usage = await window.ReadifyUsage.getStats(bypassCache);
+        }
+        
+        if (!usage) {
+            if (usageSection) usageSection.style.display = 'none';
+            return;
+        }
+        
+        // Update each feature's progress bar
+        updateFeatureBar('Chat', usage.chat);
+        updateFeatureBar('TTS', usage.tts);
+        updateFeatureBar('Realtime', usage.realtime);
+        
+        // Update reset date
+        if (usageResetDate && usage.resetDate) {
+            const resetDate = new Date(usage.resetDate);
+            const dateStr = resetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            usageResetDate.textContent = `Resets ${dateStr}`;
+        }
+        
+        // Update tier info
+        if (usageTier) {
+            const tierLabel = usageTier.querySelector('.tier-label');
+            if (tierLabel) {
+                tierLabel.textContent = usage.tier === 'premium' ? 'Premium tier' : 'Free tier';
+            }
+        }
+        
+        // Show/hide upgrade link
+        if (usageTierUpgrade) {
+            if (usage.tier === 'premium') {
+                usageTierUpgrade.style.display = 'none';
+            } else {
+                usageTierUpgrade.style.display = 'inline';
+                usageTierUpgrade.textContent = 'Upgrade for more';
+            }
+        }
+        
+        // Add click handler for upgrade link
+        if (usageTierUpgrade && !usageTierUpgrade.hasAttribute('data-listener')) {
+            usageTierUpgrade.setAttribute('data-listener', 'true');
+            usageTierUpgrade.addEventListener('click', () => {
+                if (window.ReadifyStripe) {
+                    window.ReadifyStripe.createCheckout();
+                }
+            });
+        }
+        
+    } catch (error) {
+        console.error('[Usage] Failed to update stats section:', error);
+        if (usageSection) usageSection.style.display = 'none';
+    }
+}
+
+/**
+ * Update a single feature's progress bar
+ * @param {'Chat'|'TTS'|'Realtime'} feature - The feature name (capitalized)
+ * @param {Object} featureData - The feature usage data
+ */
+function updateFeatureBar(feature, featureData) {
+    const fill = document.getElementById(`usage${feature}Fill`);
+    const text = document.getElementById(`usage${feature}Text`);
+    
+    if (!featureData) return;
+    
+    const percent = Math.min(100, featureData.percentUsed || 0);
+    
+    if (fill) {
+        fill.style.width = `${percent}%`;
+        fill.classList.remove('usage-warning', 'usage-error');
+        if (percent >= 100) {
+            fill.classList.add('usage-error');
+        } else if (percent >= 80) {
+            fill.classList.add('usage-warning');
+        }
+    }
+    
+    if (text) {
+        const used = formatUsageCount(featureData.used || 0);
+        const limit = formatUsageCount(featureData.limit || 0);
+        text.textContent = `${used} / ${limit}`;
+    }
+}
+
+function formatUsageCount(count) {
+    if (count >= 1000000) {
+        return (count / 1000000).toFixed(1) + 'M';
+    }
+    if (count >= 1000) {
+        return (count / 1000).toFixed(0) + 'k';
+    }
+    return count.toString();
 }
 

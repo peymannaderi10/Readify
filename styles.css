@@ -484,3 +484,223 @@ readify-mark:hover {
     filter: brightness(0.95);
     cursor: pointer;
 }
+
+/* ============================================
+   Token Usage Meter Styles
+   ============================================ */
+
+/* Chat Footer Usage Meter (compact) */
+.chat-usage-meter {
+    padding: 8px 16px;
+    background: rgba(182, 240, 233, 0.1);
+    border-top: 1px solid rgba(182, 240, 233, 0.2);
+}
+
+.usage-meter-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.usage-meter-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(182, 240, 233, 0.3);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.usage-meter-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #0097ff 0%, #0080e6 100%);
+    border-radius: 2px;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+.usage-meter-fill.usage-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.usage-meter-fill.usage-error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.usage-meter-text {
+    font-size: 11px;
+    color: #7f8c8d;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.chat-usage-meter.is-warning .usage-meter-text {
+    color: #d97706;
+}
+
+.chat-usage-meter.is-error .usage-meter-text {
+    color: #dc2626;
+}
+
+/* Settings Usage Stats Section (Per-Feature) */
+.usage-stats-section {
+    margin-top: 16px;
+    padding: 16px;
+    background: rgba(182, 240, 233, 0.08);
+    border-radius: 12px;
+    border: 1px solid rgba(182, 240, 233, 0.2);
+}
+
+.usage-stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.usage-stats-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.usage-stats-reset {
+    font-size: 11px;
+    color: #7f8c8d;
+}
+
+/* Per-Feature Usage Rows */
+.usage-feature-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.usage-feature-row:last-of-type {
+    margin-bottom: 12px;
+}
+
+.usage-feature-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 70px;
+}
+
+.usage-feature-label .feature-icon {
+    font-size: 12px;
+}
+
+.usage-feature-label .feature-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: #7f8c8d;
+}
+
+.usage-feature-bar-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.usage-feature-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(182, 240, 233, 0.3);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.usage-feature-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #0097ff 0%, #0080e6 100%);
+    border-radius: 3px;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+.usage-feature-fill.usage-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.usage-feature-fill.usage-error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.usage-feature-text {
+    font-size: 10px;
+    color: #7f8c8d;
+    min-width: 55px;
+    text-align: right;
+}
+
+/* Legacy styles (kept for backwards compatibility) */
+.usage-stats-bar-container {
+    margin-bottom: 10px;
+}
+
+.usage-stats-bar {
+    height: 8px;
+    background: rgba(182, 240, 233, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.usage-stats-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #0097ff 0%, #0080e6 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+.usage-stats-fill.usage-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.usage-stats-fill.usage-error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.usage-stats-labels {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.usage-stats-used {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.usage-stats-limit {
+    font-size: 12px;
+    color: #7f8c8d;
+}
+
+.usage-stats-tier {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(182, 240, 233, 0.2);
+}
+
+.tier-label {
+    color: #7f8c8d;
+    font-weight: 500;
+}
+
+.tier-upgrade {
+    color: #0097ff;
+    cursor: pointer;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.tier-upgrade:hover {
+    color: #0080e6;
+    text-decoration: underline;
+}

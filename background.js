@@ -1,6 +1,9 @@
 // Readify Extension - Background Service Worker
 // Handles extension lifecycle, message passing, and auth state sync
 
+// Track URLs per tab for context change detection
+const tabUrls = new Map();
+
 // Handle extension icon click to open sidepanel
 chrome.action.onClicked.addListener(async (tab) => {
     try {
@@ -82,7 +85,55 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
     }
     
+    // Handle context changed from page-observer.js
+    if (message.type === 'contextChanged') {
+        const tabId = sender.tab?.id;
+        if (tabId) {
+            console.log('[Background] Context changed in tab', tabId, message.reason);
+            // Update tracked URL
+            tabUrls.set(tabId, message.url);
+            // The sidepanel will receive this via its own message listener
+        }
+    }
+    
     return false;
+});
+
+// Monitor tab URL changes for traditional navigation
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    // Only care about URL changes that have completed loading
+    if (changeInfo.status === 'complete' && tab.url) {
+        const previousUrl = tabUrls.get(tabId);
+        
+        // Check if URL actually changed
+        if (previousUrl && previousUrl !== tab.url) {
+            console.log('[Background] Tab URL changed:', previousUrl, '->', tab.url);
+            
+            // Try to notify the sidepanel
+            try {
+                chrome.runtime.sendMessage({
+                    type: 'contextChanged',
+                    reason: 'navigation',
+                    url: tab.url,
+                    title: tab.title,
+                    previousUrl: previousUrl,
+                    tabId: tabId
+                }).catch(() => {
+                    // Sidepanel may not be open
+                });
+            } catch (e) {
+                // Ignore if no listeners
+            }
+        }
+        
+        // Update tracked URL
+        tabUrls.set(tabId, tab.url);
+    }
+});
+
+// Clean up when tabs are closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+    tabUrls.delete(tabId);
 });
 
 // Handle extension install/update

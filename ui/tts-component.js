@@ -53,6 +53,13 @@ async function fetchTTSAudio(text) {
     
     if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Failed to generate speech' }));
+        
+        // Handle token limit error specifically (TTS feature)
+        if (error.code === 'TOKEN_LIMIT_REACHED') {
+            const upgradeMsg = error.upgrade ? ' Upgrade to Premium for more!' : '';
+            throw new Error(`Text-to-speech limit reached.${upgradeMsg}`);
+        }
+        
         throw new Error(error.error || 'Failed to generate speech');
     }
     

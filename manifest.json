@@ -23,6 +23,16 @@
                 "https://billing.stripe.com/*",
                 "https://js.stripe.com/*"
             ],
+            "js": ["content/page-observer.js"],
+            "run_at": "document_start"
+        },
+        {
+            "matches": ["<all_urls>"],
+            "exclude_matches": [
+                "https://checkout.stripe.com/*",
+                "https://billing.stripe.com/*",
+                "https://js.stripe.com/*"
+            ],
             "js": [
                 "lib/supabase.min.js",
                 "config.js",
@@ -60,7 +70,7 @@
     "background": {
         "service_worker": "background.js"
     },
-    "permissions": ["activeTab", "storage", "scripting", "sidePanel", "identity", "alarms"],
+    "permissions": ["activeTab", "tabs", "storage", "scripting", "sidePanel", "identity", "alarms"],
     "host_permissions": [
         "<all_urls>",
         "https://*.supabase.co/*",
