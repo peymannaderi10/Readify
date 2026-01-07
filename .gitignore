@@ -36,6 +36,3 @@ supabase/
 logs/
 *.log
 
-# Configuration
-config.js
-
